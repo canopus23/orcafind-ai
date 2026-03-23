@@ -22,7 +22,7 @@ async function generate() {
   output.innerHTML = "⏳ Generating...";
 
   try {
-    const response = await fetch("https://orcafind.com/repurpose/", {
+    const response = await fetch("https://api.orcafind.com/repurpose/", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
