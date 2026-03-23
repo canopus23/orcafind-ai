@@ -1,4 +1,3 @@
-altgraph @ file:///AppleInternal/Library/BuildRoots/4~CDlvugAeMYaHcTWIELyAQ2joHAecmlI0GAlKPsw/Library/Caches/com.apple.xbs/Sources/python3/altgraph-0.17.2-py2.py3-none-any.whl
 fastapi==0.128.8
 uvicorn==0.39.0
 openai==2.29.0
