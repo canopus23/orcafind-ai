@@ -10,32 +10,20 @@ async function handleSignup() {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
 
-  const { error } = await supabase.auth.signUp({
-    email,
-    password,
-  });
+  const { error } = await supabase.auth.signUp({ email, password });
 
-  if (error) {
-    alert(error.message);
-  } else {
-    alert("Check your email to confirm");
-  }
+  if (error) alert(error.message);
+  else alert("Check your email to confirm");
 }
 
 async function handleLogin() {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
 
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
 
-  if (error) {
-    alert(error.message);
-  } else {
-    alert("Logged in");
-  }
+  if (error) alert(error.message);
+  else alert("Logged in");
 }
 
 async function logout() {
@@ -48,12 +36,9 @@ async function generate() {
   const button = document.getElementById("generateBtn");
   const output = document.getElementById("output");
 
-  const {
-    data: { session },
-    error: sessionError
-  } = await supabase.auth.getSession();
+  const { data: { session } } = await supabase.auth.getSession();
 
-  if (sessionError || !session) {
+  if (!session) {
     alert("Please login first");
     return;
   }
@@ -79,13 +64,13 @@ async function generate() {
       body: JSON.stringify({ text })
     });
 
+    const data = await response.json();
+
     if (!response.ok) {
-      const err = await response.json();
-      output.innerHTML = err.detail;
+      output.innerHTML = data.detail;
       return;
     }
 
-    const data = await response.json();
     const parts = data.result.split("LinkedIn");
 
     output.innerHTML = `
@@ -96,7 +81,7 @@ async function generate() {
       <div class="box">${parts[1] || ""}</div>
     `;
 
-  } catch (err) {
+  } catch {
     output.innerHTML = "Error occurred";
   }
 
