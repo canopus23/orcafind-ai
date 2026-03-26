@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from openai import OpenAI
 from dotenv import load_dotenv
+from app.dependencies.auth import verify_user
 
 load_dotenv()
 
@@ -77,15 +78,20 @@ def check_usage_limit(user_key: str):
 
 @app.post("/repurpose/")
 def repurpose_content(req: ContentRequest, request: Request):
-    user_ip = get_user_ip(request)
-    check_usage_limit(user_ip)
+    user = verify_user(request)
+    user_id = user.get("sub")
+
+    count = usage_store.get(user_id, 0)
+    if count >= FREE_LIMIT:
+        raise HTTPException(status_code=403, detail="Free limit reached")
+
+    usage_store[user_id] = count + 1
 
     try:
         result = generate_content(req.text)
         return {"result": result}
     except Exception:
         raise HTTPException(status_code=500, detail="AI processing failed")
-
 
 @app.get("/")
 def root():
