@@ -1,19 +1,43 @@
 const SUPABASE_URL = "https://rcfehmuiovcesucsvfsr.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjZmVobXVpb3ZjZXN1Y3N2ZnNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1MzE3MzAsImV4cCI6MjA5MDEwNzczMH0.8J4k5tlyA5G3gr70JT8aDbY36cidBc4s08hlwE-z9tY";
 
-const supabaseClient = window.supabase.createClient(
-  SUPABASE_URL,
-  SUPABASE_ANON_KEY
-);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-/* ---------- AUTH ---------- */
+/* ---------- AUTH STATE LISTENER ---------- */
+
+// This is the most important addition. It listens for the redirect from Google
+// and automatically updates your UI and session state.
+supabaseClient.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+    updateUIForUser(session.user);
+  } else if (event === 'SIGNED_OUT') {
+    resetUI();
+  }
+});
+
+function updateUIForUser(user) {
+  const emailInput = document.getElementById("email");
+  if (emailInput) {
+    emailInput.value = user.email;
+    emailInput.disabled = true;
+  }
+  console.log("User is authenticated:", user.email);
+}
+
+function resetUI() {
+  const emailInput = document.getElementById("email");
+  if (emailInput) {
+    emailInput.value = "";
+    emailInput.disabled = false;
+  }
+}
+
+/* ---------- AUTH ACTIONS ---------- */
 
 async function handleSignup() {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
-
   const { error } = await supabaseClient.auth.signUp({ email, password });
-
   if (error) alert(error.message);
   else alert("Check your email to confirm");
 }
@@ -21,23 +45,14 @@ async function handleSignup() {
 async function handleLogin() {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
-
   const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-
   if (error) alert(error.message);
-  else {
-    alert("Logged in successfully!");
-    showUser();
-  }
 }
 
 async function logout() {
   await supabaseClient.auth.signOut();
   alert("Logged out");
-  location.reload();
 }
-
-/* ---------- GOOGLE AUTH ---------- */
 
 async function loginWithGoogle() {
   const { error } = await supabaseClient.auth.signInWithOAuth({
@@ -49,19 +64,6 @@ async function loginWithGoogle() {
 
   if (error) alert(error.message);
 }
-
-/* ---------- USER STATE ---------- */
-
-async function showUser() {
-  const { data: { session } } = await supabaseClient.auth.getSession();
-
-  if (session) {
-    const emailInput = document.getElementById("email");
-    emailInput.value = session.user.email;
-    emailInput.disabled = true;
-  }
-}
-
 /* ---------- GENERATE ---------- */
 
 async function generate() {
@@ -69,10 +71,11 @@ async function generate() {
   const button = document.getElementById("generateBtn");
   const output = document.getElementById("output");
 
-  const { data: { session } } = await supabaseClient.auth.getSession();
+  // Re-fetch session specifically at time of click
+  const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
 
   if (!session) {
-    alert("Please login first");
+    alert("Authentication required. Please login with Google or Email.");
     return;
   }
 
@@ -103,10 +106,11 @@ async function generate() {
     const data = await response.json();
 
     if (!response.ok) {
-      output.innerHTML = `<div style="grid-column: span 2;">${data.detail}</div>`;
+      output.innerHTML = `<div style="grid-column: span 2;">${data.detail || 'API Error'}</div>`;
       return;
     }
 
+    // Split logic assumes API returns "Twitter content... LinkedIn... LinkedIn content"
     const parts = data.result.split("LinkedIn");
 
     output.innerHTML = `
@@ -121,24 +125,20 @@ async function generate() {
       </div>
     `;
 
-  } catch {
-    output.innerHTML = `<div style="grid-column: span 2;">Error connecting to API</div>`;
+  } catch (err) {
+    output.innerHTML = `<div style="grid-column: span 2;">Error connecting to API: ${err.message}</div>`;
+  } finally {
+    button.innerText = "Generate Posts";
+    button.disabled = false;
   }
-
-  button.innerText = "Generate Posts";
-  button.disabled = false;
 }
 
-/* ---------- COPY ---------- */
+/* ---------- UTILS ---------- */
 
 function copyText() {
-  const text = document.getElementById("output").innerText;
-  navigator.clipboard.writeText(text);
-  alert("Copied to clipboard");
+  const output = document.getElementById("output");
+  if (output && output.innerText.trim()) {
+    navigator.clipboard.writeText(output.innerText);
+    alert("Copied to clipboard");
+  }
 }
-
-/* ---------- INIT ---------- */
-
-window.addEventListener("load", () => {
-  showUser();
-});
