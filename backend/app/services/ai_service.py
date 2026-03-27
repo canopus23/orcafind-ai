@@ -3,7 +3,8 @@ from openai import OpenAI
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def generate_content(text: str):
+# Renamed from generate_content to generate_social_content
+def generate_social_content(text: str):
     prompt = f"""
     Convert this into:
     1. Twitter thread (max 6 tweets, strong hook)
