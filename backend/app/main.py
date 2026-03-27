@@ -1,98 +1,46 @@
-import os
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from openai import OpenAI
-from dotenv import load_dotenv
 from app.dependencies.auth import verify_user
+from app.services.ai_service import generate_social_content
+from pydantic import BaseModel
 
-load_dotenv()
+app = FastAPI(title="OrcaFind AI API")
 
-app = FastAPI()
-
+# CORS configuration: Adjust 'allow_origins' to your specific frontend URL in production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-api_key = os.getenv("OPENAI_API_KEY")
-if not api_key:
-    raise ValueError("OPENAI_API_KEY not found")
-
-client = OpenAI(api_key=api_key)
-
-usage_store = {}
-FREE_LIMIT = 6
-
-
-class ContentRequest(BaseModel):
+class RepurposeRequest(BaseModel):
     text: str
 
-
-def generate_content(text: str):
-    prompt = f"""
-You are an expert content creator.
-
-Convert this into:
-
-1. Twitter thread:
-- Strong hook
-- Max 6 tweets
-
-2. LinkedIn post:
-- Storytelling
-- Clean formatting
-- End with a question
-
-Content:
-{text}
-"""
-
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "You are a viral content expert."},
-            {"role": "user", "content": prompt}
-        ],
-        max_tokens=400
-    )
-
-    return response.choices[0].message.content
-
-
-def get_user_ip(request: Request):
-    if request.client:
-        return request.client.host
-    return "anonymous"
-
-
-def check_usage_limit(user_key: str):
-    count = usage_store.get(user_key, 0)
-    if count >= FREE_LIMIT:
-        raise HTTPException(status_code=403, detail="Free limit reached")
-    usage_store[user_key] = count + 1
-
+@app.get("/")
+async def root():
+    return {"message": "OrcaFind API is running"}
 
 @app.post("/repurpose/")
-def repurpose_content(req: ContentRequest, request: Request):
-    user = verify_user(request)
-    user_id = user.get("sub")
-
-    count = usage_store.get(user_id, 0)
-    if count >= FREE_LIMIT:
-        raise HTTPException(status_code=403, detail="Free limit reached")
-
-    usage_store[user_id] = count + 1
-
+async def repurpose_content(request: RepurposeRequest, user=Depends(verify_user)):
+    """
+    Protected endpoint that generates social media content.
+    The 'user' parameter is populated by verify_user if the token is valid.
+    """
     try:
-        result = generate_content(req.text)
+        # Input validation
+        if not request.text.strip():
+            raise HTTPException(status_code=400, detail="Text content cannot be empty")
+            
+        # Call the AI service to process the text
+        result = generate_social_content(request.text)
         return {"result": result}
-    except Exception:
-        raise HTTPException(status_code=500, detail="AI processing failed")
+        
+    except Exception as e:
+        print(f"Processing Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal Server Error during content generation")
 
-@app.get("/")
-def root():
-    return {"status": "running"}
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

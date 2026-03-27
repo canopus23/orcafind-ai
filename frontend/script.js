@@ -5,8 +5,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 
 /* ---------- AUTH STATE LISTENER ---------- */
 
-// This is the most important addition. It listens for the redirect from Google
-// and automatically updates your UI and session state.
+// Listen for the redirect from Google or manual login and update the UI
 supabaseClient.auth.onAuthStateChange((event, session) => {
   if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
     updateUIForUser(session.user);
@@ -64,6 +63,7 @@ async function loginWithGoogle() {
 
   if (error) alert(error.message);
 }
+
 /* ---------- GENERATE ---------- */
 
 async function generate() {
@@ -71,7 +71,7 @@ async function generate() {
   const button = document.getElementById("generateBtn");
   const output = document.getElementById("output");
 
-  // Re-fetch session specifically at time of click
+  // Re-fetch session specifically at time of click to get the access_token
   const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
 
   if (!session) {
@@ -98,7 +98,7 @@ async function generate() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${session.access_token}`
+        "Authorization": `Bearer ${session.access_token}` // Send the JWT to the backend
       },
       body: JSON.stringify({ text })
     });
@@ -106,11 +106,11 @@ async function generate() {
     const data = await response.json();
 
     if (!response.ok) {
-      output.innerHTML = `<div style="grid-column: span 2;">${data.detail || 'API Error'}</div>`;
+      output.innerHTML = `<div style="grid-column: span 2; color: #ef4444;">${data.detail || 'API Error'}</div>`;
       return;
     }
 
-    // Split logic assumes API returns "Twitter content... LinkedIn... LinkedIn content"
+    // Logic assumes API returns text separated by "LinkedIn"
     const parts = data.result.split("LinkedIn");
 
     output.innerHTML = `
@@ -126,7 +126,7 @@ async function generate() {
     `;
 
   } catch (err) {
-    output.innerHTML = `<div style="grid-column: span 2;">Error connecting to API: ${err.message}</div>`;
+    output.innerHTML = `<div style="grid-column: span 2; color: #ef4444;">Error connecting to API: ${err.message}</div>`;
   } finally {
     button.innerText = "Generate Posts";
     button.disabled = false;
