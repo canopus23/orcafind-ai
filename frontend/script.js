@@ -1,7 +1,8 @@
 const SUPABASE_URL = "https://rcfehmuiovcesucsvfsr.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjZmVobXVpb3ZjZXN1Y3N2ZnNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1MzE3MzAsImV4cCI6MjA5MDEwNzczMH0.8J4k5tlyA5G3gr70JT8aDbY36cidBc4s08hlwE-z9tY";
 
-const supabase = window.supabase.createClient(
+// Renamed from 'supabase' to 'supabaseClient' to avoid naming conflicts
+const supabaseClient = window.supabase.createClient(
   SUPABASE_URL,
   SUPABASE_ANON_KEY
 );
@@ -10,7 +11,7 @@ async function handleSignup() {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
 
-  const { error } = await supabase.auth.signUp({ email, password });
+  const { error } = await supabaseClient.auth.signUp({ email, password });
 
   if (error) alert(error.message);
   else alert("Check your email to confirm");
@@ -20,14 +21,14 @@ async function handleLogin() {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
 
   if (error) alert(error.message);
   else alert("Logged in");
 }
 
 async function logout() {
-  await supabase.auth.signOut();
+  await supabaseClient.auth.signOut();
   alert("Logged out");
 }
 
@@ -36,7 +37,7 @@ async function generate() {
   const button = document.getElementById("generateBtn");
   const output = document.getElementById("output");
 
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await supabaseClient.auth.getSession();
 
   if (!session) {
     alert("Please login first");
@@ -67,7 +68,7 @@ async function generate() {
     const data = await response.json();
 
     if (!response.ok) {
-      output.innerHTML = data.detail;
+      output.innerHTML = data.detail || "Request failed";
       return;
     }
 
@@ -75,14 +76,14 @@ async function generate() {
 
     output.innerHTML = `
       <h3>Twitter</h3>
-      <div class="box">${parts[0]}</div>
+      <div class="box">${parts[0] || ""}</div>
 
       <h3>LinkedIn</h3>
       <div class="box">${parts[1] || ""}</div>
     `;
 
-  } catch {
-    output.innerHTML = "Error occurred";
+  } catch (err) {
+    output.innerHTML = "Error occurred: " + err.message;
   }
 
   button.innerText = "Generate";
@@ -90,6 +91,9 @@ async function generate() {
 }
 
 function copyText() {
-  const text = document.getElementById("output").innerText;
-  navigator.clipboard.writeText(text);
+  const output = document.getElementById("output");
+  if (output) {
+    navigator.clipboard.writeText(output.innerText);
+    alert("Copied to clipboard!");
+  }
 }
