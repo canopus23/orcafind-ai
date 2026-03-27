@@ -1,8 +1,6 @@
 from fastapi import Request, HTTPException
 from jose import jwt
-import os
-
-SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
+from app.core.config import SUPABASE_JWT_SECRET
 
 
 def verify_user(request: Request):
@@ -13,6 +11,8 @@ def verify_user(request: Request):
 
     try:
         token = auth_header.split(" ")[1]
+
+        print("SECRET:", SUPABASE_JWT_SECRET[:10])  # debug
 
         payload = jwt.decode(
             token,
