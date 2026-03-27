@@ -13,7 +13,16 @@ def verify_user(request: Request):
 
     try:
         token = auth_header.split(" ")[1]
-        payload = jwt.decode(token, SUPABASE_JWT_SECRET, algorithms=["HS256"])
+
+        payload = jwt.decode(
+            token,
+            SUPABASE_JWT_SECRET,
+            algorithms=["HS256"],
+            options={"verify_aud": False}
+        )
+
         return payload
-    except Exception:
+
+    except Exception as e:
+        print("JWT ERROR:", e)
         raise HTTPException(status_code=401, detail="Invalid token")
