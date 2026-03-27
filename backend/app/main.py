@@ -3,16 +3,26 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.dependencies.auth import verify_user
 from app.services.ai_service import generate_social_content
 from pydantic import BaseModel
+import uvicorn
 
 app = FastAPI(title="OrcaFind AI API")
 
-# CORS configuration: Adjust 'allow_origins' to your specific frontend URL in production
+# Define allowed origins explicitly for CORS with credentials
+# Browsers block wildcard "*" when an Authorization header is present
+origins = [
+    "https://orcafind.com",
+    "https://www.orcafind.com",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+# CORSMiddleware must be added first to handle preflight OPTIONS requests
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=origins,
+    allow_credentials=True, # Required to allow Authorization headers
+    allow_methods=["*"],    # Allows GET, POST, OPTIONS, etc.
+    allow_headers=["*"],    # Allows Content-Type, Authorization, etc.
 )
 
 class RepurposeRequest(BaseModel):
@@ -20,27 +30,24 @@ class RepurposeRequest(BaseModel):
 
 @app.get("/")
 async def root():
-    return {"message": "OrcaFind API is running"}
+    return {"status": "online", "message": "OrcaFind API is operational"}
 
 @app.post("/repurpose/")
 async def repurpose_content(request: RepurposeRequest, user=Depends(verify_user)):
     """
-    Protected endpoint that generates social media content.
-    The 'user' parameter is populated by verify_user if the token is valid.
+    Protected endpoint. verify_user will raise a 401 if the JWT is invalid.
     """
     try:
-        # Input validation
         if not request.text.strip():
-            raise HTTPException(status_code=400, detail="Text content cannot be empty")
+            raise HTTPException(status_code=400, detail="Input text cannot be empty")
             
-        # Call the AI service to process the text
+        # Process content via AI service
         result = generate_social_content(request.text)
         return {"result": result}
         
     except Exception as e:
-        print(f"Processing Error: {str(e)}")
+        print(f"Error in /repurpose/: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal Server Error during content generation")
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
