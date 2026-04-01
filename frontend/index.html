@@ -23,8 +23,8 @@
       color: var(--text-main);
       font-family: 'Plus Jakarta Sans', sans-serif;
       display: flex;
-      height: 100vh;
-      overflow: hidden;
+      min-height: 100vh;
+      overflow-x: hidden;
     }
 
     /* Sidebar */
@@ -60,6 +60,12 @@
       color: white;
       margin-bottom: 8px;
       font-size: 14px;
+    }
+
+    button,
+    input,
+    textarea {
+      font: inherit;
     }
 
     /* Main Content */
@@ -148,6 +154,108 @@
     }
 
     .box { font-size: 14px; line-height: 1.6; color: #cbd5e1; }
+
+    .footer-actions {
+      margin-top: 20px;
+      text-align: right;
+    }
+
+    @media (max-width: 960px) {
+      body {
+        flex-direction: column;
+      }
+
+      .sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        padding: 20px;
+      }
+
+      .logo {
+        margin-bottom: 24px;
+      }
+
+      .auth-section {
+        margin-top: 24px;
+      }
+
+      .main-content {
+        padding: 24px 16px 32px;
+        overflow: visible;
+      }
+
+      .workspace {
+        max-width: 100%;
+      }
+
+      .header-area {
+        margin-bottom: 24px;
+      }
+
+      .header-area h1 {
+        font-size: 1.75rem;
+      }
+
+      .glass-card {
+        padding: 18px;
+      }
+
+      .action-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+      }
+
+      .action-bar span {
+        order: 2;
+      }
+
+      .action-bar .btn {
+        width: 100%;
+      }
+
+      .output-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+
+      .footer-actions {
+        text-align: left;
+      }
+
+      .footer-actions .btn {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .sidebar {
+        padding: 16px;
+      }
+
+      .main-content {
+        padding: 18px 12px 24px;
+      }
+
+      .header-area h1 {
+        font-size: 1.5rem;
+      }
+
+      .header-area p {
+        font-size: 0.95rem;
+      }
+
+      textarea {
+        min-height: 180px;
+        height: auto;
+        font-size: 15px;
+      }
+
+      .platform-card {
+        padding: 16px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -192,8 +300,8 @@
       <div id="output" class="output-grid">
         </div>
 
-      <div style="margin-top: 20px; text-align: right;">
-        <button class="btn btn-outline" style="width: auto;" onclick="copyText()">Copy All Results</button>
+      <div class="footer-actions">
+        <button class="btn btn-outline" onclick="copyText()">Copy All Results</button>
       </div>
     </div>
   </main>
