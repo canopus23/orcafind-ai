@@ -2,6 +2,7 @@ const SUPABASE_URL = "https://rcfehmuiovcesucsvfsr.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjZmVobXVpb3ZjZXN1Y3N2ZnNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1MzE3MzAsImV4cCI6MjA5MDEwNzczMH0.8J4k5tlyA5G3gr70JT8aDbY36cidBc4s08hlwE-z9tY";
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let authMode = "signin";
 
 function getInitials(value) {
   if (!value) return "O";
@@ -35,13 +36,70 @@ function setAvatar(id, value) {
   }
 }
 
+function setAuthMode(mode) {
+  authMode = mode === "signup" ? "signup" : "signin";
+
+  const signInModeBtn = document.getElementById("signInModeBtn");
+  const signUpModeBtn = document.getElementById("signUpModeBtn");
+
+  if (signInModeBtn) {
+    signInModeBtn.classList.toggle("is-active", authMode === "signin");
+  }
+  if (signUpModeBtn) {
+    signUpModeBtn.classList.toggle("is-active", authMode === "signup");
+  }
+
+  setText("authModalTitle", authMode === "signin" ? "Welcome back" : "Create your OrcaFind account");
+  setText(
+    "authModalDescription",
+    authMode === "signin"
+      ? "Sign in to access your OrcaFind workspace and protected generation flow."
+      : "Create an account to start generating platform-ready content from one clean workspace."
+  );
+  setText(
+    "authModeCopy",
+    authMode === "signin"
+      ? "Sign in with your existing account, or use Google if you want the fastest path into the studio."
+      : "Sign up with email, or continue with Google if you want to start immediately."
+  );
+  setText("primaryAuthAction", authMode === "signin" ? "Sign In" : "Create Account");
+}
+
+function openAuthModal(mode = "signin") {
+  const modal = document.getElementById("authModal");
+  if (modal) {
+    setAuthMode(mode);
+    modal.classList.add("is-visible");
+    modal.setAttribute("aria-hidden", "false");
+  }
+}
+
+function closeAuthModal() {
+  const modal = document.getElementById("authModal");
+  if (modal) {
+    modal.classList.remove("is-visible");
+    modal.setAttribute("aria-hidden", "true");
+  }
+}
+
+async function submitAuthAction() {
+  if (authMode === "signup") {
+    await handleSignup();
+    return;
+  }
+
+  await handleLogin();
+}
+
 /* ---------- AUTH STATE LISTENER ---------- */
 
 // Listen for the redirect from Google or manual login and update the UI
 supabaseClient.auth.onAuthStateChange((event, session) => {
-  if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+  if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
     updateUIForUser(session.user);
   } else if (event === 'SIGNED_OUT') {
+    resetUI();
+  } else if (event === 'INITIAL_SESSION' && !session?.user) {
     resetUI();
   }
 });
@@ -52,6 +110,7 @@ function updateUIForUser(user) {
   const signedOutPanel = document.getElementById("accountSignedOut");
   const signedInPanel = document.getElementById("accountSignedIn");
   const headerProfile = document.getElementById("headerProfile");
+  const headerAuth = document.getElementById("headerAuth");
   const displayName = getDisplayName(user);
   const email = user?.email || "Signed in";
 
@@ -71,9 +130,10 @@ function updateUIForUser(user) {
   if (headerProfile) {
     headerProfile.classList.add("is-visible");
   }
+  if (headerAuth) {
+    headerAuth.classList.add("is-hidden");
+  }
 
-  setText("accountPanelTitle", "Your OrcaFind workspace");
-  setText("accountPanelDescription", "You are signed in. Use the studio, generate content, and manage your active session from this streamlined profile area.");
   setText("accountStatusTitle", "Workspace status");
   setText("accountStatusChip", "Authenticated");
   setText("accountStatusBody", "Your session is active and the protected generation workflow is ready to use.");
@@ -83,6 +143,7 @@ function updateUIForUser(user) {
   setText("headerProfileEmail", email);
   setAvatar("profileAvatar", displayName);
   setAvatar("headerAvatar", displayName);
+  closeAuthModal();
 
   console.log("User is authenticated:", email);
 }
@@ -93,6 +154,7 @@ function resetUI() {
   const signedOutPanel = document.getElementById("accountSignedOut");
   const signedInPanel = document.getElementById("accountSignedIn");
   const headerProfile = document.getElementById("headerProfile");
+  const headerAuth = document.getElementById("headerAuth");
 
   if (emailInput) {
     emailInput.value = "";
@@ -110,9 +172,10 @@ function resetUI() {
   if (headerProfile) {
     headerProfile.classList.remove("is-visible");
   }
+  if (headerAuth) {
+    headerAuth.classList.remove("is-hidden");
+  }
 
-  setText("accountPanelTitle", "Professional sign-in experience");
-  setText("accountPanelDescription", "Access the studio with email or Google, keep your workflow authenticated, and manage generation from one clean panel.");
   setText("accountStatusTitle", "Workspace access");
   setText("accountStatusChip", "Authentication enabled");
   setText("accountStatusBody", "Use your OrcaFind account to unlock protected generation endpoints and keep your content workflow secure.");
@@ -122,6 +185,8 @@ function resetUI() {
   setText("headerProfileEmail", "Sign in to access the studio");
   setAvatar("profileAvatar", "OrcaFind");
   setAvatar("headerAvatar", "OrcaFind");
+  closeAuthModal();
+  setAuthMode("signin");
 }
 
 /* ---------- AUTH ACTIONS ---------- */
@@ -156,6 +221,12 @@ async function loginWithGoogle() {
 
   if (error) alert(error.message);
 }
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    closeAuthModal();
+  }
+});
 
 /* ---------- GENERATE ---------- */
 

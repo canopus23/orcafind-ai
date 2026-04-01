@@ -152,6 +152,16 @@
       gap: 12px;
     }
 
+    .header-auth {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header-auth.is-hidden {
+      display: none;
+    }
+
     .header-profile {
       display: none;
       align-items: center;
@@ -203,6 +213,10 @@
       font-size: 0.78rem;
       color: var(--muted);
       margin-top: 2px;
+    }
+
+    .auth-trigger {
+      min-width: 108px;
     }
 
     .pill {
@@ -517,16 +531,6 @@
     }
 
     .studio-topbar-copy span,
-    .panel-kicker {
-      display: inline-block;
-      margin-bottom: 8px;
-      font-size: 0.76rem;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      color: var(--brand);
-      text-transform: uppercase;
-    }
-
     .studio-topbar-copy p {
       max-width: 60ch;
     }
@@ -717,6 +721,105 @@
       border-radius: 16px;
       background: rgba(16, 35, 63, 0.05);
       color: #425a79;
+      font-size: 0.92rem;
+      line-height: 1.65;
+    }
+
+    .auth-screen-card {
+      padding: 24px;
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(111, 132, 163, 0.16);
+      box-shadow: 0 18px 34px rgba(15, 35, 76, 0.08);
+    }
+
+    .auth-screen-card h3 {
+      margin-bottom: 8px;
+    }
+
+    .auth-screen-card p {
+      margin-bottom: 18px;
+    }
+
+    .auth-modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: center;
+      padding: 24px;
+      background: rgba(6, 18, 35, 0.42);
+      backdrop-filter: blur(12px);
+      z-index: 40;
+    }
+
+    .auth-modal.is-visible {
+      display: grid;
+    }
+
+    .auth-dialog {
+      width: min(100%, 460px);
+      padding: 28px;
+      border-radius: 28px;
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(111, 132, 163, 0.18);
+      box-shadow: 0 28px 80px rgba(11, 26, 56, 0.2);
+    }
+
+    .auth-dialog-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .auth-dialog-top h3 {
+      font-size: 1.35rem;
+      letter-spacing: -0.04em;
+      margin-bottom: 8px;
+    }
+
+    .auth-dialog-top p {
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .auth-close {
+      width: 42px;
+      height: 42px;
+      padding: 0;
+      border-radius: 14px;
+      font-size: 1.2rem;
+      line-height: 1;
+    }
+
+    .auth-mode-switch {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 18px;
+      padding: 6px;
+      border-radius: 18px;
+      background: rgba(19, 103, 255, 0.08);
+    }
+
+    .mode-btn {
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: transparent;
+      color: #36516f;
+      box-shadow: none;
+    }
+
+    .mode-btn.is-active {
+      background: white;
+      color: #153766;
+      box-shadow: 0 8px 18px rgba(15, 35, 76, 0.1);
+    }
+
+    .auth-mode-copy {
+      margin-bottom: 18px;
+      color: var(--muted);
       font-size: 0.92rem;
       line-height: 1.65;
     }
@@ -917,6 +1020,12 @@
       .footer-actions .btn {
         width: 100%;
       }
+
+      .header-auth {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
 
     @media (max-width: 640px) {
@@ -959,6 +1068,14 @@
         align-items: flex-start;
       }
 
+      .auth-modal {
+        padding: 12px;
+      }
+
+      .auth-dialog {
+        padding: 22px;
+      }
+
       .dark-band-grid {
         gap: 16px;
       }
@@ -983,6 +1100,10 @@
 
         <div class="nav-actions">
           <span class="pill">Built for modern creator teams</span>
+          <div id="headerAuth" class="header-auth">
+            <button class="btn btn-ghost auth-trigger" onclick="openAuthModal('signin')">Sign In</button>
+            <button class="btn btn-primary auth-trigger" onclick="openAuthModal('signup')">Sign Up</button>
+          </div>
           <div id="headerProfile" class="header-profile" aria-live="polite">
             <div id="headerAvatar" class="profile-avatar">O</div>
             <div class="profile-copy">
@@ -1130,12 +1251,6 @@
           </div>
 
           <aside class="account-panel">
-            <div>
-              <span class="panel-kicker">Account Console</span>
-              <h3 id="accountPanelTitle">Professional sign-in experience</h3>
-              <p id="accountPanelDescription">Access the studio with email or Google, keep your workflow authenticated, and manage generation from one clean panel.</p>
-            </div>
-
             <div class="account-status">
               <div class="status-row">
                 <strong id="accountStatusTitle">Workspace access</strong>
@@ -1145,21 +1260,12 @@
             </div>
 
             <div id="accountSignedOut" class="account-signed-out">
-              <div class="auth-form">
-                <div class="field-group">
-                  <label for="email">Work email</label>
-                  <input id="email" type="email" placeholder="you@company.com">
-                </div>
-
-                <div class="field-group">
-                  <label for="password">Password</label>
-                  <input id="password" type="password" placeholder="Enter your password">
-                </div>
-
+              <div class="auth-screen-card">
+                <h3>Sign in when you are ready to generate.</h3>
+                <p>Authentication now starts from the top-right actions, which keeps the workspace cleaner and makes the flow feel more like a practical SaaS product.</p>
                 <div class="auth-actions">
-                  <button class="btn btn-primary" onclick="handleLogin()">Sign In</button>
-                  <button class="btn btn-secondary" onclick="loginWithGoogle()">Continue with Google</button>
-                  <button class="btn btn-ghost" onclick="handleSignup()">Create Account</button>
+                  <button class="btn btn-primary" onclick="openAuthModal('signin')">Open Sign In</button>
+                  <button class="btn btn-secondary" onclick="openAuthModal('signup')">Open Sign Up</button>
                 </div>
               </div>
 
@@ -1281,6 +1387,44 @@
         <span>Professional content repurposing for modern SaaS teams.</span>
       </div>
     </footer>
+
+    <div id="authModal" class="auth-modal" aria-hidden="true">
+      <div class="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
+        <div class="auth-dialog-top">
+          <div>
+            <h3 id="authModalTitle">Welcome back</h3>
+            <p id="authModalDescription">Sign in to access your OrcaFind workspace and protected generation flow.</p>
+          </div>
+          <button class="btn btn-ghost auth-close" aria-label="Close authentication dialog" onclick="closeAuthModal()">×</button>
+        </div>
+
+        <div class="auth-mode-switch">
+          <button id="signInModeBtn" class="btn mode-btn is-active" onclick="setAuthMode('signin')">Sign In</button>
+          <button id="signUpModeBtn" class="btn mode-btn" onclick="setAuthMode('signup')">Sign Up</button>
+        </div>
+
+        <div id="authModeCopy" class="auth-mode-copy">
+          Sign in with your existing account, or use Google if you want the fastest path into the studio.
+        </div>
+
+        <div class="auth-form">
+          <div class="field-group">
+            <label for="email">Work email</label>
+            <input id="email" type="email" placeholder="you@company.com">
+          </div>
+
+          <div class="field-group">
+            <label for="password">Password</label>
+            <input id="password" type="password" placeholder="Enter your password">
+          </div>
+
+          <div class="auth-actions">
+            <button id="primaryAuthAction" class="btn btn-primary" onclick="submitAuthAction()">Sign In</button>
+            <button class="btn btn-secondary" onclick="loginWithGoogle()">Continue with Google</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
