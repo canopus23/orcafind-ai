@@ -245,6 +245,10 @@
       transform: translateY(-1px);
     }
 
+    .btn:active {
+      transform: translateY(0);
+    }
+
     .btn-primary {
       color: white;
       background: linear-gradient(135deg, var(--brand), #3f8cff);
@@ -291,6 +295,17 @@
       border-radius: var(--radius-xl);
       box-shadow: var(--shadow-lg);
       backdrop-filter: blur(18px);
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(28px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+
+    .reveal.is-visible {
+      opacity: 1;
+      transform: translateY(0);
     }
 
     .hero-copy {
@@ -351,6 +366,12 @@
       background: rgba(255, 255, 255, 0.68);
       border: 1px solid rgba(111, 132, 163, 0.14);
       font-weight: 700;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .proof-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px rgba(15, 35, 76, 0.08);
     }
 
     .hero-panel {
@@ -388,6 +409,27 @@
       font-weight: 700;
     }
 
+    .live-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(228, 236, 247, 0.76);
+    }
+
+    .live-indicator::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #4ade80;
+      box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.55);
+      animation: pulse-dot 1.8s infinite;
+    }
+
     .hero-stats {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -412,6 +454,17 @@
     .metric-card span {
       color: rgba(228, 236, 247, 0.78);
       font-size: 0.92rem;
+    }
+
+    .metric-card strong,
+    .feed-card label,
+    .feed-card p {
+      transition: opacity 0.28s ease, transform 0.28s ease;
+    }
+
+    .is-swapping {
+      opacity: 0.35;
+      transform: translateY(6px);
     }
 
     .hero-feed {
@@ -476,6 +529,14 @@
     .testimonial-card,
     .section-card {
       padding: 24px;
+      transition: transform 0.22s ease, box-shadow 0.22s ease;
+    }
+
+    .feature-card:hover,
+    .testimonial-card:hover,
+    .section-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 36px rgba(15, 35, 76, 0.12);
     }
 
     .feature-icon {
@@ -540,6 +601,12 @@
       border-radius: 20px;
       background: linear-gradient(180deg, rgba(248, 251, 255, 0.78), rgba(238, 244, 251, 0.85));
       border: 1px solid rgba(111, 132, 163, 0.16);
+      transition: box-shadow 0.25s ease, transform 0.25s ease;
+    }
+
+    .workspace-frame.is-active {
+      box-shadow: 0 24px 40px rgba(19, 103, 255, 0.1);
+      transform: translateY(-1px);
     }
 
     textarea {
@@ -579,6 +646,42 @@
       font-size: 0.92rem;
     }
 
+    .composer-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      flex-wrap: wrap;
+    }
+
+    .progress-rail {
+      position: relative;
+      width: 180px;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(111, 132, 163, 0.16);
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 8%;
+      border-radius: inherit;
+      background: linear-gradient(135deg, var(--brand), #0ab5ff);
+      transition: width 0.25s ease;
+    }
+
+    .meta-cluster {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
     .tag {
       display: inline-flex;
       align-items: center;
@@ -604,6 +707,12 @@
       border: 1px solid rgba(111, 132, 163, 0.16);
       box-shadow: 0 16px 32px rgba(15, 35, 76, 0.08);
       min-height: 180px;
+      transition: transform 0.22s ease, box-shadow 0.22s ease;
+    }
+
+    .platform-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 20px 38px rgba(15, 35, 76, 0.12);
     }
 
     .platform-header {
@@ -763,6 +872,7 @@
       background: rgba(255, 255, 255, 0.96);
       border: 1px solid rgba(111, 132, 163, 0.18);
       box-shadow: 0 28px 80px rgba(11, 26, 56, 0.2);
+      animation: modal-rise 0.24s ease;
     }
 
     .auth-dialog-top {
@@ -947,6 +1057,29 @@
       font-size: 0.92rem;
     }
 
+    @keyframes pulse-dot {
+      0% {
+        box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.55);
+      }
+      70% {
+        box-shadow: 0 0 0 12px rgba(74, 222, 128, 0);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(74, 222, 128, 0);
+      }
+    }
+
+    @keyframes modal-rise {
+      from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.98);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
     .footer-inner {
       display: flex;
       justify-content: space-between;
@@ -1116,7 +1249,7 @@
     </header>
 
     <main id="top">
-      <section class="hero">
+      <section class="hero reveal">
         <div class="container hero-grid">
           <div class="hero-copy">
             <span class="eyebrow">AI Content Operating System</span>
@@ -1141,35 +1274,35 @@
           <div class="hero-panel">
             <div class="hero-panel-header">
               <h2>Executive Snapshot</h2>
-              <span class="pill">Live workspace preview</span>
+              <span class="live-indicator">Live workspace preview</span>
             </div>
 
             <div class="hero-stats">
               <div class="metric-card">
-                <strong>11.4x</strong>
-                <span>More social output from one source draft</span>
+                <strong id="metricPrimaryValue">11.4x</strong>
+                <span id="metricPrimaryLabel">More social output from one source draft</span>
               </div>
               <div class="metric-card">
-                <strong>4 min</strong>
-                <span>Average time from idea to repurposed assets</span>
+                <strong id="metricSecondaryValue">4 min</strong>
+                <span id="metricSecondaryLabel">Average time from idea to repurposed assets</span>
               </div>
             </div>
 
             <div class="hero-feed">
               <div class="feed-card">
-                <label>What teams put in</label>
-                <p>Product announcements, founder notes, podcast transcripts, feature launches, customer stories.</p>
+                <label id="feedOneLabel">What teams put in</label>
+                <p id="feedOneBody">Product announcements, founder notes, podcast transcripts, feature launches, customer stories.</p>
               </div>
               <div class="feed-card">
-                <label>What OrcaFind ships out</label>
-                <p>Sharper hooks, more platform-native pacing, clearer CTA structure, and reusable messaging patterns.</p>
+                <label id="feedTwoLabel">What OrcaFind ships out</label>
+                <p id="feedTwoBody">Sharper hooks, more platform-native pacing, clearer CTA structure, and reusable messaging patterns.</p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section class="section" id="platform">
+      <section class="section reveal" id="platform">
         <div class="container">
           <div class="section-head">
             <div>
@@ -1203,7 +1336,7 @@
         </div>
       </section>
 
-      <section class="section" id="studio">
+      <section class="section reveal" id="studio">
         <div class="container studio-wrap">
           <div class="studio-panel">
             <div class="studio-topbar">
@@ -1215,8 +1348,21 @@
               <span class="pill">Model pipeline: GPT-4o</span>
             </div>
 
-            <div class="workspace-frame">
+            <div id="workspaceFrame" class="workspace-frame">
               <textarea id="inputText" placeholder="Paste your article, transcript, launch note, or raw thoughts here..."></textarea>
+
+              <div class="composer-meta">
+                <div class="meta-cluster">
+                  <strong id="textHealthLabel">Ready for a sharp repurpose</strong>
+                  <span id="charCount">0 characters</span>
+                </div>
+                <div class="meta-cluster">
+                  <div class="progress-rail">
+                    <div id="textProgress" class="progress-fill"></div>
+                  </div>
+                  <span id="readinessLabel">Waiting for input</span>
+                </div>
+              </div>
 
               <div class="action-bar">
                 <div class="action-meta">
@@ -1311,7 +1457,7 @@
         </div>
       </section>
 
-      <section class="section" id="results">
+      <section class="section reveal" id="results">
         <div class="container">
           <div class="section-head">
             <div>
@@ -1350,7 +1496,7 @@
         </div>
       </section>
 
-      <section class="section" id="testimonials">
+      <section class="section reveal" id="testimonials">
         <div class="container">
           <div class="section-head">
             <div>
@@ -1388,7 +1534,7 @@
       </div>
     </footer>
 
-    <div id="authModal" class="auth-modal" aria-hidden="true">
+    <div id="authModal" class="auth-modal" aria-hidden="true" onclick="handleModalBackdrop(event)">
       <div class="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
         <div class="auth-dialog-top">
           <div>
