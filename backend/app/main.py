@@ -49,7 +49,8 @@ async def repurpose_content(req: ContentRequest, user=Depends(verify_user)):
         # Process content via AI service
         result = generate_social_content(req.text)
         return {"result": result}
-        
+    except HTTPException:
+        raise
     except Exception as e:
         # Log the error to the server console for debugging
         print(f"Error in /repurpose/: {str(e)}")
