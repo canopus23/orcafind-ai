@@ -152,6 +152,59 @@
       gap: 12px;
     }
 
+    .header-profile {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 10px 8px 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid rgba(111, 132, 163, 0.18);
+      box-shadow: 0 10px 24px rgba(15, 35, 76, 0.08);
+    }
+
+    .header-profile.is-visible {
+      display: inline-flex;
+    }
+
+    .profile-avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #1367ff, #0ab5ff);
+      color: white;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      box-shadow: 0 12px 24px rgba(19, 103, 255, 0.24);
+      flex-shrink: 0;
+    }
+
+    .profile-copy {
+      min-width: 0;
+    }
+
+    .profile-copy strong,
+    .profile-copy span {
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .profile-copy strong {
+      font-size: 0.92rem;
+      color: #1f3655;
+    }
+
+    .profile-copy span {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
     .pill {
       display: inline-flex;
       align-items: center;
@@ -628,6 +681,12 @@
       gap: 12px;
     }
 
+    .auth-form.is-hidden,
+    .account-signed-in.is-hidden,
+    .account-signed-out.is-hidden {
+      display: none;
+    }
+
     .field-group {
       display: grid;
       gap: 8px;
@@ -660,6 +719,65 @@
       color: #425a79;
       font-size: 0.92rem;
       line-height: 1.65;
+    }
+
+    .account-signed-in {
+      display: grid;
+      gap: 16px;
+    }
+
+    .profile-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 18px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, rgba(19, 103, 255, 0.12), rgba(10, 181, 255, 0.08));
+      border: 1px solid rgba(19, 103, 255, 0.14);
+    }
+
+    .profile-card .profile-avatar {
+      width: 52px;
+      height: 52px;
+      font-size: 1.05rem;
+    }
+
+    .profile-meta {
+      min-width: 0;
+    }
+
+    .profile-meta h4 {
+      font-size: 1rem;
+      letter-spacing: -0.03em;
+      margin-bottom: 4px;
+      color: #163358;
+    }
+
+    .profile-meta p {
+      color: #4d6481;
+      font-size: 0.92rem;
+      line-height: 1.55;
+    }
+
+    .signed-in-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .signed-in-item {
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid rgba(111, 132, 163, 0.14);
+      color: #425a79;
+      font-size: 0.92rem;
+      line-height: 1.6;
+    }
+
+    .signed-in-item strong {
+      display: block;
+      margin-bottom: 4px;
+      color: #1f3655;
     }
 
     .mini-metrics {
@@ -865,6 +983,13 @@
 
         <div class="nav-actions">
           <span class="pill">Built for modern creator teams</span>
+          <div id="headerProfile" class="header-profile" aria-live="polite">
+            <div id="headerAvatar" class="profile-avatar">O</div>
+            <div class="profile-copy">
+              <strong id="headerProfileName">Workspace user</strong>
+              <span id="headerProfileEmail">Sign in to access the studio</span>
+            </div>
+          </div>
         </div>
       </div>
     </header>
@@ -1007,39 +1132,63 @@
           <aside class="account-panel">
             <div>
               <span class="panel-kicker">Account Console</span>
-              <h3>Professional sign-in experience</h3>
-              <p>Access the studio with email or Google, keep your workflow authenticated, and manage generation from one clean panel.</p>
+              <h3 id="accountPanelTitle">Professional sign-in experience</h3>
+              <p id="accountPanelDescription">Access the studio with email or Google, keep your workflow authenticated, and manage generation from one clean panel.</p>
             </div>
 
             <div class="account-status">
               <div class="status-row">
-                <strong>Workspace access</strong>
-                <span class="status-chip">Authentication enabled</span>
+                <strong id="accountStatusTitle">Workspace access</strong>
+                <span id="accountStatusChip" class="status-chip">Authentication enabled</span>
               </div>
-              <p>Use your OrcaFind account to unlock protected generation endpoints and keep your content workflow secure.</p>
+              <p id="accountStatusBody">Use your OrcaFind account to unlock protected generation endpoints and keep your content workflow secure.</p>
             </div>
 
-            <div class="auth-form">
-              <div class="field-group">
-                <label for="email">Work email</label>
-                <input id="email" type="email" placeholder="you@company.com">
+            <div id="accountSignedOut" class="account-signed-out">
+              <div class="auth-form">
+                <div class="field-group">
+                  <label for="email">Work email</label>
+                  <input id="email" type="email" placeholder="you@company.com">
+                </div>
+
+                <div class="field-group">
+                  <label for="password">Password</label>
+                  <input id="password" type="password" placeholder="Enter your password">
+                </div>
+
+                <div class="auth-actions">
+                  <button class="btn btn-primary" onclick="handleLogin()">Sign In</button>
+                  <button class="btn btn-secondary" onclick="loginWithGoogle()">Continue with Google</button>
+                  <button class="btn btn-ghost" onclick="handleSignup()">Create Account</button>
+                </div>
               </div>
 
-              <div class="field-group">
-                <label for="password">Password</label>
-                <input id="password" type="password" placeholder="Enter your password">
-              </div>
-
-              <div class="auth-actions">
-                <button class="btn btn-primary" onclick="handleLogin()">Sign In</button>
-                <button class="btn btn-secondary" onclick="loginWithGoogle()">Continue with Google</button>
-                <button class="btn btn-ghost" onclick="handleSignup()">Create Account</button>
-                <button class="btn btn-ghost" style="color: var(--danger);" onclick="logout()">Sign Out</button>
+              <div class="auth-hint">
+                Best for SaaS teams using founder-led distribution, product marketing launches, and lightweight social workflows without a full editorial stack.
               </div>
             </div>
 
-            <div class="auth-hint">
-              Best for SaaS teams using founder-led distribution, product marketing launches, and lightweight social workflows without a full editorial stack.
+            <div id="accountSignedIn" class="account-signed-in is-hidden">
+              <div class="profile-card">
+                <div id="profileAvatar" class="profile-avatar">O</div>
+                <div class="profile-meta">
+                  <h4 id="profileName">Workspace user</h4>
+                  <p id="profileEmail">Signed in and ready to generate content.</p>
+                </div>
+              </div>
+
+              <div class="signed-in-list">
+                <div class="signed-in-item">
+                  <strong>Workspace status</strong>
+                  Your session is active. Protected content generation is available now.
+                </div>
+                <div class="signed-in-item">
+                  <strong>Practical next step</strong>
+                  Paste your source content into the studio and generate platform-ready posts in one click.
+                </div>
+              </div>
+
+              <button class="btn btn-ghost" style="color: var(--danger);" onclick="logout()">Sign Out</button>
             </div>
 
             <div class="mini-metrics">

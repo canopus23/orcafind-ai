@@ -3,6 +3,38 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+function getInitials(value) {
+  if (!value) return "O";
+
+  const parts = value
+    .split(/[.\s@_-]+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return parts.slice(0, 2).map((part) => part[0].toUpperCase()).join("") || "O";
+}
+
+function getDisplayName(user) {
+  const metadataName = user?.user_metadata?.full_name || user?.user_metadata?.name;
+  if (metadataName) return metadataName;
+  if (user?.email) return user.email.split("@")[0];
+  return "Workspace user";
+}
+
+function setText(id, value) {
+  const element = document.getElementById(id);
+  if (element) {
+    element.textContent = value;
+  }
+}
+
+function setAvatar(id, value) {
+  const element = document.getElementById(id);
+  if (element) {
+    element.textContent = getInitials(value);
+  }
+}
+
 /* ---------- AUTH STATE LISTENER ---------- */
 
 // Listen for the redirect from Google or manual login and update the UI
@@ -16,19 +48,80 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
 
 function updateUIForUser(user) {
   const emailInput = document.getElementById("email");
+  const passwordInput = document.getElementById("password");
+  const signedOutPanel = document.getElementById("accountSignedOut");
+  const signedInPanel = document.getElementById("accountSignedIn");
+  const headerProfile = document.getElementById("headerProfile");
+  const displayName = getDisplayName(user);
+  const email = user?.email || "Signed in";
+
   if (emailInput) {
-    emailInput.value = user.email;
-    emailInput.disabled = true;
+    emailInput.value = email;
+    emailInput.disabled = false;
   }
-  console.log("User is authenticated:", user.email);
+  if (passwordInput) {
+    passwordInput.value = "";
+  }
+  if (signedOutPanel) {
+    signedOutPanel.classList.add("is-hidden");
+  }
+  if (signedInPanel) {
+    signedInPanel.classList.remove("is-hidden");
+  }
+  if (headerProfile) {
+    headerProfile.classList.add("is-visible");
+  }
+
+  setText("accountPanelTitle", "Your OrcaFind workspace");
+  setText("accountPanelDescription", "You are signed in. Use the studio, generate content, and manage your active session from this streamlined profile area.");
+  setText("accountStatusTitle", "Workspace status");
+  setText("accountStatusChip", "Authenticated");
+  setText("accountStatusBody", "Your session is active and the protected generation workflow is ready to use.");
+  setText("profileName", displayName);
+  setText("profileEmail", email);
+  setText("headerProfileName", displayName);
+  setText("headerProfileEmail", email);
+  setAvatar("profileAvatar", displayName);
+  setAvatar("headerAvatar", displayName);
+
+  console.log("User is authenticated:", email);
 }
 
 function resetUI() {
   const emailInput = document.getElementById("email");
+  const passwordInput = document.getElementById("password");
+  const signedOutPanel = document.getElementById("accountSignedOut");
+  const signedInPanel = document.getElementById("accountSignedIn");
+  const headerProfile = document.getElementById("headerProfile");
+
   if (emailInput) {
     emailInput.value = "";
     emailInput.disabled = false;
   }
+  if (passwordInput) {
+    passwordInput.value = "";
+  }
+  if (signedOutPanel) {
+    signedOutPanel.classList.remove("is-hidden");
+  }
+  if (signedInPanel) {
+    signedInPanel.classList.add("is-hidden");
+  }
+  if (headerProfile) {
+    headerProfile.classList.remove("is-visible");
+  }
+
+  setText("accountPanelTitle", "Professional sign-in experience");
+  setText("accountPanelDescription", "Access the studio with email or Google, keep your workflow authenticated, and manage generation from one clean panel.");
+  setText("accountStatusTitle", "Workspace access");
+  setText("accountStatusChip", "Authentication enabled");
+  setText("accountStatusBody", "Use your OrcaFind account to unlock protected generation endpoints and keep your content workflow secure.");
+  setText("profileName", "Workspace user");
+  setText("profileEmail", "Signed in and ready to generate content.");
+  setText("headerProfileName", "Workspace user");
+  setText("headerProfileEmail", "Sign in to access the studio");
+  setAvatar("profileAvatar", "OrcaFind");
+  setAvatar("headerAvatar", "OrcaFind");
 }
 
 /* ---------- AUTH ACTIONS ---------- */
