@@ -146,6 +146,33 @@
       font-weight: 600;
     }
 
+    .topnav a {
+      position: relative;
+      transition: color 0.2s ease;
+    }
+
+    .topnav a::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      bottom: -8px;
+      width: 100%;
+      height: 2px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--brand), #0ab5ff);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.22s ease;
+    }
+
+    .topnav a.is-active {
+      color: #173a68;
+    }
+
+    .topnav a.is-active::after {
+      transform: scaleX(1);
+    }
+
     .nav-actions {
       display: flex;
       align-items: center;
@@ -934,6 +961,52 @@
       line-height: 1.65;
     }
 
+    .toast-stack {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 60;
+      display: grid;
+      gap: 12px;
+      width: min(360px, calc(100vw - 24px));
+    }
+
+    .toast {
+      padding: 16px 18px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.97);
+      border: 1px solid rgba(111, 132, 163, 0.16);
+      box-shadow: 0 18px 36px rgba(11, 26, 56, 0.14);
+      color: #27415f;
+      animation: toast-rise 0.22s ease;
+    }
+
+    .toast strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.95rem;
+      letter-spacing: -0.02em;
+    }
+
+    .toast p {
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: #5b6d84;
+    }
+
+    .toast.success {
+      border-color: rgba(14, 159, 110, 0.18);
+    }
+
+    .toast.error {
+      border-color: rgba(194, 65, 91, 0.18);
+    }
+
+    .btn.is-loading {
+      opacity: 0.82;
+      pointer-events: none;
+    }
+
     .account-signed-in {
       display: grid;
       gap: 16px;
@@ -1077,6 +1150,17 @@
       to {
         opacity: 1;
         transform: translateY(0) scale(1);
+      }
+    }
+
+    @keyframes toast-rise {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
       }
     }
 
@@ -1225,10 +1309,10 @@
         </a>
 
         <nav class="topnav">
-          <a href="#platform">Platform</a>
-          <a href="#studio">Studio</a>
-          <a href="#results">Results</a>
-          <a href="#testimonials">Customers</a>
+          <a class="nav-link" href="#platform">Platform</a>
+          <a class="nav-link" href="#studio">Studio</a>
+          <a class="nav-link" href="#results">Results</a>
+          <a class="nav-link" href="#testimonials">Customers</a>
         </nav>
 
         <div class="nav-actions">
@@ -1571,6 +1655,8 @@
         </div>
       </div>
     </div>
+
+    <div id="toastStack" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

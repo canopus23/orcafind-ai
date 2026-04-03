@@ -5,6 +5,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 let authMode = "signin";
 let heroRotationIndex = 0;
 let heroRotationTimer;
+let toastTimerSeed = 0;
 
 const heroSnapshots = [
   {
@@ -78,6 +79,38 @@ function setHTML(id, value) {
   }
 }
 
+function showToast(title, message, type = "default") {
+  const stack = document.getElementById("toastStack");
+  if (!stack) {
+    return;
+  }
+
+  const toast = document.createElement("div");
+  const toastId = `toast-${Date.now()}-${toastTimerSeed++}`;
+  toast.className = `toast ${type}`;
+  toast.id = toastId;
+  toast.innerHTML = `<strong>${title}</strong><p>${message}</p>`;
+  stack.appendChild(toast);
+
+  window.setTimeout(() => {
+    const node = document.getElementById(toastId);
+    if (node) {
+      node.remove();
+    }
+  }, 3200);
+}
+
+function setButtonLoading(id, isLoading, idleLabel, loadingLabel) {
+  const button = document.getElementById(id);
+  if (!button) {
+    return;
+  }
+
+  button.classList.toggle("is-loading", isLoading);
+  button.disabled = isLoading;
+  button.textContent = isLoading ? loadingLabel : idleLabel;
+}
+
 function setAuthMode(mode) {
   authMode = mode === "signup" ? "signup" : "signin";
 
@@ -109,10 +142,14 @@ function setAuthMode(mode) {
 
 function openAuthModal(mode = "signin") {
   const modal = document.getElementById("authModal");
+  const emailInput = document.getElementById("email");
   if (modal) {
     setAuthMode(mode);
     modal.classList.add("is-visible");
     modal.setAttribute("aria-hidden", "false");
+    window.setTimeout(() => {
+      emailInput?.focus();
+    }, 30);
   }
 }
 
@@ -252,6 +289,37 @@ function initRevealAnimations() {
   revealElements.forEach((element) => observer.observe(element));
 }
 
+function initActiveNav() {
+  const links = Array.from(document.querySelectorAll(".nav-link"));
+  const sections = links
+    .map((link) => {
+      const target = document.querySelector(link.getAttribute("href"));
+      return target ? { link, target } : null;
+    })
+    .filter(Boolean);
+
+  if (!sections.length) {
+    return;
+  }
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) {
+        return;
+      }
+
+      sections.forEach(({ link, target }) => {
+        link.classList.toggle("is-active", target === entry.target);
+      });
+    });
+  }, {
+    threshold: 0.45,
+    rootMargin: "-20% 0px -35% 0px"
+  });
+
+  sections.forEach(({ target }) => observer.observe(target));
+}
+
 async function submitAuthAction() {
   if (authMode === "signup") {
     await handleSignup();
@@ -364,21 +432,32 @@ function resetUI() {
 async function handleSignup() {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
+  setButtonLoading("primaryAuthAction", true, "Create Account", "Creating account...");
   const { error } = await supabaseClient.auth.signUp({ email, password });
-  if (error) alert(error.message);
-  else alert("Check your email to confirm");
+  setButtonLoading("primaryAuthAction", false, authMode === "signup" ? "Create Account" : "Sign In", "Creating account...");
+  if (error) {
+    showToast("Signup failed", error.message, "error");
+  } else {
+    showToast("Check your inbox", "Your account was created. Confirm your email to continue.", "success");
+  }
 }
 
 async function handleLogin() {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
+  setButtonLoading("primaryAuthAction", true, "Sign In", "Signing in...");
   const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-  if (error) alert(error.message);
+  setButtonLoading("primaryAuthAction", false, authMode === "signup" ? "Create Account" : "Sign In", "Signing in...");
+  if (error) {
+    showToast("Login failed", error.message, "error");
+  } else {
+    showToast("Signed in", "Your workspace is ready.", "success");
+  }
 }
 
 async function logout() {
   await supabaseClient.auth.signOut();
-  alert("Logged out");
+  showToast("Signed out", "You have been logged out of OrcaFind.", "success");
 }
 
 async function loginWithGoogle() {
@@ -389,7 +468,9 @@ async function loginWithGoogle() {
     }
   });
 
-  if (error) alert(error.message);
+  if (error) {
+    showToast("Google sign-in failed", error.message, "error");
+  }
 }
 
 document.addEventListener("keydown", (event) => {
@@ -400,6 +481,7 @@ document.addEventListener("keydown", (event) => {
 
 document.addEventListener("DOMContentLoaded", () => {
   initRevealAnimations();
+  initActiveNav();
   initComposerMetrics();
   setHeroSnapshot(heroSnapshots[heroRotationIndex]);
   startHeroRotation();
@@ -417,12 +499,12 @@ async function generate() {
 
   if (!session) {
     openAuthModal("signin");
-    alert("Authentication required. Please login with Google or Email.");
+    showToast("Authentication required", "Sign in to access protected content generation.", "error");
     return;
   }
 
   if (!text.trim()) {
-    alert("Please enter some content");
+    showToast("Missing content", "Paste some source content before generating posts.", "error");
     return;
   }
 
@@ -467,6 +549,7 @@ async function generate() {
         "output",
         `<div class="platform-card"><div class="platform-header"><span>Request Error</span><span class="platform-badge">Needs attention</span></div><div class="box">${data.detail || "API Error"}</div></div>`
       );
+      showToast("Generation failed", data.detail || "API Error", "error");
       return;
     }
 
@@ -487,12 +570,14 @@ async function generate() {
       </div>
     `
     );
+    showToast("Posts generated", "Your X and LinkedIn drafts are ready.", "success");
 
   } catch (err) {
     setHTML(
       "output",
       `<div class="platform-card"><div class="platform-header"><span>Connection Error</span><span class="platform-badge">Offline</span></div><div class="box">Error connecting to API: ${err.message}</div></div>`
     );
+    showToast("Connection error", `Error connecting to API: ${err.message}`, "error");
   } finally {
     button.innerText = "Generate Posts";
     button.disabled = false;
@@ -505,6 +590,6 @@ function copyText() {
   const output = document.getElementById("output");
   if (output && output.innerText.trim()) {
     navigator.clipboard.writeText(output.innerText);
-    alert("Copied to clipboard");
+    showToast("Copied", "All generated results were copied to your clipboard.", "success");
   }
 }
