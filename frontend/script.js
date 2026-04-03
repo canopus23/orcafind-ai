@@ -167,6 +167,28 @@ function handleModalBackdrop(event) {
   }
 }
 
+function openProfileModal() {
+  const modal = document.getElementById("profileModal");
+  if (modal) {
+    modal.classList.add("is-visible");
+    modal.setAttribute("aria-hidden", "false");
+  }
+}
+
+function closeProfileModal() {
+  const modal = document.getElementById("profileModal");
+  if (modal) {
+    modal.classList.remove("is-visible");
+    modal.setAttribute("aria-hidden", "true");
+  }
+}
+
+function handleProfileBackdrop(event) {
+  if (event.target?.id === "profileModal") {
+    closeProfileModal();
+  }
+}
+
 function setHeroSnapshot(snapshot) {
   const ids = [
     "metricPrimaryValue",
@@ -376,8 +398,8 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
 function updateUIForUser(user) {
   const emailInput = document.getElementById("email");
   const passwordInput = document.getElementById("password");
-  const signedOutPanel = document.getElementById("accountSignedOut");
-  const signedInPanel = document.getElementById("accountSignedIn");
+  const signedOutWrapper = document.getElementById("accountSignedOutWrapper");
+  const signedInHint = document.getElementById("accountSignedInHint");
   const headerProfile = document.getElementById("headerProfile");
   const headerAuth = document.getElementById("headerAuth");
   const displayName = getDisplayName(user);
@@ -390,11 +412,11 @@ function updateUIForUser(user) {
   if (passwordInput) {
     passwordInput.value = "";
   }
-  if (signedOutPanel) {
-    signedOutPanel.classList.add("is-hidden");
+  if (signedOutWrapper) {
+    signedOutWrapper.classList.add("is-hidden");
   }
-  if (signedInPanel) {
-    signedInPanel.classList.remove("is-hidden");
+  if (signedInHint) {
+    signedInHint.classList.remove("is-hidden");
   }
   if (headerProfile) {
     headerProfile.classList.add("is-visible");
@@ -413,6 +435,7 @@ function updateUIForUser(user) {
   setAvatar("profileAvatar", displayName);
   setAvatar("headerAvatar", displayName);
   closeAuthModal();
+  closeProfileModal();
 
   console.log("User is authenticated:", email);
 }
@@ -420,8 +443,8 @@ function updateUIForUser(user) {
 function resetUI() {
   const emailInput = document.getElementById("email");
   const passwordInput = document.getElementById("password");
-  const signedOutPanel = document.getElementById("accountSignedOut");
-  const signedInPanel = document.getElementById("accountSignedIn");
+  const signedOutWrapper = document.getElementById("accountSignedOutWrapper");
+  const signedInHint = document.getElementById("accountSignedInHint");
   const headerProfile = document.getElementById("headerProfile");
   const headerAuth = document.getElementById("headerAuth");
 
@@ -432,11 +455,11 @@ function resetUI() {
   if (passwordInput) {
     passwordInput.value = "";
   }
-  if (signedOutPanel) {
-    signedOutPanel.classList.remove("is-hidden");
+  if (signedOutWrapper) {
+    signedOutWrapper.classList.remove("is-hidden");
   }
-  if (signedInPanel) {
-    signedInPanel.classList.add("is-hidden");
+  if (signedInHint) {
+    signedInHint.classList.add("is-hidden");
   }
   if (headerProfile) {
     headerProfile.classList.remove("is-visible");
@@ -455,6 +478,7 @@ function resetUI() {
   setAvatar("profileAvatar", "OrcaFind");
   setAvatar("headerAvatar", "OrcaFind");
   closeAuthModal();
+  closeProfileModal();
   setAuthMode("signin");
 }
 
@@ -488,6 +512,7 @@ async function handleLogin() {
 
 async function logout() {
   await supabaseClient.auth.signOut();
+  closeProfileModal();
   showToast("Signed out", "You have been logged out of OrcaFind.", "success");
 }
 
@@ -507,6 +532,7 @@ async function loginWithGoogle() {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     closeAuthModal();
+    closeProfileModal();
   }
 });
 
@@ -517,6 +543,16 @@ document.addEventListener("DOMContentLoaded", () => {
   initStudioControls();
   setHeroSnapshot(heroSnapshots[heroRotationIndex]);
   startHeroRotation();
+
+  const headerProfile = document.getElementById("headerProfile");
+  if (headerProfile) {
+    headerProfile.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openProfileModal();
+      }
+    });
+  }
 });
 
 /* ---------- GENERATE ---------- */

@@ -198,10 +198,16 @@
       background: rgba(255, 255, 255, 0.88);
       border: 1px solid rgba(111, 132, 163, 0.18);
       box-shadow: 0 10px 24px rgba(15, 35, 76, 0.08);
+      cursor: pointer;
     }
 
     .header-profile.is-visible {
       display: inline-flex;
+    }
+
+    .header-profile:focus-visible {
+      outline: 3px solid rgba(19, 103, 255, 0.18);
+      outline-offset: 4px;
     }
 
     .profile-avatar {
@@ -821,6 +827,10 @@
       gap: 12px;
     }
 
+    .is-hidden {
+      display: none !important;
+    }
+
     .auth-form.is-hidden,
     .account-signed-in.is-hidden,
     .account-signed-out.is-hidden {
@@ -900,6 +910,10 @@
       border: 1px solid rgba(111, 132, 163, 0.18);
       box-shadow: 0 28px 80px rgba(11, 26, 56, 0.2);
       animation: modal-rise 0.24s ease;
+    }
+
+    .profile-dialog {
+      width: min(100%, 520px);
     }
 
     .auth-dialog-top {
@@ -1321,7 +1335,7 @@
             <button class="btn btn-ghost auth-trigger" onclick="openAuthModal('signin')">Sign In</button>
             <button class="btn btn-primary auth-trigger" onclick="openAuthModal('signup')">Sign Up</button>
           </div>
-          <div id="headerProfile" class="header-profile" aria-live="polite">
+          <div id="headerProfile" class="header-profile" role="button" tabindex="0" aria-live="polite" onclick="openProfileModal()">
             <div id="headerAvatar" class="profile-avatar">O</div>
             <div class="profile-copy">
               <strong id="headerProfileName">Workspace user</strong>
@@ -1503,50 +1517,37 @@
           </div>
 
           <aside class="account-panel">
-            <div class="account-status">
-              <div class="status-row">
-                <strong id="accountStatusTitle">Workspace access</strong>
-                <span id="accountStatusChip" class="status-chip">Authentication enabled</span>
+            <div id="accountSignedOutWrapper">
+              <div class="account-status">
+                <div class="status-row">
+                  <strong id="accountStatusTitle">Workspace access</strong>
+                  <span id="accountStatusChip" class="status-chip">Authentication enabled</span>
+                </div>
+                <p id="accountStatusBody">Use your OrcaFind account to unlock protected generation endpoints and keep your content workflow secure.</p>
               </div>
-              <p id="accountStatusBody">Use your OrcaFind account to unlock protected generation endpoints and keep your content workflow secure.</p>
+
+              <div id="accountSignedOut" class="account-signed-out">
+                <div class="auth-screen-card">
+                  <h3>Sign in when you are ready to generate.</h3>
+                  <p>Authentication now starts from the top-right actions, which keeps the workspace cleaner and makes the flow feel more like a practical SaaS product.</p>
+                  <div class="auth-actions">
+                    <button class="btn btn-primary" onclick="openAuthModal('signin')">Open Sign In</button>
+                    <button class="btn btn-secondary" onclick="openAuthModal('signup')">Open Sign Up</button>
+                  </div>
+                </div>
+
+                <div class="auth-hint">
+                  Best for SaaS teams using founder-led distribution, product marketing launches, and lightweight social workflows without a full editorial stack.
+                </div>
+              </div>
             </div>
 
-            <div id="accountSignedOut" class="account-signed-out">
-              <div class="auth-screen-card">
-                <h3>Sign in when you are ready to generate.</h3>
-                <p>Authentication now starts from the top-right actions, which keeps the workspace cleaner and makes the flow feel more like a practical SaaS product.</p>
-                <div class="auth-actions">
-                  <button class="btn btn-primary" onclick="openAuthModal('signin')">Open Sign In</button>
-                  <button class="btn btn-secondary" onclick="openAuthModal('signup')">Open Sign Up</button>
-                </div>
+            <div id="accountSignedInHint" class="auth-screen-card is-hidden">
+              <h3>You are signed in.</h3>
+              <p>Your account details and session controls are available from the profile badge in the top-right.</p>
+              <div class="auth-actions">
+                <button class="btn btn-primary" onclick="openProfileModal()">Open Profile</button>
               </div>
-
-              <div class="auth-hint">
-                Best for SaaS teams using founder-led distribution, product marketing launches, and lightweight social workflows without a full editorial stack.
-              </div>
-            </div>
-
-            <div id="accountSignedIn" class="account-signed-in is-hidden">
-              <div class="profile-card">
-                <div id="profileAvatar" class="profile-avatar">O</div>
-                <div class="profile-meta">
-                  <h4 id="profileName">Workspace user</h4>
-                  <p id="profileEmail">Signed in and ready to generate content.</p>
-                </div>
-              </div>
-
-              <div class="signed-in-list">
-                <div class="signed-in-item">
-                  <strong>Workspace status</strong>
-                  Your session is active. Protected content generation is available now.
-                </div>
-                <div class="signed-in-item">
-                  <strong>Practical next step</strong>
-                  Paste your source content into the studio and generate platform-ready posts in one click.
-                </div>
-              </div>
-
-              <button class="btn btn-ghost" style="color: var(--danger);" onclick="logout()">Sign Out</button>
             </div>
 
             <div class="mini-metrics">
@@ -1675,6 +1676,39 @@
             <button class="btn btn-secondary" onclick="loginWithGoogle()">Continue with Google</button>
           </div>
         </div>
+      </div>
+    </div>
+
+    <div id="profileModal" class="auth-modal" aria-hidden="true" onclick="handleProfileBackdrop(event)">
+      <div class="auth-dialog profile-dialog" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
+        <div class="auth-dialog-top">
+          <div>
+            <h3 id="profileModalTitle">Profile</h3>
+            <p>Manage your session and view your workspace details.</p>
+          </div>
+          <button class="btn btn-ghost auth-close" aria-label="Close profile dialog" onclick="closeProfileModal()">×</button>
+        </div>
+
+        <div class="profile-card" style="margin-bottom: 14px;">
+          <div id="profileAvatar" class="profile-avatar">O</div>
+          <div class="profile-meta">
+            <h4 id="profileName">Workspace user</h4>
+            <p id="profileEmail">Signed in and ready to generate content.</p>
+          </div>
+        </div>
+
+        <div class="signed-in-list" style="margin-bottom: 14px;">
+          <div class="signed-in-item">
+            <strong>Workspace status</strong>
+            Your session is active. Protected content generation is available now.
+          </div>
+          <div class="signed-in-item">
+            <strong>Practical next step</strong>
+            Paste your source content into the studio and generate platform-ready posts in one click.
+          </div>
+        </div>
+
+        <button class="btn btn-ghost" style="color: var(--danger); width: 100%;" onclick="logout()">Sign Out</button>
       </div>
     </div>
 
