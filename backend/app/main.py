@@ -1,11 +1,11 @@
 import os
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 import uvicorn
 
 # Ensure these imports match the actual file paths and function names
 from app.dependencies.auth import verify_user
+from app.schemas.request import ContentRequest
 from app.services.ai_service import generate_social_content
 
 app = FastAPI(title="OrcaFind AI API")
@@ -28,10 +28,6 @@ app.add_middleware(
     allow_headers=["*"],    # Allows Content-Type, Authorization, etc.
 )
 
-# Define the expected JSON body for the request
-class ContentRequest(BaseModel):
-    text: str
-
 @app.get("/")
 async def root():
     return {"status": "online", "message": "OrcaFind API is operational"}
@@ -47,7 +43,7 @@ async def repurpose_content(req: ContentRequest, user=Depends(verify_user)):
             raise HTTPException(status_code=400, detail="Input text cannot be empty")
             
         # Process content via AI service
-        result = generate_social_content(req.text)
+        result = generate_social_content(req.text, x_style=req.x_style, content_format=req.format)
         return {"result": result}
     except HTTPException:
         raise

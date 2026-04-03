@@ -271,6 +271,37 @@ function initComposerMetrics() {
   updateComposerMetrics();
 }
 
+function updateStudioOutputTags() {
+  const xStyle = document.getElementById("xStyle");
+  const format = document.getElementById("contentFormat");
+  const outputTag = document.getElementById("outputTag");
+  const formatTag = document.getElementById("formatTag");
+
+  if (!xStyle || !format || !outputTag || !formatTag) {
+    return;
+  }
+
+  const xStyleValue = xStyle.value === "single" ? "single post" : "thread";
+  const formatValue = format.value || "professional";
+
+  outputTag.textContent = `Output: X ${xStyleValue} + LinkedIn`;
+  formatTag.textContent = `Format: ${formatValue.replace("-", " ")}`;
+}
+
+function initStudioControls() {
+  const xStyle = document.getElementById("xStyle");
+  const format = document.getElementById("contentFormat");
+
+  if (xStyle) {
+    xStyle.addEventListener("change", updateStudioOutputTags);
+  }
+  if (format) {
+    format.addEventListener("change", updateStudioOutputTags);
+  }
+
+  updateStudioOutputTags();
+}
+
 function initRevealAnimations() {
   const revealElements = document.querySelectorAll(".reveal");
   if (!revealElements.length) {
@@ -483,6 +514,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initRevealAnimations();
   initActiveNav();
   initComposerMetrics();
+  initStudioControls();
   setHeroSnapshot(heroSnapshots[heroRotationIndex]);
   startHeroRotation();
 });
@@ -493,6 +525,8 @@ async function generate() {
   const text = document.getElementById("inputText").value;
   const button = document.getElementById("generateBtn");
   const output = document.getElementById("output");
+  const xStyle = document.getElementById("xStyle")?.value || "thread";
+  const contentFormat = document.getElementById("contentFormat")?.value || "professional";
 
   // Re-fetch session specifically at time of click to get the access_token
   const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
@@ -539,7 +573,7 @@ async function generate() {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${session.access_token}` // Send the JWT to the backend
       },
-      body: JSON.stringify({ text })
+      body: JSON.stringify({ text, x_style: xStyle, format: contentFormat })
     });
 
     const data = await response.json();
@@ -553,15 +587,15 @@ async function generate() {
       return;
     }
 
-    // Logic assumes API returns text separated by "LinkedIn"
-    const parts = data.result.split("LinkedIn");
+    // Prefer a stable delimiter ("LinkedIn:") from backend prompt.
+    const parts = data.result.split("LinkedIn:");
 
     setHTML(
       "output",
       `
       <div class="platform-card">
-        <div class="platform-header"><span>Twitter / X</span><span class="platform-badge">Short-form</span></div>
-        <div class="box">${parts[0].trim()}</div>
+        <div class="platform-header"><span>Twitter / X</span><span class="platform-badge">${xStyle === "single" ? "Single" : "Thread"}</span></div>
+        <div class="box">${parts[0].replace(/^X:\\s*/i, "").trim()}</div>
       </div>
 
       <div class="platform-card">

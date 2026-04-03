@@ -1429,10 +1429,32 @@
                 <h3>Generate polished posts from one source of truth.</h3>
                 <p>Paste an article, transcript, release note, or raw idea. OrcaFind will convert it into social-ready drafts designed for distribution.</p>
               </div>
-              <span class="pill">Model pipeline: GPT-4o</span>
             </div>
 
             <div id="workspaceFrame" class="workspace-frame">
+              <div class="composer-meta" style="margin-top: 0;">
+                <div class="meta-cluster">
+                  <strong>Output</strong>
+                  <span class="tag">
+                    X:
+                    <select id="xStyle" aria-label="X output style" style="border: none; background: transparent; font-weight: 800; color: inherit;">
+                      <option value="single">Single post</option>
+                      <option value="thread" selected>Thread</option>
+                    </select>
+                  </span>
+                  <span class="tag">
+                    Format:
+                    <select id="contentFormat" aria-label="Content format" style="border: none; background: transparent; font-weight: 800; color: inherit;">
+                      <option value="professional" selected>Professional</option>
+                      <option value="casual">Casual</option>
+                      <option value="educational">Educational</option>
+                      <option value="story">Story-driven</option>
+                      <option value="launch">Product launch</option>
+                    </select>
+                  </span>
+                </div>
+              </div>
+
               <textarea id="inputText" placeholder="Paste your article, transcript, launch note, or raw thoughts here..."></textarea>
 
               <div class="composer-meta">
@@ -1450,8 +1472,8 @@
 
               <div class="action-bar">
                 <div class="action-meta">
-                  <span class="tag">Output: X + LinkedIn</span>
-                  <span class="tag">Format: concise, high-signal, reusable</span>
+                  <span id="outputTag" class="tag">Output: X thread + LinkedIn</span>
+                  <span id="formatTag" class="tag">Format: professional</span>
                 </div>
                 <button id="generateBtn" class="btn btn-primary" onclick="generate()">Generate Posts</button>
               </div>
