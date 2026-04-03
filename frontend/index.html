@@ -1490,25 +1490,9 @@
                 <button id="generateBtn" class="btn btn-primary" onclick="generate()">Generate Posts</button>
               </div>
 
-              <div id="output" class="output-grid">
-                <div class="platform-card">
-                  <div class="platform-header">
-                    <span>Twitter / X</span>
-                    <span class="platform-badge">Ready to generate</span>
-                  </div>
-                  <div class="box">Your generated short-form post will appear here after you run the workflow.</div>
-                </div>
+              <div id="output" class="output-grid is-hidden"></div>
 
-                <div class="platform-card">
-                  <div class="platform-header">
-                    <span>LinkedIn</span>
-                    <span class="platform-badge">Long-form social</span>
-                  </div>
-                  <div class="box">The LinkedIn draft will appear here with a clearer structure and more professional pacing.</div>
-                </div>
-              </div>
-
-              <div class="footer-actions">
+              <div id="copyActions" class="footer-actions is-hidden">
                 <button class="btn btn-ghost" onclick="copyText()">Copy All Results</button>
               </div>
             </div>

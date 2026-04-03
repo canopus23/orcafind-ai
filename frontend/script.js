@@ -373,6 +373,18 @@ function initActiveNav() {
   sections.forEach(({ target }) => observer.observe(target));
 }
 
+function setResultsVisibility(isVisible) {
+  const output = document.getElementById("output");
+  const copyActions = document.getElementById("copyActions");
+
+  if (output) {
+    output.classList.toggle("is-hidden", !isVisible);
+  }
+  if (copyActions) {
+    copyActions.classList.toggle("is-hidden", !isVisible);
+  }
+}
+
 async function submitAuthAction() {
   if (authMode === "signup") {
     await handleSignup();
@@ -479,6 +491,7 @@ function resetUI() {
   setAvatar("headerAvatar", "OrcaFind");
   closeAuthModal();
   closeProfileModal();
+  setResultsVisibility(false);
   setAuthMode("signin");
 }
 
@@ -543,6 +556,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initStudioControls();
   setHeroSnapshot(heroSnapshots[heroRotationIndex]);
   startHeroRotation();
+  setResultsVisibility(false);
 
   const headerProfile = document.getElementById("headerProfile");
   if (headerProfile) {
@@ -577,6 +591,8 @@ async function generate() {
     showToast("Missing content", "Paste some source content before generating posts.", "error");
     return;
   }
+
+  setResultsVisibility(true);
 
   button.innerText = "Processing...";
   button.disabled = true;
