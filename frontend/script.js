@@ -6,6 +6,7 @@ let authMode = "signin";
 let heroRotationIndex = 0;
 let heroRotationTimer;
 let toastTimerSeed = 0;
+let lastGenerated = { x: "", linkedin: "" };
 
 const heroSnapshots = [
   {
@@ -375,13 +376,24 @@ function initActiveNav() {
 
 function setResultsVisibility(isVisible) {
   const output = document.getElementById("output");
-  const copyActions = document.getElementById("copyActions");
 
   if (output) {
     output.classList.toggle("is-hidden", !isVisible);
   }
-  if (copyActions) {
-    copyActions.classList.toggle("is-hidden", !isVisible);
+}
+
+async function copyPlatform(which) {
+  const text = which === "linkedin" ? lastGenerated.linkedin : lastGenerated.x;
+  if (!text || !text.trim()) {
+    showToast("Nothing to copy", "Generate results first.", "error");
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(text.trim());
+    showToast("Copied", `${which === "linkedin" ? "LinkedIn" : "X"} content copied to clipboard.`, "success");
+  } catch (err) {
+    showToast("Copy failed", "Your browser blocked clipboard access.", "error");
   }
 }
 
@@ -641,18 +653,34 @@ async function generate() {
 
     // Prefer a stable delimiter ("LinkedIn:") from backend prompt.
     const parts = data.result.split("LinkedIn:");
+    const xText = (parts[0] || "").replace(/^X:\\s*/i, "").trim();
+    const linkedinText = (parts[1] || "").trim();
+
+    lastGenerated = { x: xText, linkedin: linkedinText };
 
     setHTML(
       "output",
       `
       <div class="platform-card">
-        <div class="platform-header"><span>Twitter / X</span><span class="platform-badge">${xStyle === "single" ? "Variations" : "Thread"}</span></div>
-        <div class="box">${parts[0].replace(/^X:\\s*/i, "").trim()}</div>
+        <div class="platform-header">
+          <span>Twitter / X</span>
+          <span class="platform-actions">
+            <span class="platform-badge">${xStyle === "single" ? "Variations" : "Thread"}</span>
+            <button class="btn btn-ghost btn-mini" onclick="copyPlatform('x')">Copy</button>
+          </span>
+        </div>
+        <div class="box">${xText}</div>
       </div>
 
       <div class="platform-card">
-        <div class="platform-header"><span>LinkedIn</span><span class="platform-badge">Professional</span></div>
-        <div class="box">${(parts[1] || "").trim()}</div>
+        <div class="platform-header">
+          <span>LinkedIn</span>
+          <span class="platform-actions">
+            <span class="platform-badge">Formatted</span>
+            <button class="btn btn-ghost btn-mini" onclick="copyPlatform('linkedin')">Copy</button>
+          </span>
+        </div>
+        <div class="box">${linkedinText}</div>
       </div>
     `
     );
@@ -672,10 +700,4 @@ async function generate() {
 
 /* ---------- UTILS ---------- */
 
-function copyText() {
-  const output = document.getElementById("output");
-  if (output && output.innerText.trim()) {
-    navigator.clipboard.writeText(output.innerText);
-    showToast("Copied", "All generated results were copied to your clipboard.", "success");
-  }
-}
+// Intentionally no "Copy all results" button; each platform card has its own copy action.
