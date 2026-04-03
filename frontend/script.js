@@ -306,7 +306,7 @@ function updateStudioOutputTags() {
   const xStyleValue = xStyle.value === "single" ? "single post" : "thread";
   const formatValue = format.value || "professional";
 
-  outputTag.textContent = `Output: X ${xStyleValue} + LinkedIn`;
+  outputTag.textContent = `Output: X ${xStyle.value === "single" ? "post variations" : "thread"} + LinkedIn`;
   formatTag.textContent = `Format: ${formatValue.replace("-", " ")}`;
 }
 
@@ -630,7 +630,7 @@ async function generate() {
       "output",
       `
       <div class="platform-card">
-        <div class="platform-header"><span>Twitter / X</span><span class="platform-badge">${xStyle === "single" ? "Single" : "Thread"}</span></div>
+        <div class="platform-header"><span>Twitter / X</span><span class="platform-badge">${xStyle === "single" ? "Variations" : "Thread"}</span></div>
         <div class="box">${parts[0].replace(/^X:\\s*/i, "").trim()}</div>
       </div>
 
