@@ -10,7 +10,9 @@ from app.dependencies.auth import verify_user
 from app.schemas.billing import RazorpayCreateOrderRequest, RazorpayVerifyRequest
 from app.schemas.request import ContentRequest
 from app.schemas.video import VideoShortsRequest
+from app.schemas.images import ImageGenerateRequest
 from app.services.ai_service import generate_social_content
+from app.services.image_service import generate_placeholder_images
 from app.services.razorpay_service import create_order as razorpay_create_order, get_razorpay_key_id, verify_signature
 from app.services.subscriptions import (
     grant_pro,
@@ -19,6 +21,8 @@ from app.services.subscriptions import (
     get_user_for_order,
     get_video_usage,
     record_video_usage,
+    get_image_usage,
+    record_image_usage,
 )
 from app.services.video_jobs import create_job, get_job as get_video_job, run_job
 
@@ -99,6 +103,10 @@ async def entitlements(user=Depends(verify_user)):
     free_video_limit = int(os.getenv("FREE_VIDEO_LIMIT_TOTAL", "1"))
     used = get_video_usage(user_id) if not premium else 0
     remaining = max(0, free_video_limit - used) if not premium else 10_000
+
+    free_image_limit = int(os.getenv("FREE_IMAGE_GENERATIONS_TOTAL", "20"))
+    used_images = get_image_usage(user_id) if not premium else 0
+    remaining_images = max(0, free_image_limit - used_images) if not premium else 10_000
     return {
         "plan": "admin" if admin else ("pro" if premium else "free"),
         "is_admin": admin,
@@ -107,12 +115,34 @@ async def entitlements(user=Depends(verify_user)):
             "x_single_variants": 4 if premium else 2,
             "x_thread_tweets_min": 4,
             "x_thread_tweets_max": 10 if premium else 7,
-            "video_shorts_total": 10_000 if premium else free_video_limit,
-            "video_shorts_used": used,
-            "video_shorts_remaining": remaining,
-            "video_shorts_quality": "hd" if premium else "watermarked_lowres",
+            "image_generations_total": 10_000 if premium else free_image_limit,
+            "image_generations_used": used_images,
+            "image_generations_remaining": remaining_images,
         },
     }
+
+
+@app.post("/images/generate")
+async def generate_images(req: ImageGenerateRequest, user=Depends(verify_user)):
+    admin = is_admin_user(user)
+    premium = admin or is_premium_user(user)
+    user_id = str(user.get("sub") or "user")
+
+    if not premium:
+        free_image_limit = int(os.getenv("FREE_IMAGE_GENERATIONS_TOTAL", "20"))
+        used_images = get_image_usage(user_id)
+        if used_images >= free_image_limit:
+            raise HTTPException(status_code=402, detail="Upgrade to Pro to generate more images")
+        # Count-based accounting to match UI "count" selector.
+        record_image_usage(user_id, n=req.count)
+
+    images = generate_placeholder_images(
+        brief=req.brief,
+        style=req.style,
+        aspect=req.aspect,
+        count=req.count,
+    )
+    return {"images": images}
 
 @app.post("/billing/razorpay/order")
 async def razorpay_create(req: RazorpayCreateOrderRequest, user=Depends(verify_user)):

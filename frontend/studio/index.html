@@ -531,7 +531,7 @@
               </div>
               <div class="studio-segment" role="tablist" aria-label="Studio mode">
                 <button id="studioTabText" class="studio-tab is-active" role="tab" aria-selected="true" onclick="setStudioMode('text')">Text Posts</button>
-                <button id="studioTabVideo" class="studio-tab" role="tab" aria-selected="false" onclick="setStudioMode('video')">AI Video</button>
+                <button id="studioTabImages" class="studio-tab" role="tab" aria-selected="false" onclick="setStudioMode('images')">AI Images</button>
               </div>
             </div>
 
@@ -587,22 +587,22 @@
             </div>
             </div>
 
-            <div id="studioVideoPanel" class="is-hidden">
+            <div id="studioImagesPanel" class="is-hidden">
             <div class="workspace-frame" style="margin-top: 18px;">
               <div class="studio-topbar" style="margin-bottom: 14px;">
                 <div class="studio-topbar-copy">
-                  <span>AI Video</span>
-                  <h3 style="margin-bottom: 6px;">Turn a YouTube link into a short video post.</h3>
-                  <p>Free: generate 1 low-resolution video with a watermark. Pro: HD exports without a watermark.</p>
-                  <div id="videoLimitHint" class="auth-hint" style="margin-top: 10px;"></div>
+                  <span>AI Images</span>
+                  <h3 style="margin-bottom: 6px;">Generate post-ready images for X and LinkedIn.</h3>
+                  <p>Create on-brand visuals from your source content. Use them as post covers, quote cards, or carousel-style graphics.</p>
+                  <div id="imageLimitHint" class="auth-hint" style="margin-top: 10px;"></div>
                 </div>
               </div>
 
               <div class="composer-meta" style="margin-top: 0;">
                 <div class="meta-cluster" style="flex: 1;">
                   <span class="tag" style="width: 100%;">
-                    <strong style="margin-right: 10px;">YouTube URL</strong>
-                    <input id="ytUrl" placeholder="https://www.youtube.com/watch?v=..." style="border: none; background: transparent; padding: 0; width: 100%;">
+                    <strong style="margin-right: 10px;">Visual brief</strong>
+                    <input id="imageBrief" placeholder="Minimal SaaS cover art for a post about: ..." style="border: none; background: transparent; padding: 0; width: 100%;">
                   </span>
                 </div>
               </div>
@@ -610,29 +610,39 @@
               <div class="composer-meta" style="margin-top: 12px;">
                 <div class="meta-cluster">
                   <span class="tag">
-                    Duration:
-                    <select id="videoDuration" aria-label="Video duration" style="border: none; background: transparent; font-weight: 800; color: inherit;">
-                      <option value="15">15s</option>
-                      <option value="30" selected>30s</option>
-                      <option value="60">60s</option>
+                    Size:
+                    <select id="imageAspect" aria-label="Image size" style="border: none; background: transparent; font-weight: 800; color: inherit;">
+                      <option value="square" selected>Square (1:1)</option>
+                      <option value="portrait">Portrait (4:5)</option>
+                      <option value="landscape">Landscape (16:9)</option>
                     </select>
                   </span>
                   <span class="tag">
                     Style:
-                    <select id="videoStyle" aria-label="Video style" style="border: none; background: transparent; font-weight: 800; color: inherit;">
-                      <option value="captioned" selected>Captioned</option>
-                      <option value="kinetic">Kinetic text</option>
-                      <option value="minimal">Minimal</option>
+                    <select id="imageStyle" aria-label="Image style" style="border: none; background: transparent; font-weight: 800; color: inherit;">
+                      <option value="saas_minimal" selected>SaaS minimal</option>
+                      <option value="abstract_gradient">Abstract gradient</option>
+                      <option value="product_mock">Product mock</option>
+                      <option value="illustration">Illustration</option>
+                    </select>
+                  </span>
+                  <span class="tag">
+                    Count:
+                    <select id="imageCount" aria-label="Image count" style="border: none; background: transparent; font-weight: 800; color: inherit;">
+                      <option value="2">2</option>
+                      <option value="3" selected>3</option>
+                      <option value="4">4</option>
+                      <option value="6">6</option>
                     </select>
                   </span>
                 </div>
                 <div class="meta-cluster">
-                  <button id="videoGenerateBtn" class="btn btn-primary" onclick="startVideoShorts()">Generate Video</button>
+                  <button id="imageGenerateBtn" class="btn btn-primary" onclick="startImageGeneration()">Generate Images</button>
                 </div>
               </div>
 
-              <div id="videoStatus" class="auth-hint is-hidden" style="margin-top: 12px;"></div>
-              <div id="videoResult" class="is-hidden" style="margin-top: 12px;"></div>
+              <div id="imageStatus" class="auth-hint is-hidden" style="margin-top: 12px;"></div>
+              <div id="imageResult" class="is-hidden" style="margin-top: 12px;"></div>
             </div>
             </div>
           </div>
@@ -731,8 +741,8 @@
             More X post variations and longer threads where it helps performance.
           </div>
           <div class="signed-in-item">
-            <strong>AI Video</strong>
-            Generate short video posts from YouTube links using Runway.
+            <strong>AI Images</strong>
+            Generate post-ready images and cover art from your source content.
           </div>
         </div>
 

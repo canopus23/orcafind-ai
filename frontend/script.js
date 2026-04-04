@@ -15,13 +15,11 @@ let entitlements = {
     x_single_variants: 2,
     x_thread_tweets_min: 4,
     x_thread_tweets_max: 7,
-    video_shorts_total: 1,
-    video_shorts_used: 0,
-    video_shorts_remaining: 1,
-    video_shorts_quality: "watermarked_lowres",
+    image_generations_total: 20,
+    image_generations_used: 0,
+    image_generations_remaining: 20,
   },
 };
-let videoPollTimer;
 let studioMode = "text";
 
 const heroSnapshots = [
@@ -117,15 +115,47 @@ function showToast(title, message, type = "default") {
   }, 3200);
 }
 
-function setVideoUIState({ statusText, isBusy, resultUrl, qualityLabel } = {}) {
-  const statusEl = document.getElementById("videoStatus");
-  const resultEl = document.getElementById("videoResult");
-  const btn = document.getElementById("videoGenerateBtn");
+function setStudioMode(mode) {
+  studioMode = mode === "images" ? "images" : "text";
+  try {
+    window.localStorage.setItem("orcafind_studio_mode", studioMode);
+  } catch (_err) {}
+
+  const textPanel = document.getElementById("studioTextPanel");
+  const imagesPanel = document.getElementById("studioImagesPanel");
+  const tabText = document.getElementById("studioTabText");
+  const tabImages = document.getElementById("studioTabImages");
+
+  if (textPanel) textPanel.classList.toggle("is-hidden", studioMode !== "text");
+  if (imagesPanel) imagesPanel.classList.toggle("is-hidden", studioMode !== "images");
+
+  if (tabText) {
+    tabText.classList.toggle("is-active", studioMode === "text");
+    tabText.setAttribute("aria-selected", studioMode === "text" ? "true" : "false");
+  }
+  if (tabImages) {
+    tabImages.classList.toggle("is-active", studioMode === "images");
+    tabImages.setAttribute("aria-selected", studioMode === "images" ? "true" : "false");
+  }
+
+  if (studioMode === "text") {
+    const input = document.getElementById("inputText");
+    input?.focus?.();
+  } else {
+    const brief = document.getElementById("imageBrief");
+    brief?.focus?.();
+  }
+}
+
+function setImageUIState({ statusText, isBusy, images } = {}) {
+  const statusEl = document.getElementById("imageStatus");
+  const resultEl = document.getElementById("imageResult");
+  const btn = document.getElementById("imageGenerateBtn");
 
   if (btn) {
     btn.classList.toggle("is-loading", !!isBusy);
     btn.disabled = !!isBusy;
-    btn.textContent = isBusy ? "Generating..." : "Generate Video";
+    btn.textContent = isBusy ? "Generating..." : "Generate Images";
   }
 
   if (statusEl) {
@@ -138,114 +168,76 @@ function setVideoUIState({ statusText, isBusy, resultUrl, qualityLabel } = {}) {
     }
   }
 
-  if (resultEl) {
-    if (resultUrl) {
-      const badge = qualityLabel || (entitlements?.is_premium ? "HD" : "Low-res + watermark");
-      resultEl.classList.remove("is-hidden");
-      resultEl.innerHTML = `
+  if (!resultEl) return;
+  if (!images || !images.length) {
+    resultEl.classList.add("is-hidden");
+    resultEl.innerHTML = "";
+    return;
+  }
+
+  const cards = images
+    .map((img, idx) => {
+      const url = img.data_url || "";
+      const label = img.label || `Option ${idx + 1}`;
+      return `
         <div class="platform-card">
           <div class="platform-header">
-            <span>Video Result</span>
+            <span>${label}</span>
             <span class="platform-actions">
-              <span class="platform-badge">${badge}</span>
-              <a class="btn btn-ghost btn-mini" href="${resultUrl}" target="_blank" rel="noreferrer">Download</a>
+              <span class="platform-badge">PNG</span>
+              <a class="btn btn-ghost btn-mini" href="${url}" download="orcafind-post-${idx + 1}.png">Download</a>
             </span>
           </div>
-          <video controls style="width: 100%; border-radius: 16px; background: #0b1524;">
-            <source src="${resultUrl}" type="video/mp4" />
-          </video>
+          <img src="${url}" alt="${label}" style="width: 100%; border-radius: 16px; border: 1px solid rgba(111, 132, 163, 0.16); background: rgba(16, 35, 63, 0.06);" />
         </div>
       `;
-    } else {
-      resultEl.classList.add("is-hidden");
-      resultEl.innerHTML = "";
-    }
-  }
+    })
+    .join("");
+
+  resultEl.classList.remove("is-hidden");
+  resultEl.innerHTML = `<div class="output-grid" style="margin-top: 0;">${cards}</div>`;
 }
 
-function setStudioMode(mode) {
-  studioMode = mode === "video" ? "video" : "text";
-  try {
-    window.localStorage.setItem("orcafind_studio_mode", studioMode);
-  } catch (_err) {}
-
-  const textPanel = document.getElementById("studioTextPanel");
-  const videoPanel = document.getElementById("studioVideoPanel");
-  const tabText = document.getElementById("studioTabText");
-  const tabVideo = document.getElementById("studioTabVideo");
-
-  if (textPanel) textPanel.classList.toggle("is-hidden", studioMode !== "text");
-  if (videoPanel) videoPanel.classList.toggle("is-hidden", studioMode !== "video");
-
-  if (tabText) {
-    tabText.classList.toggle("is-active", studioMode === "text");
-    tabText.setAttribute("aria-selected", studioMode === "text" ? "true" : "false");
-  }
-  if (tabVideo) {
-    tabVideo.classList.toggle("is-active", studioMode === "video");
-    tabVideo.setAttribute("aria-selected", studioMode === "video" ? "true" : "false");
-  }
-
-  if (studioMode === "text") {
-    const input = document.getElementById("inputText");
-    input?.focus?.();
-  } else {
-    const yt = document.getElementById("ytUrl");
-    yt?.focus?.();
-  }
-}
-
-function stopVideoPolling() {
-  if (videoPollTimer) {
-    window.clearInterval(videoPollTimer);
-    videoPollTimer = undefined;
-  }
-}
-
-async function startVideoShorts() {
-  const remaining = Number(entitlements?.limits?.video_shorts_remaining ?? 0);
+async function startImageGeneration() {
+  const remaining = Number(entitlements?.limits?.image_generations_remaining ?? 0);
   if (!entitlements?.is_premium && remaining <= 0) {
-    showToast("Upgrade to Pro", "You have used your free video export. Upgrade for unlimited HD video.", "error");
+    showToast("Upgrade to Pro", "You have reached your image generation limit. Upgrade for more.", "error");
     openPremiumModal();
     return;
   }
 
-  const ytUrl = document.getElementById("ytUrl")?.value?.trim();
-  const duration = Number(document.getElementById("videoDuration")?.value || 30);
-  const style = document.getElementById("videoStyle")?.value || "captioned";
+  const briefRaw = document.getElementById("imageBrief")?.value?.trim() || "";
+  const aspect = document.getElementById("imageAspect")?.value || "square";
+  const style = document.getElementById("imageStyle")?.value || "saas_minimal";
+  const count = Number(document.getElementById("imageCount")?.value || 3);
+  const sourceText = document.getElementById("inputText")?.value?.trim() || "";
+  const brief = briefRaw || (sourceText ? `Create a post cover image for this content: ${sourceText.slice(0, 600)}` : "");
 
-  if (!ytUrl) {
-    showToast("Missing URL", "Paste a YouTube link to generate a short.", "error");
+  if (!brief) {
+    showToast("Missing brief", "Add a short visual brief or paste source content first.", "error");
     return;
   }
 
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (!session) {
     openAuthModal("signin");
-    showToast("Authentication required", "Sign in to generate AI video shorts.", "error");
+    showToast("Authentication required", "Sign in to generate images.", "error");
     return;
   }
 
-  if (!entitlements?.is_premium) {
-    showToast("Free export", "This export will be low-resolution and include a watermark.", "success");
-  }
-
-  setVideoUIState({ statusText: "Creating job in Runway…", isBusy: true, resultUrl: null });
-  stopVideoPolling();
-
+  setImageUIState({ statusText: "Generating image concepts…", isBusy: true, images: null });
   try {
-    const response = await fetch("https://api.orcafind.com/video/shorts", {
+    const response = await fetch("https://api.orcafind.com/images/generate", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${session.access_token}`,
       },
       body: JSON.stringify({
-        youtube_url: ytUrl,
-        duration_seconds: duration,
+        brief,
         style,
-        platform: "shorts",
-        captions: true,
+        aspect,
+        count: Math.max(1, Math.min(6, count)),
       }),
     });
 
@@ -254,54 +246,15 @@ async function startVideoShorts() {
       if (response.status === 402 || response.status === 403) {
         openPremiumModal();
       }
-      throw new Error(data?.detail || "Failed to create video job");
+      throw new Error(data?.detail || "Failed to generate images");
     }
 
-    const jobId = data.id;
-    setVideoUIState({ statusText: "Job started. Rendering video…", isBusy: true, resultUrl: null });
-    // Update remaining counts (free tier gets consumed at job creation).
+    setImageUIState({ statusText: null, isBusy: false, images: data.images || [] });
+    showToast("Images ready", "Your post images are ready to download.", "success");
     supabaseClient.auth.getSession().then(({ data }) => fetchEntitlements(data?.session?.access_token));
-
-    videoPollTimer = window.setInterval(async () => {
-      try {
-        const statusRes = await fetch(`https://api.orcafind.com/video/shorts/${jobId}`, {
-          method: "GET",
-          headers: { "Authorization": `Bearer ${session.access_token}` },
-        });
-        const statusData = await statusRes.json();
-        if (!statusRes.ok) {
-          throw new Error(statusData?.detail || "Failed to fetch job status");
-        }
-
-        if (statusData.status === "done" && statusData.result_url) {
-          stopVideoPolling();
-          const quality = statusData.quality || (entitlements?.is_premium ? "hd" : "watermarked_lowres");
-          const qualityLabel = quality === "watermarked_lowres" ? "Low-res + watermark" : "HD";
-          setVideoUIState({ statusText: null, isBusy: false, resultUrl: statusData.result_url, qualityLabel });
-          showToast("Video ready", quality === "watermarked_lowres" ? "Your watermarked export is ready." : "Your HD export is ready.", "success");
-          // Refresh limits after consumption.
-          supabaseClient.auth.getSession().then(({ data }) => fetchEntitlements(data?.session?.access_token));
-          return;
-        }
-
-        if (statusData.status === "failed") {
-          stopVideoPolling();
-          setVideoUIState({ statusText: null, isBusy: false, resultUrl: null });
-          showToast("Video failed", statusData.error || "Video generation failed.", "error");
-          return;
-        }
-
-        const progress = typeof statusData.progress === "number" ? statusData.progress : 0;
-        setVideoUIState({ statusText: `Rendering video… ${progress}%`, isBusy: true, resultUrl: null });
-      } catch (err) {
-        stopVideoPolling();
-        setVideoUIState({ statusText: null, isBusy: false, resultUrl: null });
-        showToast("Video status error", err.message || "Failed to poll job.", "error");
-      }
-    }, 3000);
   } catch (err) {
-    setVideoUIState({ statusText: null, isBusy: false, resultUrl: null });
-    showToast("Video request failed", err.message || "Failed to start video generation.", "error");
+    setImageUIState({ statusText: null, isBusy: false, images: null });
+    showToast("Image failed", err.message || "Failed to generate images.", "error");
   }
 }
 
@@ -426,10 +379,9 @@ async function fetchEntitlements(accessToken) {
         x_single_variants: 2,
         x_thread_tweets_min: 4,
         x_thread_tweets_max: 7,
-        video_shorts_total: 1,
-        video_shorts_used: 0,
-        video_shorts_remaining: 1,
-        video_shorts_quality: "watermarked_lowres",
+        image_generations_total: 20,
+        image_generations_used: 0,
+        image_generations_remaining: 20,
       },
     };
     applyEntitlementsToUI();
@@ -458,10 +410,9 @@ async function fetchEntitlements(accessToken) {
         x_single_variants: 2,
         x_thread_tweets_min: 4,
         x_thread_tweets_max: 7,
-        video_shorts_total: 1,
-        video_shorts_used: 0,
-        video_shorts_remaining: 1,
-        video_shorts_quality: "watermarked_lowres",
+        image_generations_total: 20,
+        image_generations_used: 0,
+        image_generations_remaining: 20,
       },
     };
   }
@@ -474,7 +425,7 @@ function applyEntitlementsToUI() {
   const format = document.getElementById("contentFormat");
   if (!format) {
     // Still allow non-studio pages to call this safely.
-    const hint = document.getElementById("videoLimitHint");
+    const hint = document.getElementById("imageLimitHint");
     if (hint) {
       hint.textContent = "";
     }
@@ -488,15 +439,15 @@ function applyEntitlementsToUI() {
     updateStudioOutputTags();
   }
 
-  const hint = document.getElementById("videoLimitHint");
+  const hint = document.getElementById("imageLimitHint");
   if (hint) {
     if (isAdmin) {
-      hint.textContent = "Admin: unlimited HD exports enabled (testing mode).";
+      hint.textContent = "Admin: unlimited image generations enabled (testing mode).";
     } else if (isPremium) {
-      hint.textContent = "Pro: HD exports enabled.";
+      hint.textContent = "Pro: higher image generation limits enabled.";
     } else {
-      const remaining = Number(entitlements?.limits?.video_shorts_remaining ?? 0);
-      hint.textContent = `Free exports remaining: ${remaining} (low-res + watermark).`;
+      const remaining = Number(entitlements?.limits?.image_generations_remaining ?? 0);
+      hint.textContent = `Free generations remaining: ${remaining}.`;
     }
   }
 }
@@ -897,11 +848,11 @@ document.addEventListener("DOMContentLoaded", () => {
   startHeroRotation();
   setResultsVisibility(false);
   supabaseClient.auth.getSession().then(({ data }) => fetchEntitlements(data?.session?.access_token));
-  setVideoUIState({ statusText: null, isBusy: false, resultUrl: null });
+  setImageUIState({ statusText: null, isBusy: false, images: null });
 
   try {
     const savedMode = window.localStorage.getItem("orcafind_studio_mode");
-    if (savedMode === "video" || savedMode === "text") {
+    if (savedMode === "images" || savedMode === "text") {
       studioMode = savedMode;
     }
   } catch (_err) {}

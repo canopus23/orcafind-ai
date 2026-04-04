@@ -1,4 +1,5 @@
 import os
+import json
 from typing import Any, Dict, Optional
 
 import httpx
@@ -41,12 +42,16 @@ class RunwayClient:
             "X-Runway-Version": self.version,
         }
 
-    async def _try_request(self, method: str, url: str, *, json: Optional[dict] = None) -> Dict[str, Any]:
+    async def _try_request(self, method: str, url: str, *, json_body: Optional[dict] = None) -> Dict[str, Any]:
         async with httpx.AsyncClient(timeout=60) as client:
-            response = await client.request(method, url, headers=self._headers(), json=json)
-            # Allow caller to handle detailed errors; keep this simple for now.
-            response.raise_for_status()
-            return response.json()
+            response = await client.request(method, url, headers=self._headers(), json=json_body)
+            if response.status_code >= 400:
+                body_preview = response.text[:800] if response.text else ""
+                raise RuntimeError(f"Runway API error {response.status_code} for {url}: {body_preview}")
+            try:
+                return response.json()
+            except json.JSONDecodeError:
+                raise RuntimeError(f"Runway API returned non-JSON response for {url}: {response.text[:800]}")
 
     async def create_shorts_job(
         self,
@@ -58,35 +63,51 @@ class RunwayClient:
         captions: bool,
     ) -> str:
         # Run the published workflow. Your workflow inputs must match these keys.
-        payload: Dict[str, Any] = {
-            "inputs": {
-                "youtube_url": youtube_url,
-                "duration_seconds": duration_seconds,
-                "style": style,
-                "platform": platform,
-                "captions": captions,
-            }
+        inputs = {
+            "youtube_url": youtube_url,
+            "duration_seconds": duration_seconds,
+            "style": style,
+            "platform": platform,
+            "captions": captions,
         }
 
+        payload: Dict[str, Any] = {"inputs": inputs}
+
         # Endpoint names differ across releases; try a few common patterns.
+        # Note: Workflows must be published in the developer portal to be callable.
         candidates = [
             f"{self.base_url}/workflows/{self.workflow_id}/invocations",
             f"{self.base_url}/workflows/{self.workflow_id}/runs",
             f"{self.base_url}/workflows/{self.workflow_id}/invoke",
+            # Alternate: global workflow invocation endpoint.
+            f"{self.base_url}/workflow_invocations",
+            f"{self.base_url}/invocations",
         ]
 
         last_exc: Optional[Exception] = None
         data: Dict[str, Any] = {}
         for url in candidates:
             try:
-                data = await self._try_request("POST", url, json=payload)
+                # For global endpoints, include workflow id in body.
+                json_body = payload
+                if url.endswith("/workflow_invocations") or url.endswith("/invocations"):
+                    json_body = {
+                        "workflow_id": self.workflow_id,
+                        "workflowId": self.workflow_id,
+                        **payload,
+                    }
+                data = await self._try_request("POST", url, json_body=json_body)
                 break
             except Exception as exc:
                 last_exc = exc
                 continue
 
         if not data and last_exc:
-            raise last_exc
+            raise RuntimeError(
+                f"Failed to start Runway workflow job. "
+                f"Check that RUNWAY_WORKFLOW_ID '{self.workflow_id}' is published in the Runway developer portal and your API key has access. "
+                f"Last error: {last_exc}"
+            )
 
         job_id = data.get("id") or data.get("invocation_id") or data.get("run_id") or data.get("job_id")
         if not job_id:
@@ -99,6 +120,7 @@ class RunwayClient:
             f"{self.base_url}/workflows/{self.workflow_id}/runs/{job_id}",
             f"{self.base_url}/invocations/{job_id}",
             f"{self.base_url}/workflow_invocations/{job_id}",
+            f"{self.base_url}/tasks/{job_id}",
         ]
 
         last_exc: Optional[Exception] = None
@@ -109,7 +131,7 @@ class RunwayClient:
                 last_exc = exc
                 continue
         if last_exc:
-            raise last_exc
+            raise RuntimeError(f"Failed to fetch Runway job status for {job_id}. Last error: {last_exc}")
         raise RuntimeError("Failed to fetch Runway job status")
 
     @staticmethod

@@ -16,6 +16,7 @@ class SubscriptionGrant:
 _USER_GRANTS: Dict[str, SubscriptionGrant] = {}
 _ORDER_TO_USER: Dict[str, str] = {}
 _VIDEO_USAGE: Dict[str, int] = {}
+_IMAGE_USAGE: Dict[str, int] = {}
 
 
 def get_video_usage(user_id: str) -> int:
@@ -29,6 +30,20 @@ def record_video_usage(user_id: str) -> int:
     """
     _VIDEO_USAGE[user_id] = get_video_usage(user_id) + 1
     return _VIDEO_USAGE[user_id]
+
+
+def get_image_usage(user_id: str) -> int:
+    return int(_IMAGE_USAGE.get(user_id, 0))
+
+
+def record_image_usage(user_id: str, n: int = 1) -> int:
+    """
+    Increment and return the new usage count.
+    This is an in-memory counter for MVP purposes.
+    """
+    inc = max(1, int(n or 1))
+    _IMAGE_USAGE[user_id] = get_image_usage(user_id) + inc
+    return _IMAGE_USAGE[user_id]
 
 
 def link_order_to_user(order_id: str, user_id: str):
