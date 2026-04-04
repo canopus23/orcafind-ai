@@ -12,7 +12,7 @@ from app.schemas.request import ContentRequest
 from app.schemas.video import VideoShortsRequest
 from app.schemas.images import ImageGenerateRequest
 from app.services.ai_service import generate_social_content
-from app.services.image_service import generate_placeholder_images
+from app.services.image_service import generate_openai_images, generate_placeholder_images
 from app.services.razorpay_service import create_order as razorpay_create_order, get_razorpay_key_id, verify_signature
 from app.services.subscriptions import (
     grant_pro,
@@ -136,12 +136,25 @@ async def generate_images(req: ImageGenerateRequest, user=Depends(verify_user)):
         # Count-based accounting to match UI "count" selector.
         record_image_usage(user_id, n=req.count)
 
-    images = generate_placeholder_images(
-        brief=req.brief,
-        style=req.style,
-        aspect=req.aspect,
-        count=req.count,
-    )
+    # Prefer OpenAI if configured; fall back to placeholder images for local/dev.
+    images = None
+    if os.getenv("OPENAI_API_KEY"):
+        quality = "high" if premium else "low"
+        images = generate_openai_images(
+            brief=req.brief,
+            style=req.style,
+            aspect=req.aspect,
+            count=req.count,
+            quality=quality,
+            user_id=user_id,
+        )
+    else:
+        images = generate_placeholder_images(
+            brief=req.brief,
+            style=req.style,
+            aspect=req.aspect,
+            count=req.count,
+        )
     return {"images": images}
 
 @app.post("/billing/razorpay/order")

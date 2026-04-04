@@ -1,6 +1,9 @@
 import base64
 import datetime as _dt
+import os
 from typing import Any, Dict, List, Tuple
+
+from openai import OpenAI
 
 
 def _aspect_dimensions(aspect: str) -> Tuple[int, int]:
@@ -10,6 +13,79 @@ def _aspect_dimensions(aspect: str) -> Tuple[int, int]:
     if aspect == "landscape":
         return 1280, 720
     return 1024, 1024
+
+
+def _aspect_to_openai_size(aspect: str) -> str:
+    aspect = (aspect or "square").strip().lower()
+    if aspect == "portrait":
+        return "1024x1536"
+    if aspect == "landscape":
+        return "1536x1024"
+    return "1024x1024"
+
+
+def _style_prompt(style: str) -> str:
+    style = (style or "saas_minimal").strip().lower()
+    if style == "abstract_gradient":
+        return "Abstract gradient background, soft lighting, modern SaaS brand feel, no text."
+    if style == "product_mock":
+        return "Modern SaaS product mock scene, clean UI shapes, subtle depth, no readable UI text."
+    if style == "illustration":
+        return "Clean vector illustration, modern SaaS aesthetic, simple shapes, no text."
+    # default: saas_minimal
+    return "Minimal SaaS cover art, geometric shapes, light background, brand accent #1367ff, no text."
+
+
+def generate_openai_images(
+    *,
+    brief: str,
+    style: str,
+    aspect: str,
+    count: int,
+    quality: str,
+    user_id: str,
+) -> List[Dict[str, Any]]:
+    """
+    Generate real images via OpenAI Image API.
+    Requires OPENAI_API_KEY set in environment.
+    """
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("Missing required env var: OPENAI_API_KEY")
+
+    model = os.getenv("OPENAI_IMAGE_MODEL", "").strip() or "gpt-image-1.5"
+    size = _aspect_to_openai_size(aspect)
+    quality = (quality or "medium").strip().lower()
+    if quality not in {"low", "medium", "high", "auto"}:
+        quality = "medium"
+
+    prompt = (
+        "Create a post-ready social image.\n"
+        f"Brief: {brief.strip()}\n"
+        f"Style: {_style_prompt(style)}\n"
+        "Constraints: no logos of other brands, no watermarks, no text unless explicitly requested.\n"
+    )
+
+    client = OpenAI(api_key=api_key)
+    result = client.images.generate(
+        model=model,
+        prompt=prompt,
+        n=int(count),
+        size=size,
+        quality=quality,
+        output_format="png",
+        user=str(user_id)[:128],
+    )
+
+    images: List[Dict[str, Any]] = []
+    for idx, item in enumerate(result.data or []):
+        b64 = getattr(item, "b64_json", None) or (item.get("b64_json") if isinstance(item, dict) else None)
+        if not b64:
+            continue
+        images.append({"label": f"Option {idx+1}", "data_url": f"data:image/png;base64,{b64}"})
+    if not images:
+        raise RuntimeError("OpenAI image generation returned no images")
+    return images
 
 
 def _escape_xml(text: str) -> str:
@@ -69,4 +145,3 @@ def generate_placeholder_images(*, brief: str, style: str, aspect: str, count: i
         results.append({"label": f"Option {i+1}", "data_url": data_url})
 
     return results
-
