@@ -7,9 +7,12 @@ import uvicorn
 
 # Ensure these imports match the actual file paths and function names
 from app.dependencies.auth import verify_user
+from app.schemas.billing import RazorpayCreateOrderRequest, RazorpayVerifyRequest
 from app.schemas.request import ContentRequest
 from app.schemas.video import VideoShortsRequest
 from app.services.ai_service import generate_social_content
+from app.services.razorpay_service import create_order as razorpay_create_order, get_razorpay_key_id, verify_signature
+from app.services.subscriptions import grant_pro, is_pro, link_order_to_user, get_user_for_order
 from app.services.video_jobs import create_job, get_job as get_video_job, run_job
 
 app = FastAPI(title="OrcaFind AI API")
@@ -34,6 +37,9 @@ def _get_user_email(payload: dict) -> Optional[str]:
 
 def is_premium_user(payload: dict) -> bool:
     allowlist = _parse_allowlist(os.getenv("PREMIUM_EMAIL_ALLOWLIST"))
+    user_id = str(payload.get("sub") or "user")
+    if is_pro(user_id):
+        return True
     email = _get_user_email(payload)
     return bool(email and email.strip().lower() in allowlist)
 
@@ -71,6 +77,69 @@ async def entitlements(user=Depends(verify_user)):
             "x_thread_tweets_max": 10 if premium else 7,
         },
     }
+
+@app.post("/billing/razorpay/order")
+async def razorpay_create(req: RazorpayCreateOrderRequest, user=Depends(verify_user)):
+    # Only Pro is currently billable.
+    plan = (req.plan or "pro").strip().lower()
+    if plan != "pro":
+        raise HTTPException(status_code=400, detail="Unsupported plan")
+
+    billing = (req.billing or "monthly").strip().lower()
+    if billing not in {"monthly", "yearly"}:
+        raise HTTPException(status_code=400, detail="Unsupported billing period")
+
+    # Amounts are in paise (INR).
+    amount_paise = 149900 if billing == "yearly" else 149900 // 10  # 1499 INR monthly, 14990 INR yearly
+    currency = "INR"
+
+    user_id = str(user.get("sub") or "user")
+    email = _get_user_email(user) or req.email or ""
+
+    order = await razorpay_create_order(
+        amount_paise=amount_paise,
+        currency=currency,
+        receipt=f"orcafind_{plan}_{billing}_{user_id}",
+        notes={
+            "user_id": user_id,
+            "plan": plan,
+            "billing": billing,
+            "email": email,
+        },
+    )
+
+    link_order_to_user(order.get("id"), user_id)
+
+    return {
+        "key_id": get_razorpay_key_id(),
+        "order_id": order.get("id"),
+        "amount": order.get("amount"),
+        "currency": order.get("currency"),
+        "plan": plan,
+        "billing": billing,
+        "prefill": {"email": email},
+        "name": "OrcaFind AI",
+        "description": "OrcaFind Pro Subscription",
+    }
+
+
+@app.post("/billing/razorpay/verify")
+async def razorpay_verify(req: RazorpayVerifyRequest, user=Depends(verify_user)):
+    user_id = str(user.get("sub") or "user")
+
+    order_user = get_user_for_order(req.razorpay_order_id)
+    if order_user and order_user != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    if not verify_signature(
+        order_id=req.razorpay_order_id,
+        payment_id=req.razorpay_payment_id,
+        signature=req.razorpay_signature,
+    ):
+        raise HTTPException(status_code=400, detail="Invalid payment signature")
+
+    grant_pro(user_id=user_id, order_id=req.razorpay_order_id, payment_id=req.razorpay_payment_id)
+    return {"status": "ok", "plan": "pro"}
 
 @app.post("/repurpose/")
 async def repurpose_content(req: ContentRequest, user=Depends(verify_user)):
