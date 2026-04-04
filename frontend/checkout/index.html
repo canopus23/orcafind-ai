@@ -461,6 +461,13 @@
       .right { position: static; }
       .plans { grid-template-columns: 1fr; }
     }
+
+    @media (max-width: 480px) {
+      .topbar { gap: 12px; flex-wrap: wrap; }
+      .topbar > * { width: 100%; }
+      .topbar > div { justify-content: flex-start; flex-wrap: wrap; }
+      .topbar .btn { width: 100%; justify-content: center; }
+    }
   </style>
 </head>
 <body>
@@ -486,13 +493,13 @@
         <span class="kicker">Pricing</span>
         <h1>Coming soon.</h1>
         <p class="subtitle">
-          We are finalizing plans and billing. For now, you can keep using the Studio while we ship a clean subscription experience.
+          Pricing is launching soon. For now, you can keep using the Studio while we finalize plans.
         </p>
 
         <div class="features" style="margin-top: 18px;">
           <div class="feature"><span class="dot"></span><span>Pro will unlock Post Builder (copy + image in one run)</span></div>
           <div class="feature"><span class="dot"></span><span>Higher limits for image generation and premium writing formats</span></div>
-          <div class="feature"><span class="dot"></span><span>Admin/testing accounts keep full access while we ship billing</span></div>
+          <div class="feature"><span class="dot"></span><span>Early access customers will receive priority onboarding</span></div>
         </div>
 
         <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px;">

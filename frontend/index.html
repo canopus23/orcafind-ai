@@ -122,6 +122,26 @@
       color: rgba(255, 255, 255, 0.92);
     }
 
+    html[data-theme="dark"] .brand-tagline {
+      color: rgba(185, 200, 221, 0.70);
+    }
+
+    html[data-theme="dark"] .pill {
+      background: rgba(6, 10, 18, 0.46);
+      border-color: rgba(255, 255, 255, 0.10);
+      color: rgba(235, 245, 255, 0.82);
+    }
+
+    html[data-theme="dark"] .header-profile {
+      background: rgba(6, 10, 18, 0.56);
+      border-color: rgba(255, 255, 255, 0.10);
+      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.4);
+    }
+
+    html[data-theme="dark"] .profile-copy strong {
+      color: rgba(255, 255, 255, 0.92);
+    }
+
     html[data-theme="dark"] .footer {
       border-top: 1px solid rgba(255, 255, 255, 0.08);
       background: rgba(6, 10, 18, 0.48);
@@ -1407,6 +1427,13 @@
         gap: 16px;
       }
     }
+
+    @media (max-width: 480px) {
+      .topbar { gap: 14px; }
+      .nav-actions { gap: 10px; }
+      .header-profile { width: 100%; justify-content: flex-start; }
+      .header-auth { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -1463,7 +1490,7 @@
             <h1>Repurpose one strong idea into a week of distribution.</h1>
             <p>
               OrcaFind helps founders, marketers, and lean SaaS teams turn long-form thinking into polished social content.
-              Move from raw notes to platform-ready posts with a workspace that feels like a product, not a demo.
+              Move from raw notes to platform-ready posts with a workspace built for repeatable distribution.
             </p>
 
             <div class="hero-actions">
@@ -1481,7 +1508,7 @@
           <div class="hero-panel">
             <div class="hero-panel-header">
               <h2>Executive Snapshot</h2>
-              <span class="live-indicator">Live workspace preview</span>
+              <span class="live-indicator">Real-time preview</span>
             </div>
 
             <div class="hero-stats">
@@ -1535,7 +1562,7 @@
             <article class="feature-card">
               <div class="feature-icon">03</div>
               <h3>SaaS-grade presentation</h3>
-              <p>Hero messaging, proof points, product sections, and customer-style storytelling make the site feel launch-ready.</p>
+              <p>Clear messaging, proof points, and a cohesive product experience from landing page to studio.</p>
             </article>
           </div>
         </div>
@@ -1546,22 +1573,22 @@
           <div class="section-head">
             <div>
               <span class="eyebrow">Operational Clarity</span>
-              <h2>Designed like a real product, not just a utility.</h2>
+              <h2>Designed for repeatable distribution workflows.</h2>
             </div>
           </div>
 
           <div class="grid-3">
             <article class="section-card">
               <h3>Clear information hierarchy</h3>
-              <p>Users can immediately understand what the platform does, why it matters, and where to start.</p>
+              <p>Start quickly with a single input and guided outputs across platforms.</p>
             </article>
             <article class="section-card">
               <h3>Better perceived trust</h3>
-              <p>The account area now looks like a secure workspace instead of a temporary sidebar login form.</p>
+              <p>Auth and workspace UI are designed for real customer flows.</p>
             </article>
             <article class="section-card">
-              <h3>Launch-ready responsiveness</h3>
-              <p>The SaaS layout compresses cleanly to tablet and mobile without sacrificing readability or actions.</p>
+              <h3>Mobile-first UX</h3>
+              <p>Layouts and actions stay readable on mobile without losing core functionality.</p>
             </article>
           </div>
 
@@ -1584,7 +1611,7 @@
               <span class="eyebrow">Customer Signal</span>
               <h2>Built for operators who care about speed and polish.</h2>
             </div>
-            <p>These customer-style panels help round out the product story and make the site feel more complete as a SaaS landing experience.</p>
+            <p>What teams like about OrcaFind in real workflows.</p>
           </div>
 
           <div class="grid-3">

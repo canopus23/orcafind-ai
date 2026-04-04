@@ -693,9 +693,7 @@ function applyEntitlementsToUI() {
 
   const hint = document.getElementById("imageLimitHint");
   if (hint) {
-    if (isAdmin) {
-      hint.textContent = "Admin: unlimited image generations enabled (testing mode).";
-    } else if (isPremium) {
+    if (isPremium) {
       hint.textContent = "Pro: higher image generation limits enabled.";
     } else {
       const remaining = Number(entitlements?.limits?.image_generations_remaining ?? 0);
@@ -705,9 +703,7 @@ function applyEntitlementsToUI() {
 
   const builderHint = document.getElementById("builderProHint");
   if (builderHint) {
-    if (isAdmin) {
-      builderHint.textContent = "Admin: Post Builder enabled (testing mode).";
-    } else if (isPremium) {
+    if (isPremium) {
       builderHint.textContent = "Pro: Generate a complete post bundle (copy + image).";
     } else {
       builderHint.textContent = "Upgrade to Pro to unlock Post Builder (copy + image in one run).";
