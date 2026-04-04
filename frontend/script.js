@@ -6,6 +6,17 @@ const API_BASE_URL = window.__ORCAFIND_API_BASE_URL
   || (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
     ? "http://127.0.0.1:8000"
     : "https://api.orcafind.com");
+
+async function getAccessTokenOrPromptAuth({ toastTitle, toastBody, mode } = {}) {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  const token = session?.access_token;
+  if (token) return token;
+  if (mode) openAuthModal(mode);
+  if (toastTitle || toastBody) {
+    showToast(toastTitle || "Authentication required", toastBody || "Sign in to continue.", "error");
+  }
+  return null;
+}
 let authMode = "signin";
 let heroRotationIndex = 0;
 let heroRotationTimer;
@@ -239,12 +250,12 @@ async function startImageGeneration() {
     return;
   }
 
-  const { data: { session } } = await supabaseClient.auth.getSession();
-  if (!session) {
-    openAuthModal("signin");
-    showToast("Authentication required", "Sign in to generate images.", "error");
-    return;
-  }
+  const accessToken = await getAccessTokenOrPromptAuth({
+    mode: "signin",
+    toastTitle: "Authentication required",
+    toastBody: "Sign in to generate images.",
+  });
+  if (!accessToken) return;
 
   addChatMessage({
     role: "user",
@@ -273,13 +284,17 @@ async function startImageGeneration() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${session.access_token}`,
+        "Authorization": `Bearer ${accessToken}`,
       },
       body: JSON.stringify(payload),
     });
 
     const data = await response.json();
     if (!response.ok) {
+      if (response.status === 401) {
+        openAuthModal("signin");
+        showToast("Session expired", "Please sign in again to continue.", "error");
+      }
       removeChatMessage(typingId);
       if (response.status === 402 || response.status === 403) {
         openPremiumModal();
@@ -358,10 +373,12 @@ async function startCompletePostGeneration() {
 
   setResultsVisibility(true);
 
-  const { data: { session } } = await supabaseClient.auth.getSession();
-  if (!session) {
-    openAuthModal("signin");
-    showToast("Authentication required", "Sign in to generate a complete post bundle.", "error");
+  const accessToken = await getAccessTokenOrPromptAuth({
+    mode: "signin",
+    toastTitle: "Authentication required",
+    toastBody: "Sign in to generate a complete post bundle.",
+  });
+  if (!accessToken) {
     if (btn) {
       btn.classList.remove("is-loading");
       btn.disabled = false;
@@ -398,12 +415,16 @@ async function startCompletePostGeneration() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${session.access_token}`,
+        "Authorization": `Bearer ${accessToken}`,
       },
       body: JSON.stringify(payload),
     });
     const data = await response.json();
     if (!response.ok) {
+      if (response.status === 401) {
+        openAuthModal("signin");
+        showToast("Session expired", "Please sign in again to continue.", "error");
+      }
       removeChatMessage(typingId);
       if (response.status === 402 || response.status === 403) {
         openPremiumModal();
@@ -1230,7 +1251,15 @@ document.addEventListener("DOMContentLoaded", () => {
   setHeroSnapshot(heroSnapshots[heroRotationIndex]);
   startHeroRotation();
   setResultsVisibility(false);
-  supabaseClient.auth.getSession().then(({ data }) => fetchEntitlements(data?.session?.access_token));
+  // Hydrate auth UI on load so profile icon shows when already signed in.
+  supabaseClient.auth.getSession().then(({ data }) => {
+    const session = data?.session;
+    if (session?.user) {
+      updateUIForUser(session.user);
+    } else {
+      resetUI();
+    }
+  });
   setImageUIState({ statusText: null, isBusy: false, images: null });
 
   try {
@@ -1266,14 +1295,12 @@ async function generate() {
   const xStyle = document.getElementById("xStyle")?.value || "thread";
   const contentFormat = document.getElementById("contentFormat")?.value || "professional";
 
-  // Re-fetch session specifically at time of click to get the access_token
-  const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
-
-  if (!session) {
-    openAuthModal("signin");
-    showToast("Authentication required", "Sign in to access protected content generation.", "error");
-    return;
-  }
+  const accessToken = await getAccessTokenOrPromptAuth({
+    mode: "signin",
+    toastTitle: "Authentication required",
+    toastBody: "Sign in to access protected content generation.",
+  });
+  if (!accessToken) return;
 
   if (!text.trim()) {
     showToast("Missing content", "Paste some source content before generating posts.", "error");
@@ -1299,7 +1326,7 @@ async function generate() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${session.access_token}` // Send the JWT to the backend
+        "Authorization": `Bearer ${accessToken}` // Send the JWT to the backend
       },
       body: JSON.stringify({ text, x_style: xStyle, format: contentFormat })
     });
@@ -1307,6 +1334,10 @@ async function generate() {
     const data = await response.json();
 
     if (!response.ok) {
+      if (response.status === 401) {
+        openAuthModal("signin");
+        showToast("Session expired", "Please sign in again to continue.", "error");
+      }
       removeChatMessage(typingId);
       addChatMessage({
         role: "assistant",
