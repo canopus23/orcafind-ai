@@ -410,8 +410,24 @@ async def repurpose_content(
                 status_code=503,
                 detail={"message": "AI provider is not configured (missing OPENAI_API_KEY).", "request_id": request.state.request_id},
             )
-        # Let middleware return a JSON 500 with request_id.
-        raise
+        logger.exception("Runtime error in /repurpose/ (request_id=%s)", request.state.request_id)
+        raise HTTPException(
+            status_code=500,
+            detail={"message": "Internal Server Error during content generation.", "request_id": request.state.request_id},
+        )
+    except Exception as e:
+        # Provide a safe, compact upstream error so production debugging doesn't require log access.
+        raw = str(e or "").strip().replace("\n", " ")
+        if len(raw) > 220:
+            raw = raw[:217] + "..."
+        logger.exception("Error in /repurpose/ (request_id=%s)", request.state.request_id)
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "message": f"Upstream AI error: {type(e).__name__}: {raw}" if raw else f"Upstream AI error: {type(e).__name__}",
+                "request_id": request.state.request_id,
+            },
+        )
 
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

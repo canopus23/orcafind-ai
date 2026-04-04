@@ -22,7 +22,12 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         except Exception:
             # Ensure we always return a JSON error (and preserve request id),
             # so clients don't misinterpret a plain 500 as a CORS/network issue.
-            logger.exception("Unhandled error for %s %s", request.method, request.url.path)
+            logger.exception(
+                "Unhandled error for %s %s (request_id=%s)",
+                request.method,
+                request.url.path,
+                request_id,
+            )
             response = JSONResponse(
                 status_code=500,
                 content={"detail": "Internal Server Error", "request_id": request_id},
