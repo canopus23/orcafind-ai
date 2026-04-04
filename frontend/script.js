@@ -264,7 +264,7 @@ async function startImageGeneration() {
     const payload = {
       brief,
       aspect,
-      count: Math.max(1, Math.min(6, count)),
+      count: Math.max(1, Math.min(3, count)),
     };
     if (style) {
       payload.style = style;
