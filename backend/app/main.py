@@ -11,6 +11,7 @@ from app.schemas.billing import RazorpayCreateOrderRequest, RazorpayVerifyReques
 from app.schemas.request import ContentRequest
 from app.schemas.video import VideoShortsRequest
 from app.schemas.images import ImageGenerateRequest
+from app.schemas.complete_post import CompletePostRequest
 from app.services.ai_service import generate_social_content
 from app.services.image_service import generate_openai_images, generate_placeholder_images
 from app.services.razorpay_service import create_order as razorpay_create_order, get_razorpay_key_id, verify_signature
@@ -156,6 +157,59 @@ async def generate_images(req: ImageGenerateRequest, user=Depends(verify_user)):
             count=req.count,
         )
     return {"images": images}
+
+
+def _split_social_result(result: str) -> tuple[str, str]:
+    parts = (result or "").split("LinkedIn:")
+    x_text = (parts[0] or "").replace("X:", "").strip()
+    linkedin_text = (parts[1] or "").strip() if len(parts) > 1 else ""
+    return x_text, linkedin_text
+
+
+@app.post("/posts/complete")
+async def complete_post(req: CompletePostRequest, user=Depends(verify_user)):
+    admin = is_admin_user(user)
+    premium = admin or is_premium_user(user)
+    if not premium:
+        raise HTTPException(status_code=402, detail="Upgrade to Pro to use Post Builder")
+
+    user_id = str(user.get("sub") or "user")
+
+    result = generate_social_content(
+        req.text,
+        x_style=req.x_style,
+        content_format=req.format,
+        is_premium=True,
+    )
+    x_text, linkedin_text = _split_social_result(result)
+
+    # Build a concise image brief if the user didn't provide one.
+    image_brief = (req.image_brief or "").strip()
+    if not image_brief:
+        snippet = (req.text or "").strip().replace("\n", " ")
+        if len(snippet) > 420:
+            snippet = snippet[:417] + "..."
+        image_brief = f"Create a clean social post cover image that matches this topic: {snippet}"
+
+    images = None
+    if os.getenv("OPENAI_API_KEY"):
+        images = generate_openai_images(
+            brief=image_brief,
+            style=(req.image_style or "").strip() or "saas_minimal",
+            aspect=req.image_aspect,
+            count=1,
+            quality="high",
+            user_id=user_id,
+        )
+    else:
+        images = generate_placeholder_images(
+            brief=image_brief,
+            style=(req.image_style or "").strip() or "saas_minimal",
+            aspect=req.image_aspect,
+            count=1,
+        )
+
+    return {"x": x_text, "linkedin": linkedin_text, "images": images}
 
 @app.post("/billing/razorpay/order")
 async def razorpay_create(req: RazorpayCreateOrderRequest, user=Depends(verify_user)):
