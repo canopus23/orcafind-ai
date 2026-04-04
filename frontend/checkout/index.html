@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OrcaFind AI | Upgrade</title>
+  <title>OrcaFind AI | Pricing (Coming Soon)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -418,102 +418,38 @@
 <body>
   <div class="container">
     <div class="topbar">
-      <a class="brand" href="index.html#top">
+      <a class="brand" href="/">
         <span class="brand-icon">O</span>
         <span>OrcaFind AI</span>
       </a>
-      <a class="btn btn-ghost" href="/studio/#studio">Back to studio</a>
+      <div style="display: inline-flex; gap: 10px; align-items: center;">
+        <a class="btn btn-ghost" href="/studio/">Open Studio</a>
+        <a class="btn btn-ghost" href="/">Home</a>
+      </div>
     </div>
   </div>
 
   <section class="hero">
     <div class="container hero-grid">
       <div class="card left">
-        <span class="kicker">Upgrade</span>
-        <h1>Unlock Pro formats and AI Video shorts.</h1>
+        <span class="kicker">Pricing</span>
+        <h1>Coming soon.</h1>
         <p class="subtitle">
-          Upgrade your workspace to access premium formats (Story-driven, Product launch), higher X limits, and the AI Video pipeline powered by Runway with Cloudflare R2 delivery.
+          We are finalizing plans and billing. For now, you can keep using the Studio while we ship a clean subscription experience.
         </p>
 
-        <div class="toggle" role="tablist" aria-label="Billing period">
-          <button id="monthlyBtn" class="is-active" type="button" onclick="setBilling('monthly')">Monthly</button>
-          <button id="yearlyBtn" type="button" onclick="setBilling('yearly')">Yearly <span style="color: var(--success); font-weight: 900;">Save 20%</span></button>
+        <div class="features" style="margin-top: 18px;">
+          <div class="feature"><span class="dot"></span><span>Pro will unlock Post Builder (copy + image in one run)</span></div>
+          <div class="feature"><span class="dot"></span><span>Higher limits for image generation and premium writing formats</span></div>
+          <div class="feature"><span class="dot"></span><span>Admin/testing accounts keep full access while we ship billing</span></div>
         </div>
 
-        <div class="plans">
-          <div id="freePlan" class="plan" role="button" tabindex="0" onclick="selectPlan('free')">
-            <div class="plan-top">
-              <div>
-                <h3>Free</h3>
-                <div class="per">For trying the workflow</div>
-              </div>
-              <div style="text-align: right;">
-                <div class="price">$0</div>
-                <div class="per">Forever</div>
-              </div>
-            </div>
-            <div class="features">
-              <div class="feature"><span class="dot gray"></span><span>Professional / Casual / Educational formats</span></div>
-              <div class="feature"><span class="dot gray"></span><span>Limited X output variants and thread length</span></div>
-              <div class="feature"><span class="dot gray"></span><span>No AI Video generation</span></div>
-            </div>
-          </div>
-
-          <div id="proPlan" class="plan is-selected" role="button" tabindex="0" onclick="selectPlan('pro')">
-            <div class="plan-top">
-              <div>
-                <h3>Pro</h3>
-                <div class="per">For creators and SaaS teams</div>
-              </div>
-              <div style="text-align: right;">
-                <div id="proPrice" class="price">$19</div>
-                <div id="proPer" class="per">per month</div>
-              </div>
-            </div>
-            <div class="features">
-              <div class="feature"><span class="dot"></span><span>Story-driven and Product launch formats</span></div>
-              <div class="feature"><span class="dot"></span><span>More X variations and longer threads</span></div>
-              <div class="feature"><span class="dot"></span><span>AI Video shorts from YouTube links (Runway)</span></div>
-              <div class="feature"><span class="dot"></span><span>Cloud delivery via R2 download links</span></div>
-            </div>
-          </div>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px;">
+          <a class="btn btn-primary" href="/studio/">Go to Studio</a>
+          <a class="btn btn-ghost" href="mailto:hello@orcafind.com">Contact</a>
         </div>
       </div>
-
-      <aside class="card right">
-        <div class="summary-head">
-          <h2>Checkout</h2>
-          <span id="planPill" class="pill">Pro selected</span>
-        </div>
-
-        <div class="summary">
-          <div class="row"><span>Plan</span><span id="summaryPlan">Pro</span></div>
-          <div class="row"><span>Billing</span><span id="summaryBilling">Monthly</span></div>
-          <div class="divider"></div>
-          <div class="row total"><span>Total</span><span id="summaryTotal">$19 / mo</span></div>
-        </div>
-
-        <div class="field">
-          <label for="checkoutEmail">Email</label>
-          <input id="checkoutEmail" type="email" placeholder="you@company.com">
-        </div>
-
-        <div class="cta">
-          <button class="btn btn-primary" type="button" onclick="proceedToPayment()">Proceed to payment</button>
-          <button class="btn btn-ghost" type="button" onclick="contactSales()">Contact sales</button>
-        </div>
-
-        <p class="note">
-          This page is the dedicated checkout screen. Next step is wiring Stripe checkout and automatically syncing subscription status into entitlements.
-        </p>
-      </aside>
     </div>
   </section>
-
-  <div id="toastStack" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
-
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script src="/checkout.js" defer></script>
 </body>
 </html>

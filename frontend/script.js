@@ -168,6 +168,30 @@ function clearSource() {
   clearChat();
 }
 
+function compressSourceForImage(text, maxChars) {
+  const cleaned = String(text || "").replace(/\s+/g, " ").trim();
+  if (!cleaned) return "";
+  const limit = Math.max(120, Number(maxChars) || 520);
+  if (cleaned.length <= limit) return cleaned;
+  return `${cleaned.slice(0, limit - 3)}...`;
+}
+
+function buildImageBrief({ sourceText, visualBrief, maxSourceChars } = {}) {
+  const source = compressSourceForImage(sourceText, maxSourceChars || 520);
+  const visual = String(visualBrief || "").trim();
+
+  if (source && visual) {
+    return `Source context:\n${source}\n\nVisual brief:\n${visual}`;
+  }
+  if (visual) {
+    return visual;
+  }
+  if (source) {
+    return `Create a post cover image for this content:\n${source}`;
+  }
+  return "";
+}
+
 function setImageUIState({ statusText, isBusy, images } = {}) {
   const statusEl = document.getElementById("imageStatus");
   const btn = document.getElementById("imageGenerateBtn");
@@ -204,7 +228,7 @@ async function startImageGeneration() {
   const style = document.getElementById("imageStyle")?.value?.trim() || "";
   const count = Number(document.getElementById("imageCount")?.value || 1);
   const sourceText = document.getElementById("inputText")?.value?.trim() || "";
-  const brief = briefRaw || (sourceText ? `Create a post cover image for this content: ${sourceText.slice(0, 600)}` : "");
+  const brief = buildImageBrief({ sourceText, visualBrief: briefRaw, maxSourceChars: 520 });
 
   if (!brief) {
     showToast("Missing brief", "Add a short visual brief or paste source content first.", "error");
@@ -347,7 +371,8 @@ async function startCompletePostGeneration() {
     image_aspect: aspect,
     image_count: 1,
   };
-  if (imageBrief) payload.image_brief = imageBrief;
+  const combinedBrief = buildImageBrief({ sourceText: text, visualBrief: imageBrief, maxSourceChars: 420 });
+  if (combinedBrief) payload.image_brief = combinedBrief;
   if (imageStyle) payload.image_style = imageStyle;
 
   try {
