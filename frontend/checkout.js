@@ -142,8 +142,8 @@ async function startRazorpayCheckout(email) {
 
         showToast("Payment successful", "Pro is now enabled for your account.", "success");
         window.setTimeout(() => {
-          window.location.href = "index.html#studio";
-        }, 900);
+        window.location.href = "/studio/#studio";
+      }, 900);
       } catch (err) {
         showToast("Verification failed", err.message || "Could not verify payment.", "error");
       }
