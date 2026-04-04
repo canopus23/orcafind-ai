@@ -160,23 +160,48 @@ async def generate_images(req: ImageGenerateRequest, user=Depends(verify_user)):
     return {"images": images}
 
 
-def _split_social_result(result: str) -> tuple[str, str]:
+def _parse_sections(result: str) -> dict:
     """
-    Parse the model output using stable section headers:
+    Parse LLM output using stable headers:
       X:
       LinkedIn:
+      Instagram:
+      Facebook:
+    Returns a dict with keys: x, linkedin, instagram, facebook (missing keys -> "").
     """
     text = (result or "").strip()
-    # Prefer a strict header-based parse (multiline, dot matches newline).
-    match = re.search(r"(?is)^\s*X:\s*(.*?)^\s*LinkedIn:\s*(.*)\s*$", text, re.MULTILINE)
-    if match:
-        return match.group(1).strip(), match.group(2).strip()
+    keys = ["X", "LinkedIn", "Instagram", "Facebook"]
+    out = {"x": "", "linkedin": "", "instagram": "", "facebook": ""}
 
-    # Fallback: case-insensitive split for unexpected formatting.
-    parts = re.split(r"(?i)linkedin:\s*", text, maxsplit=1)
-    x_text = re.sub(r"(?is)^\s*x:\s*", "", parts[0] if parts else "").strip()
-    linkedin_text = (parts[1] if len(parts) > 1 else "").strip()
-    return x_text, linkedin_text
+    # Generic header scanner.
+    pattern = r"(?im)^(X|LinkedIn|Instagram|Facebook):\\s*$"
+    matches = list(re.finditer(pattern, text))
+    if not matches:
+        # Fallback: try to split the older 2-section format.
+        parts = re.split(r"(?i)linkedin:\\s*", text, maxsplit=1)
+        out["x"] = re.sub(r"(?is)^\\s*x:\\s*", "", parts[0] if parts else "").strip()
+        out["linkedin"] = (parts[1] if len(parts) > 1 else "").strip()
+        return out
+
+    spans = []
+    for idx, m in enumerate(matches):
+        header = m.group(1)
+        start = m.end()
+        end = matches[idx + 1].start() if idx + 1 < len(matches) else len(text)
+        spans.append((header, start, end))
+
+    for header, start, end in spans:
+        chunk = text[start:end].strip()
+        if header == "X":
+            out["x"] = chunk
+        elif header == "LinkedIn":
+            out["linkedin"] = chunk
+        elif header == "Instagram":
+            out["instagram"] = chunk
+        elif header == "Facebook":
+            out["facebook"] = chunk
+
+    return out
 
 
 @app.post("/posts/complete")
@@ -194,7 +219,11 @@ async def complete_post(req: CompletePostRequest, user=Depends(verify_user)):
         content_format=req.format,
         is_premium=True,
     )
-    x_text, linkedin_text = _split_social_result(result)
+    sections = _parse_sections(result)
+    x_text = sections.get("x", "").strip()
+    linkedin_text = sections.get("linkedin", "").strip()
+    instagram_text = sections.get("instagram", "").strip()
+    facebook_text = sections.get("facebook", "").strip()
     if not linkedin_text:
         raise HTTPException(status_code=502, detail="LinkedIn output missing from generation result")
 
@@ -224,7 +253,13 @@ async def complete_post(req: CompletePostRequest, user=Depends(verify_user)):
             count=1,
         )
 
-    return {"x": x_text, "linkedin": linkedin_text, "images": images}
+    return {
+        "x": x_text,
+        "linkedin": linkedin_text,
+        "instagram": instagram_text,
+        "facebook": facebook_text,
+        "images": images,
+    }
 
 @app.post("/billing/razorpay/order")
 async def razorpay_create(req: RazorpayCreateOrderRequest, user=Depends(verify_user)):
@@ -302,7 +337,8 @@ async def repurpose_content(req: ContentRequest, user=Depends(verify_user)):
         # Process content via AI service
         premium = is_admin_user(user) or is_premium_user(user)
         result = generate_social_content(req.text, x_style=req.x_style, content_format=req.format, is_premium=premium)
-        return {"result": result}
+        sections = _parse_sections(result)
+        return {"result": result, "sections": sections}
     except HTTPException:
         raise
     except Exception as e:

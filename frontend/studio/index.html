@@ -365,6 +365,63 @@
     }
 
     .results-card .panel-body { padding: 18px; }
+    .chat-feed { display: grid; gap: 12px; }
+    .chat-row { display: flex; gap: 10px; align-items: flex-end; }
+    .chat-row.is-user { justify-content: flex-end; }
+    .chat-row.is-assistant { justify-content: flex-start; }
+    .chat-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      flex: 0 0 auto;
+      color: white;
+      background: linear-gradient(135deg, #1367ff, #0ab5ff);
+      box-shadow: 0 14px 26px rgba(19, 103, 255, 0.18);
+    }
+    .chat-bubble {
+      max-width: min(640px, 100%);
+      border-radius: 18px;
+      padding: 14px 14px 12px;
+      border: 1px solid rgba(111, 132, 163, 0.16);
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 14px 28px rgba(15, 35, 76, 0.08);
+    }
+    .chat-row.is-user .chat-bubble {
+      background: linear-gradient(135deg, rgba(19, 103, 255, 0.16), rgba(10, 181, 255, 0.10));
+      border-color: rgba(19, 103, 255, 0.18);
+    }
+    .chat-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .chat-meta strong {
+      font-size: 0.9rem;
+      letter-spacing: -0.02em;
+      color: #1f3655;
+    }
+    .chat-actions { display: inline-flex; align-items: center; gap: 10px; }
+    .chat-text { white-space: pre-wrap; word-break: break-word; color: #2c425f; line-height: 1.7; font-size: 0.98rem; }
+    .chat-image { margin-top: 10px; border-radius: 18px; overflow: hidden; border: 1px solid rgba(111, 132, 163, 0.16); background: rgba(16, 35, 63, 0.06); }
+    .chat-image img { display: block; width: 100%; height: auto; }
+    .chat-pill {
+      font-size: 0.74rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(19, 103, 255, 0.08);
+      color: var(--brand);
+      font-weight: 800;
+      white-space: nowrap;
+    }
     .complete-grid { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 16px; align-items: start; }
     .complete-grid img { width: 100%; border-radius: 18px; border: 1px solid rgba(111, 132, 163, 0.16); background: rgba(16, 35, 63, 0.06); }
     .complete-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
@@ -715,8 +772,7 @@
                     </div>
                   </div>
                   <div class="panel-body">
-                    <div id="completeResult" class="is-hidden"></div>
-                    <div id="output" class="output-grid is-hidden"></div>
+                    <div id="output" class="chat-feed is-hidden"></div>
                   </div>
                 </div>
               </div>

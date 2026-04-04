@@ -47,12 +47,14 @@ You are a content strategist for SaaS founders and product marketers.
 
 Style/format preference: {format_normalized}
 
-Generate TWO outputs from the same source content.
+Generate FOUR outputs from the same source content.
 
 Rules:
-- Output MUST be exactly two sections with these exact headers (one time each):
+- Output MUST be exactly four sections with these exact headers (one time each):
   X:
   LinkedIn:
+- Instagram:
+- Facebook:
 - Do NOT add any other headings.
 - Do NOT use code fences.
 - Keep the writing aligned to the requested style/format preference.
@@ -66,6 +68,19 @@ LinkedIn requirements:
 - If you use bullets, use hyphens with one point per line.
 - Include a clear CTA question at the end.
 
+Instagram requirements:
+- One Instagram caption aligned to the same idea.
+- Hook in the first line, then short lines.
+- Include 5-12 relevant hashtags at the end.
+- Optional: 0-3 emojis total (keep it professional, not spammy).
+- End with a light CTA (save/share/comment).
+
+Facebook requirements:
+- One Facebook caption with a more conversational tone than LinkedIn.
+- 1-2 short paragraphs plus one optional short bullet list (hyphens).
+- No more than 0-3 hashtags.
+- End with a question to drive comments.
+
 Source content:
 {text}
 """.strip()
@@ -76,7 +91,7 @@ Source content:
             {"role": "system", "content": "You are a concise, high-signal social content expert."},
             {"role": "user", "content": prompt}
         ],
-        max_tokens=650
+        max_tokens=950
     )
 
     return response.choices[0].message.content

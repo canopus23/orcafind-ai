@@ -165,7 +165,7 @@ function clearSource() {
   input.value = "";
   input.dispatchEvent(new Event("input", { bubbles: true }));
   setResultsVisibility(false);
-  setCompleteResult(null);
+  clearChat();
 }
 
 function setImageUIState({ statusText, isBusy, images } = {}) {
@@ -219,69 +219,7 @@ function setImageUIState({ statusText, isBusy, images } = {}) {
   resultEl.innerHTML = `<div class="output-grid" style="margin-top: 0;">${cards}</div>`;
 }
 
-function setCompleteResult(payload) {
-  const container = document.getElementById("completeResult");
-  if (!container) return;
-
-  if (!payload) {
-    container.classList.add("is-hidden");
-    container.innerHTML = "";
-    return;
-  }
-
-  const img = payload.image?.data_url || "";
-  const xText = payload.x || "";
-  const linkedinText = payload.linkedin || "";
-  const imgName = payload.image?.label || "Post image";
-
-  container.classList.remove("is-hidden");
-  container.innerHTML = `
-    <div class="complete-grid">
-      <div>
-        <img src="${img}" alt="${imgName}" />
-        <div class="complete-actions">
-          <a class="btn btn-secondary btn-mini" href="${img}" download="orcafind-post-image.png">Download image</a>
-          <button class="btn btn-ghost btn-mini" onclick="copyComplete('x')">Copy X</button>
-          <button class="btn btn-ghost btn-mini" onclick="copyComplete('linkedin')">Copy LinkedIn</button>
-        </div>
-      </div>
-      <div class="complete-copy">
-        <div class="platform-card">
-          <div class="platform-header">
-            <span>Twitter / X</span>
-            <span class="platform-badge">Ready</span>
-          </div>
-          <div class="box">${xText}</div>
-        </div>
-        <div class="platform-card">
-          <div class="platform-header">
-            <span>LinkedIn</span>
-            <span class="platform-badge">Formatted</span>
-          </div>
-          <div class="box">${linkedinText}</div>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-async function copyComplete(which) {
-  const container = document.getElementById("completeResult");
-  if (!container) return;
-  // We store the latest complete payload on window for simple access.
-  const payload = window.__orcafind_complete_payload;
-  const text = which === "linkedin" ? payload?.linkedin : payload?.x;
-  if (!text || !text.trim()) {
-    showToast("Nothing to copy", "Generate the complete post first.", "error");
-    return;
-  }
-  try {
-    await navigator.clipboard.writeText(text.trim());
-    showToast("Copied", which === "linkedin" ? "LinkedIn copied." : "X copied.", "success");
-  } catch (_err) {
-    showToast("Copy failed", "Your browser blocked clipboard access.", "error");
-  }
-}
+// Post Builder results are rendered into the same chat feed as other outputs.
 
 async function startImageGeneration() {
   const remaining = Number(entitlements?.limits?.image_generations_remaining ?? 0);
@@ -378,7 +316,7 @@ async function startCompletePostGeneration() {
   }
 
   setResultsVisibility(false);
-  setCompleteResult(null);
+  clearChat();
 
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (!session) {
@@ -419,9 +357,67 @@ async function startCompletePostGeneration() {
       throw new Error(data?.detail || "Failed to generate complete post");
     }
 
-    window.__orcafind_complete_payload = data;
-    setCompleteResult({ x: data.x, linkedin: data.linkedin, image: (data.images || [])[0] });
-    showToast("Complete post ready", "Copy the text and download the image.", "success");
+    const image = (data.images || [])[0] || null;
+    addChatMessage({
+      role: "assistant",
+      title: "Post Builder",
+      pill: "Bundle",
+      text: "Generated a complete bundle: copy plus image.",
+      actionsHTML: image?.data_url
+        ? `<a class="btn btn-secondary btn-mini" href="${image.data_url}" download="orcafind-post-image.png">Download</a>`
+        : "",
+      imageDataUrl: image?.data_url || null,
+    });
+
+    const sections = {
+      x: data.x || "",
+      linkedin: data.linkedin || "",
+      instagram: data.instagram || "",
+      facebook: data.facebook || "",
+    };
+
+    if (sections.x) {
+      const id = storeCopyText(sections.x);
+      addChatMessage({
+        role: "assistant",
+        title: "Twitter / X",
+        pill: "Copy",
+        text: sections.x,
+        actionsHTML: `<button class="btn btn-ghost btn-mini" onclick="copyFromStore('${id}', 'X')">Copy</button>`,
+      });
+    }
+    if (sections.linkedin) {
+      const id = storeCopyText(sections.linkedin);
+      addChatMessage({
+        role: "assistant",
+        title: "LinkedIn",
+        pill: "Copy",
+        text: sections.linkedin,
+        actionsHTML: `<button class="btn btn-ghost btn-mini" onclick="copyFromStore('${id}', 'LinkedIn')">Copy</button>`,
+      });
+    }
+    if (sections.instagram) {
+      const id = storeCopyText(sections.instagram);
+      addChatMessage({
+        role: "assistant",
+        title: "Instagram",
+        pill: "Caption",
+        text: sections.instagram,
+        actionsHTML: `<button class="btn btn-ghost btn-mini" onclick="copyFromStore('${id}', 'Instagram')">Copy</button>`,
+      });
+    }
+    if (sections.facebook) {
+      const id = storeCopyText(sections.facebook);
+      addChatMessage({
+        role: "assistant",
+        title: "Facebook",
+        pill: "Caption",
+        text: sections.facebook,
+        actionsHTML: `<button class="btn btn-ghost btn-mini" onclick="copyFromStore('${id}', 'Facebook')">Copy</button>`,
+      });
+    }
+
+    showToast("Complete post ready", "Copy captions and download the image.", "success");
   } catch (err) {
     showToast("Post builder failed", err.message || "Failed to generate complete post.", "error");
   } finally {
@@ -845,8 +841,111 @@ function setResultsVisibility(isVisible) {
   if (output) {
     output.classList.toggle("is-hidden", !isVisible);
   }
-  if (isVisible) {
-    setCompleteResult(null);
+}
+
+function escapeHTML(str) {
+  return String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+const __orcafindCopyStore = {};
+let __orcafindCopySeed = 0;
+
+function storeCopyText(text) {
+  const id = `copy_${Date.now()}_${__orcafindCopySeed++}`;
+  __orcafindCopyStore[id] = String(text || "");
+  return id;
+}
+
+function copyFromStore(id, label) {
+  return copyText(__orcafindCopyStore[id] || "", label || "Text");
+}
+
+function clearChat() {
+  const output = document.getElementById("output");
+  if (!output) return;
+  output.innerHTML = "";
+}
+
+function addChatMessage({ role, title, text, pill, actionsHTML, imageDataUrl } = {}) {
+  const output = document.getElementById("output");
+  if (!output) return;
+
+  const isUser = role === "user";
+  const row = document.createElement("div");
+  row.className = `chat-row ${isUser ? "is-user" : "is-assistant"}`;
+
+  const avatarHTML = isUser ? "" : `<div class="chat-avatar" aria-hidden="true">O</div>`;
+  const safeTitle = escapeHTML(title || (isUser ? "You" : "OrcaFind"));
+  const safePill = pill ? `<span class="chat-pill">${escapeHTML(pill)}</span>` : "";
+  const safeText = text ? `<div class="chat-text">${escapeHTML(text)}</div>` : "";
+  const imageHTML = imageDataUrl
+    ? `<div class="chat-image"><img src="${imageDataUrl}" alt="Generated post image" /></div>`
+    : "";
+  const actions = actionsHTML ? `<div class="chat-actions">${actionsHTML}</div>` : "";
+
+  row.innerHTML = `
+    ${!isUser ? avatarHTML : ""}
+    <div class="chat-bubble">
+      <div class="chat-meta">
+        <strong>${safeTitle}</strong>
+        ${safePill}
+        ${actions}
+      </div>
+      ${safeText}
+      ${imageHTML}
+    </div>
+  `;
+
+  output.appendChild(row);
+  setResultsVisibility(true);
+  // Scroll into view for long chats.
+  row.scrollIntoView({ block: "end", behavior: "smooth" });
+}
+
+function parseSectionsFromText(raw) {
+  const text = String(raw || "").trim();
+  const headers = ["X", "LinkedIn", "Instagram", "Facebook"];
+  const out = { x: "", linkedin: "", instagram: "", facebook: "" };
+  if (!text) return out;
+
+  const rx = /^(X|LinkedIn|Instagram|Facebook):\s*$/gim;
+  const matches = [...text.matchAll(rx)];
+  if (!matches.length) {
+    // Legacy 2-section output.
+    const parts = text.split(/LinkedIn:/i);
+    out.x = parts[0].replace(/^X:\s*/i, "").trim();
+    out.linkedin = (parts[1] || "").trim();
+    return out;
+  }
+
+  for (let i = 0; i < matches.length; i++) {
+    const header = matches[i][1];
+    const start = matches[i].index + matches[i][0].length;
+    const end = i + 1 < matches.length ? matches[i + 1].index : text.length;
+    const chunk = text.slice(start, end).trim();
+    if (header === "X") out.x = chunk;
+    if (header === "LinkedIn") out.linkedin = chunk;
+    if (header === "Instagram") out.instagram = chunk;
+    if (header === "Facebook") out.facebook = chunk;
+  }
+  return out;
+}
+
+async function copyText(text, label) {
+  if (!text || !text.trim()) {
+    showToast("Nothing to copy", "Generate results first.", "error");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(text.trim());
+    showToast("Copied", `${label} copied to clipboard.`, "success");
+  } catch (_err) {
+    showToast("Copy failed", "Your browser blocked clipboard access.", "error");
   }
 }
 
@@ -1072,7 +1171,6 @@ document.addEventListener("DOMContentLoaded", () => {
 async function generate() {
   const text = document.getElementById("inputText").value;
   const button = document.getElementById("generateBtn");
-  const output = document.getElementById("output");
   const xStyle = document.getElementById("xStyle")?.value || "thread";
   const contentFormat = document.getElementById("contentFormat")?.value || "professional";
 
@@ -1090,31 +1188,21 @@ async function generate() {
     return;
   }
 
-  setResultsVisibility(true);
-
   button.innerText = "Processing...";
   button.disabled = true;
-
-  setHTML(
-    "output",
-    `
-      <div class="platform-card">
-        <div class="platform-header">
-          <span>Generation Engine</span>
-          <span class="platform-badge">Processing</span>
-        </div>
-        <div class="box">Crafting hooks, tightening positioning, and shaping platform-native drafts from your source content.</div>
-      </div>
-
-      <div class="platform-card">
-        <div class="platform-header">
-          <span>Distribution Flow</span>
-          <span class="platform-badge">In progress</span>
-        </div>
-        <div class="box">Preparing short-form output for X and a more structured narrative version for LinkedIn.</div>
-      </div>
-    `
-  );
+  clearChat();
+  addChatMessage({
+    role: "user",
+    title: "You",
+    pill: "Source",
+    text: text.trim().slice(0, 900),
+  });
+  addChatMessage({
+    role: "assistant",
+    title: "OrcaFind",
+    pill: "Working",
+    text: "Generating X, LinkedIn, Instagram, and Facebook captions from your source content…",
+  });
 
   try {
     const response = await fetch("https://api.orcafind.com/repurpose/", {
@@ -1129,54 +1217,74 @@ async function generate() {
     const data = await response.json();
 
     if (!response.ok) {
-      setHTML(
-        "output",
-        `<div class="platform-card"><div class="platform-header"><span>Request Error</span><span class="platform-badge">Needs attention</span></div><div class="box">${data.detail || "API Error"}</div></div>`
-      );
+      addChatMessage({
+        role: "assistant",
+        title: "Error",
+        pill: "Failed",
+        text: data.detail || "API Error",
+      });
       showToast("Generation failed", data.detail || "API Error", "error");
       return;
     }
 
-    // Prefer a stable delimiter ("LinkedIn:") from backend prompt.
-    const parts = data.result.split("LinkedIn:");
-    const xText = (parts[0] || "").replace(/^X:\\s*/i, "").trim();
-    const linkedinText = (parts[1] || "").trim();
+    const sections = data.sections || parseSectionsFromText(data.result);
+    const xText = (sections.x || "").trim();
+    const linkedinText = (sections.linkedin || "").trim();
+    const instagramText = (sections.instagram || "").trim();
+    const facebookText = (sections.facebook || "").trim();
 
     lastGenerated = { x: xText, linkedin: linkedinText };
 
-    setHTML(
-      "output",
-      `
-      <div class="platform-card">
-        <div class="platform-header">
-          <span>Twitter / X</span>
-          <span class="platform-actions">
-            <span class="platform-badge">${xStyle === "single" ? "Variations" : "Thread"}</span>
-            <button class="btn btn-ghost btn-mini" onclick="copyPlatform('x')">Copy</button>
-          </span>
-        </div>
-        <div class="box">${xText}</div>
-      </div>
+    if (xText) {
+      const id = storeCopyText(xText);
+      addChatMessage({
+        role: "assistant",
+        title: "Twitter / X",
+        pill: xStyle === "single" ? "Variations" : "Thread",
+        text: xText,
+        actionsHTML: `<button class="btn btn-ghost btn-mini" onclick="copyFromStore('${id}', 'X')">Copy</button>`,
+      });
+    }
+    if (linkedinText) {
+      const id = storeCopyText(linkedinText);
+      addChatMessage({
+        role: "assistant",
+        title: "LinkedIn",
+        pill: "Formatted",
+        text: linkedinText,
+        actionsHTML: `<button class="btn btn-ghost btn-mini" onclick="copyFromStore('${id}', 'LinkedIn')">Copy</button>`,
+      });
+    }
+    if (instagramText) {
+      const id = storeCopyText(instagramText);
+      addChatMessage({
+        role: "assistant",
+        title: "Instagram",
+        pill: "Caption",
+        text: instagramText,
+        actionsHTML: `<button class="btn btn-ghost btn-mini" onclick="copyFromStore('${id}', 'Instagram')">Copy</button>`,
+      });
+    }
+    if (facebookText) {
+      const id = storeCopyText(facebookText);
+      addChatMessage({
+        role: "assistant",
+        title: "Facebook",
+        pill: "Caption",
+        text: facebookText,
+        actionsHTML: `<button class="btn btn-ghost btn-mini" onclick="copyFromStore('${id}', 'Facebook')">Copy</button>`,
+      });
+    }
 
-      <div class="platform-card">
-        <div class="platform-header">
-          <span>LinkedIn</span>
-          <span class="platform-actions">
-            <span class="platform-badge">Formatted</span>
-            <button class="btn btn-ghost btn-mini" onclick="copyPlatform('linkedin')">Copy</button>
-          </span>
-        </div>
-        <div class="box">${linkedinText}</div>
-      </div>
-    `
-    );
-    showToast("Posts generated", "Your X and LinkedIn drafts are ready.", "success");
+    showToast("Generated", "Your captions are ready.", "success");
 
   } catch (err) {
-    setHTML(
-      "output",
-      `<div class="platform-card"><div class="platform-header"><span>Connection Error</span><span class="platform-badge">Offline</span></div><div class="box">Error connecting to API: ${err.message}</div></div>`
-    );
+    addChatMessage({
+      role: "assistant",
+      title: "Connection Error",
+      pill: "Offline",
+      text: `Error connecting to API: ${err.message}`,
+    });
     showToast("Connection error", `Error connecting to API: ${err.message}`, "error");
   } finally {
     button.innerText = "Generate Posts";
