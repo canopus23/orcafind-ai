@@ -143,8 +143,18 @@ function setStudioMode(mode) {
     input?.focus?.();
   } else {
     const brief = document.getElementById("imageBrief");
-    brief?.focus?.();
+    (brief || document.getElementById("inputText"))?.focus?.();
   }
+}
+
+function clearSource() {
+  const input = document.getElementById("inputText");
+  if (!input) {
+    return;
+  }
+  input.value = "";
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  setResultsVisibility(false);
 }
 
 function setImageUIState({ statusText, isBusy, images } = {}) {
@@ -208,8 +218,8 @@ async function startImageGeneration() {
 
   const briefRaw = document.getElementById("imageBrief")?.value?.trim() || "";
   const aspect = document.getElementById("imageAspect")?.value || "square";
-  const style = document.getElementById("imageStyle")?.value || "saas_minimal";
-  const count = Number(document.getElementById("imageCount")?.value || 3);
+  const style = document.getElementById("imageStyle")?.value?.trim() || "";
+  const count = Number(document.getElementById("imageCount")?.value || 1);
   const sourceText = document.getElementById("inputText")?.value?.trim() || "";
   const brief = briefRaw || (sourceText ? `Create a post cover image for this content: ${sourceText.slice(0, 600)}` : "");
 
@@ -227,18 +237,22 @@ async function startImageGeneration() {
 
   setImageUIState({ statusText: "Generating image concepts…", isBusy: true, images: null });
   try {
+    const payload = {
+      brief,
+      aspect,
+      count: Math.max(1, Math.min(6, count)),
+    };
+    if (style) {
+      payload.style = style;
+    }
+
     const response = await fetch("https://api.orcafind.com/images/generate", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({
-        brief,
-        style,
-        aspect,
-        count: Math.max(1, Math.min(6, count)),
-      }),
+      body: JSON.stringify(payload),
     });
 
     const data = await response.json();
