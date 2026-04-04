@@ -12,7 +12,8 @@ def generate_social_content(
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY is not configured")
 
-    text_model = os.getenv("OPENAI_TEXT_MODEL", "").strip() or "gpt-4o-mini"
+    # Cheapest general-purpose text model by default (override with OPENAI_TEXT_MODEL).
+    text_model = os.getenv("OPENAI_TEXT_MODEL", "").strip() or "gpt-5-nano"
     client = OpenAI(api_key=api_key)
 
     x_style_normalized = (x_style or "thread").strip().lower()
