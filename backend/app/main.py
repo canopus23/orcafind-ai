@@ -27,6 +27,7 @@ from app.services.subscriptions import (
     get_image_usage,
     record_image_usage,
     init_schema,
+    is_usage_db_configured,
 )
 
 logger = logging.getLogger("orcafind.api")
@@ -51,7 +52,11 @@ app.add_middleware(RequestContextMiddleware)
 
 @app.on_event("startup")
 def _startup():
-    init_schema()
+    try:
+        init_schema()
+    except Exception:
+        # Never crash the API on startup due to transient DB connectivity.
+        logger.exception("Startup: init_schema failed (DB unreachable).")
 
 def _parse_csv_set(value: Optional[str], *, lowercase: bool = True) -> Set[str]:
     if not value:
@@ -136,8 +141,18 @@ async def entitlements(user=Depends(verify_user)):
     user_id = str(user.get("sub") or "user")
 
     free_image_limit = int(os.getenv("FREE_IMAGE_GENERATIONS_TOTAL", "20"))
-    used_images = get_image_usage(user_id) if not premium else 0
-    remaining_images = max(0, free_image_limit - used_images) if not premium else 10_000
+    env = os.getenv("ENV", "development").strip().lower()
+    try:
+        used_images = get_image_usage(user_id) if not premium else 0
+        remaining_images = max(0, free_image_limit - used_images) if not premium else 10_000
+    except Exception:
+        # Fail closed in production if usage DB is misconfigured/unreachable.
+        if (not premium) and env in {"prod", "production"}:
+            used_images = free_image_limit
+            remaining_images = 0
+        else:
+            used_images = 0
+            remaining_images = free_image_limit if not premium else 10_000
     return {
         "plan": "admin" if admin else ("pro" if premium else "free"),
         "is_admin": admin,
@@ -164,8 +179,15 @@ async def generate_images(
     user_id = str(user.get("sub") or "user")
 
     if not premium:
+        env = os.getenv("ENV", "development").strip().lower()
+        if env in {"prod", "production"} and not is_usage_db_configured():
+            raise HTTPException(status_code=503, detail="Usage database is not configured. Set DATABASE_URL.")
+
         free_image_limit = int(os.getenv("FREE_IMAGE_GENERATIONS_TOTAL", "20"))
-        used_images = get_image_usage(user_id)
+        try:
+            used_images = get_image_usage(user_id)
+        except Exception:
+            raise HTTPException(status_code=503, detail="Usage database is unreachable. Please try again shortly.")
         if used_images + int(req.count) > free_image_limit:
             raise HTTPException(status_code=402, detail="Upgrade to Pro to generate more images")
 
