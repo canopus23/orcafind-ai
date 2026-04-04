@@ -58,8 +58,8 @@ Rules:
 - Output MUST be exactly four sections with these exact headers (one time each):
   X:
   LinkedIn:
-- Instagram:
-- Facebook:
+  Instagram:
+  Facebook:
 - Do NOT add any other headings.
 - Do NOT use code fences.
 - Keep the writing aligned to the requested style/format preference.

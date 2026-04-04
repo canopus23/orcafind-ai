@@ -4,6 +4,7 @@ import logging
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
+from starlette.responses import JSONResponse
 
 
 class RequestContextMiddleware(BaseHTTPMiddleware):
@@ -16,7 +17,16 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         request.state.request_id = request_id
         start = time.perf_counter()
         logger = logging.getLogger("orcafind.request")
-        response: Response = await call_next(request)
+        try:
+            response: Response = await call_next(request)
+        except Exception:
+            # Ensure we always return a JSON error (and preserve request id),
+            # so clients don't misinterpret a plain 500 as a CORS/network issue.
+            logger.exception("Unhandled error for %s %s", request.method, request.url.path)
+            response = JSONResponse(
+                status_code=500,
+                content={"detail": "Internal Server Error", "request_id": request_id},
+            )
         duration_ms = (time.perf_counter() - start) * 1000.0
         response.headers["X-Request-Id"] = request_id
         logger.info(

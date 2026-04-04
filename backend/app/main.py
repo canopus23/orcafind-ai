@@ -403,6 +403,12 @@ async def repurpose_content(
         result = generate_social_content(req.text, x_style=req.x_style, content_format=req.format, is_premium=premium)
         sections = _parse_sections(result)
         return {"result": result, "sections": sections}
+    except RuntimeError as e:
+        msg = str(e or "")
+        if "OPENAI_API_KEY" in msg:
+            raise HTTPException(status_code=503, detail="AI provider is not configured (missing OPENAI_API_KEY).")
+        logger.exception("Runtime error in /repurpose/")
+        raise HTTPException(status_code=500, detail="Internal Server Error during content generation")
     except HTTPException:
         raise
     except Exception as e:
