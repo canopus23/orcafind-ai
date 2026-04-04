@@ -364,6 +364,7 @@
       display: inline-flex;
     }
 
+    .results-card { grid-column: 1 / -1; margin-top: 14px; }
     .results-card .panel-body { padding: 18px; }
     .chat-feed { display: grid; gap: 12px; }
     .chat-row { display: flex; gap: 10px; align-items: flex-end; }
@@ -384,7 +385,7 @@
       box-shadow: 0 14px 26px rgba(19, 103, 255, 0.18);
     }
     .chat-bubble {
-      max-width: min(640px, 100%);
+      max-width: min(820px, 100%);
       border-radius: 18px;
       padding: 14px 14px 12px;
       border: 1px solid rgba(111, 132, 163, 0.16);
@@ -421,6 +422,40 @@
       color: var(--brand);
       font-weight: 800;
       white-space: nowrap;
+    }
+
+    .typing {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: rgba(16, 35, 63, 0.06);
+      border: 1px solid rgba(111, 132, 163, 0.12);
+      width: fit-content;
+    }
+
+    .typing-dots {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .typing-dots span {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(19, 103, 255, 0.85);
+      opacity: 0.28;
+      animation: dotPulse 1.05s infinite ease-in-out;
+    }
+
+    .typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+    .typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+
+    @keyframes dotPulse {
+      0%, 100% { transform: translateY(0); opacity: 0.28; }
+      40% { transform: translateY(-3px); opacity: 0.9; }
     }
     .complete-grid { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 16px; align-items: start; }
     .complete-grid img { width: 100%; border-radius: 18px; border: 1px solid rgba(111, 132, 163, 0.16); background: rgba(16, 35, 63, 0.06); }
@@ -763,18 +798,6 @@
                     </div>
                   </div>
                 </div>
-
-                <div id="resultsCard" class="panel-card results-card is-hidden" style="margin-top: 14px;">
-                  <div class="panel-head">
-                    <div>
-                      <h4>Results</h4>
-                      <p>We generate X and LinkedIn posts, plus Instagram and Facebook captions in one run.</p>
-                    </div>
-                  </div>
-                  <div class="panel-body">
-                    <div id="output" class="chat-feed is-hidden"></div>
-                  </div>
-                </div>
               </div>
 
               <aside class="studio-aside">
@@ -783,7 +806,7 @@
                     <div class="panel-head">
                       <div>
                         <h4>Text Generation</h4>
-                        <p>Choose pacing for X and the voice for both platforms.</p>
+                        <p>Generate X and LinkedIn post drafts, plus Instagram and Facebook captions, from the same source content.</p>
                       </div>
                     </div>
                     <div class="panel-body">
@@ -809,15 +832,12 @@
                               <option value="launch" data-premium="true">Product launch (Pro)</option>
                             </select>
                           </div>
-                          <div class="field-hint">Output is formatted for both X and LinkedIn and includes copy buttons.</div>
+                          <div class="field-hint">X and LinkedIn are generated as full posts. Instagram and Facebook are generated as captions. Each result has its own copy button.</div>
                         </div>
                       </div>
 
                       <div class="side-actions">
-                        <div class="action-meta">
-                          <span id="outputTag" class="tag">Posts: X thread + LinkedIn</span>
-                          <span id="formatTag" class="tag">Format: professional</span>
-                        </div>
+                        <div id="generationSummary" class="field-hint" style="margin-top: 0;"></div>
                         <button id="generateBtn" class="btn btn-primary" onclick="generate()">Generate Posts</button>
                       </div>
                     </div>
@@ -963,6 +983,18 @@
                   </div>
                 </div>
               </aside>
+
+              <div id="resultsCard" class="panel-card results-card is-hidden">
+                <div class="panel-head">
+                  <div>
+                    <h4>Results</h4>
+                    <p>X and LinkedIn are generated as full post drafts. Instagram and Facebook are generated as captions. Everything appears in one chat feed once you run generation.</p>
+                  </div>
+                </div>
+                <div class="panel-body">
+                  <div id="output" class="chat-feed is-hidden"></div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

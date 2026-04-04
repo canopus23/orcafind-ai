@@ -185,7 +185,7 @@ function buildImageBrief({ sourceText, visualBrief, maxSourceChars } = {}) {
   const visual = String(visualBrief || "").trim();
 
   if (source && visual) {
-    return `Source context:\n${source}\n\nVisual brief:\n${visual}`;
+    return `Use BOTH the source context and the visual brief.\n\nSource context:\n${source}\n\nVisual brief:\n${visual}`;
   }
   if (visual) {
     return visual;
@@ -232,7 +232,7 @@ async function startImageGeneration() {
   const style = document.getElementById("imageStyle")?.value?.trim() || "";
   const count = Number(document.getElementById("imageCount")?.value || 1);
   const sourceText = document.getElementById("inputText")?.value?.trim() || "";
-  const brief = buildImageBrief({ sourceText, visualBrief: briefRaw, maxSourceChars: 520 });
+  const brief = buildImageBrief({ sourceText, visualBrief: briefRaw, maxSourceChars: 900 });
 
   if (!brief) {
     showToast("Missing brief", "Add a short visual brief or paste source content first.", "error");
@@ -252,14 +252,13 @@ async function startImageGeneration() {
     pill: "Images",
     text: `Generate ${count} image${count === 1 ? "" : "s"} · ${aspect}${style ? ` · ${style}` : ""}\n\n${brief}`,
   });
-  addChatMessage({
-    role: "assistant",
+  const typingId = addTypingMessage({
     title: "OrcaFind",
     pill: "Working",
-    text: "Generating post images…",
+    label: "Generating post images...",
   });
 
-  setImageUIState({ statusText: "Generating image concepts…", isBusy: true, images: null });
+  setImageUIState({ statusText: "Generating image concepts...", isBusy: true, images: null });
   try {
     const payload = {
       brief,
@@ -281,12 +280,14 @@ async function startImageGeneration() {
 
     const data = await response.json();
     if (!response.ok) {
+      removeChatMessage(typingId);
       if (response.status === 402 || response.status === 403) {
         openPremiumModal();
       }
       throw new Error(data?.detail || "Failed to generate images");
     }
 
+    removeChatMessage(typingId);
     setImageUIState({ statusText: null, isBusy: false, images: null });
     const images = Array.isArray(data.images) ? data.images : [];
     if (!images.length) {
@@ -313,6 +314,7 @@ async function startImageGeneration() {
     showToast("Images ready", "Your post images are ready to download.", "success");
     supabaseClient.auth.getSession().then(({ data }) => fetchEntitlements(data?.session?.access_token));
   } catch (err) {
+    removeChatMessage(typingId);
     setImageUIState({ statusText: null, isBusy: false, images: null });
     addChatMessage({
       role: "assistant",
@@ -351,7 +353,7 @@ async function startCompletePostGeneration() {
   }
   if (statusEl) {
     statusEl.classList.remove("is-hidden");
-    statusEl.textContent = "Generating full post bundle…";
+    statusEl.textContent = "Generating full post bundle...";
   }
 
   setResultsVisibility(true);
@@ -367,6 +369,18 @@ async function startCompletePostGeneration() {
     if (statusEl) statusEl.classList.add("is-hidden");
     return;
   }
+
+  addChatMessage({
+    role: "user",
+    title: "You",
+    pill: "Post Builder",
+    text: `Generate a complete post bundle · X: ${xStyle === "single" ? "Variations" : "Thread"} · Format: ${format}`,
+  });
+  const typingId = addTypingMessage({
+    title: "Post Builder",
+    pill: "Working",
+    label: "Generating copy and image...",
+  });
 
   const payload = {
     text,
@@ -390,12 +404,14 @@ async function startCompletePostGeneration() {
     });
     const data = await response.json();
     if (!response.ok) {
+      removeChatMessage(typingId);
       if (response.status === 402 || response.status === 403) {
         openPremiumModal();
       }
       throw new Error(data?.detail || "Failed to generate complete post");
     }
 
+    removeChatMessage(typingId);
     const image = (data.images || [])[0] || null;
     const imageUrl = image?.url || image?.data_url || null;
     addChatMessage({
@@ -459,6 +475,7 @@ async function startCompletePostGeneration() {
 
     showToast("Complete post ready", "Copy captions and download the image.", "success");
   } catch (err) {
+    removeChatMessage(typingId);
     showToast("Post builder failed", err.message || "Failed to generate complete post.", "error");
   } finally {
     if (btn) {
@@ -788,18 +805,15 @@ function initComposerMetrics() {
 function updateStudioOutputTags() {
   const xStyle = document.getElementById("xStyle");
   const format = document.getElementById("contentFormat");
-  const outputTag = document.getElementById("outputTag");
-  const formatTag = document.getElementById("formatTag");
+  const summary = document.getElementById("generationSummary");
 
-  if (!xStyle || !format || !outputTag || !formatTag) {
+  if (!xStyle || !format || !summary) {
     return;
   }
 
-  const xStyleValue = xStyle.value === "single" ? "single post" : "thread";
-  const formatValue = format.value || "professional";
-
-  outputTag.textContent = `Posts: X ${xStyle.value === "single" ? "post variations" : "thread"} + LinkedIn`;
-  formatTag.textContent = `Format: ${formatValue.replace("-", " ")}`;
+  const xLabel = xStyle.value === "single" ? "post variations" : "thread";
+  const formatValue = (format.value || "professional").replace("-", " ");
+  summary.textContent = `This run generates: X ${xLabel} + LinkedIn post draft, plus Instagram and Facebook captions · Format: ${formatValue}.`;
 }
 
 function initStudioControls() {
@@ -899,6 +913,7 @@ function escapeHTML(str) {
 
 const __orcafindCopyStore = {};
 let __orcafindCopySeed = 0;
+let __orcafindChatSeed = 0;
 
 function storeCopyText(text) {
   const id = `copy_${Date.now()}_${__orcafindCopySeed++}`;
@@ -916,18 +931,44 @@ function clearChat() {
   output.innerHTML = "";
 }
 
-function addChatMessage({ role, title, text, pill, actionsHTML, imageDataUrl } = {}) {
+function removeChatMessage(messageId) {
+  const output = document.getElementById("output");
+  if (!output || !messageId) return;
+  const node = output.querySelector(`[data-message-id="${CSS.escape(String(messageId))}"]`);
+  if (node) node.remove();
+}
+
+function addTypingMessage({ title, pill, label } = {}) {
+  const safeLabel = escapeHTML(label || "Generating...");
+  const body = `
+    <div class="typing" role="status" aria-live="polite">
+      <span>${safeLabel}</span>
+      <span class="typing-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+    </div>
+  `.trim();
+  return addChatMessage({
+    role: "assistant",
+    title: title || "OrcaFind",
+    pill: pill || "Working",
+    html: body,
+  });
+}
+
+function addChatMessage({ id, role, title, text, html, pill, actionsHTML, imageDataUrl } = {}) {
   const output = document.getElementById("output");
   if (!output) return;
 
   const isUser = role === "user";
+  const messageId = id || `msg_${Date.now()}_${__orcafindChatSeed++}`;
   const row = document.createElement("div");
+  row.dataset.messageId = messageId;
   row.className = `chat-row ${isUser ? "is-user" : "is-assistant"}`;
 
   const avatarHTML = isUser ? "" : `<div class="chat-avatar" aria-hidden="true">O</div>`;
   const safeTitle = escapeHTML(title || (isUser ? "You" : "OrcaFind"));
   const safePill = pill ? `<span class="chat-pill">${escapeHTML(pill)}</span>` : "";
   const safeText = text ? `<div class="chat-text">${escapeHTML(text)}</div>` : "";
+  const safeHTML = html ? `<div class="chat-text">${html}</div>` : "";
   const imageHTML = imageDataUrl
     ? `<div class="chat-image"><img src="${imageDataUrl}" alt="Generated post image" /></div>`
     : "";
@@ -941,7 +982,7 @@ function addChatMessage({ role, title, text, pill, actionsHTML, imageDataUrl } =
         ${safePill}
         ${actions}
       </div>
-      ${safeText}
+      ${safeHTML || safeText}
       ${imageHTML}
     </div>
   `;
@@ -950,6 +991,7 @@ function addChatMessage({ role, title, text, pill, actionsHTML, imageDataUrl } =
   setResultsVisibility(true);
   // Scroll into view for long chats.
   row.scrollIntoView({ block: "end", behavior: "smooth" });
+  return messageId;
 }
 
 function parseSectionsFromText(raw) {
@@ -1241,11 +1283,10 @@ async function generate() {
     pill: "Source",
     text: text.trim().slice(0, 900),
   });
-  addChatMessage({
-    role: "assistant",
+  const typingId = addTypingMessage({
     title: "OrcaFind",
     pill: "Working",
-    text: "Generating X and LinkedIn posts, plus Instagram and Facebook captions…",
+    label: "Generating posts and captions...",
   });
 
   try {
@@ -1261,6 +1302,7 @@ async function generate() {
     const data = await response.json();
 
     if (!response.ok) {
+      removeChatMessage(typingId);
       addChatMessage({
         role: "assistant",
         title: "Error",
@@ -1271,6 +1313,7 @@ async function generate() {
       return;
     }
 
+    removeChatMessage(typingId);
     const sections = data.sections || parseSectionsFromText(data.result);
     const xText = (sections.x || "").trim();
     const linkedinText = (sections.linkedin || "").trim();
@@ -1323,6 +1366,7 @@ async function generate() {
     showToast("Generated", "Your posts and captions are ready.", "success");
 
   } catch (err) {
+    removeChatMessage(typingId);
     addChatMessage({
       role: "assistant",
       title: "Connection Error",
