@@ -1472,8 +1472,8 @@
                       <option value="professional" selected>Professional</option>
                       <option value="casual">Casual</option>
                       <option value="educational">Educational</option>
-                      <option value="story">Story-driven</option>
-                      <option value="launch">Product launch</option>
+                      <option value="story" data-premium="true">Story-driven (Pro)</option>
+                      <option value="launch" data-premium="true">Product launch (Pro)</option>
                     </select>
                   </span>
                 </div>
@@ -1651,6 +1651,35 @@
         </div>
 
         <button class="btn btn-ghost" style="color: var(--danger); width: 100%;" onclick="logout()">Sign Out</button>
+      </div>
+    </div>
+
+    <div id="premiumModal" class="auth-modal" aria-hidden="true" onclick="handlePremiumBackdrop(event)">
+      <div class="auth-dialog profile-dialog" role="dialog" aria-modal="true" aria-labelledby="premiumModalTitle">
+        <div class="auth-dialog-top">
+          <div>
+            <h3 id="premiumModalTitle">Upgrade to Pro</h3>
+            <p>Unlock premium formats and higher output limits for X and LinkedIn.</p>
+          </div>
+          <button class="btn btn-ghost auth-close" aria-label="Close upgrade dialog" onclick="closePremiumModal()">×</button>
+        </div>
+
+        <div class="signed-in-list" style="margin-bottom: 14px;">
+          <div class="signed-in-item">
+            <strong>Pro formats</strong>
+            Story-driven and Product launch formats (with stronger structure and CTA patterns).
+          </div>
+          <div class="signed-in-item">
+            <strong>Higher limits</strong>
+            More X post variations and longer threads where it helps performance.
+          </div>
+          <div class="signed-in-item">
+            <strong>Priority roadmap</strong>
+            Early access to premium features like voice profiles, content history, and exports.
+          </div>
+        </div>
+
+        <button class="btn btn-primary" style="width: 100%;" onclick="showToast('Coming soon', 'Subscription checkout is the next step. For now, premium access can be enabled by the admin.', 'success')">Continue to upgrade</button>
       </div>
     </div>
 

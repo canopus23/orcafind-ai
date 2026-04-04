@@ -7,6 +7,7 @@ let heroRotationIndex = 0;
 let heroRotationTimer;
 let toastTimerSeed = 0;
 let lastGenerated = { x: "", linkedin: "" };
+let entitlements = { plan: "free", is_premium: false, limits: { x_single_variants: 2, x_thread_tweets_min: 4, x_thread_tweets_max: 7 } };
 
 const heroSnapshots = [
   {
@@ -190,6 +191,69 @@ function handleProfileBackdrop(event) {
   }
 }
 
+function openPremiumModal() {
+  const modal = document.getElementById("premiumModal");
+  if (modal) {
+    modal.classList.add("is-visible");
+    modal.setAttribute("aria-hidden", "false");
+  }
+}
+
+function closePremiumModal() {
+  const modal = document.getElementById("premiumModal");
+  if (modal) {
+    modal.classList.remove("is-visible");
+    modal.setAttribute("aria-hidden", "true");
+  }
+}
+
+function handlePremiumBackdrop(event) {
+  if (event.target?.id === "premiumModal") {
+    closePremiumModal();
+  }
+}
+
+async function fetchEntitlements(accessToken) {
+  if (!accessToken) {
+    entitlements = { plan: "free", is_premium: false, limits: { x_single_variants: 2, x_thread_tweets_min: 4, x_thread_tweets_max: 7 } };
+    applyEntitlementsToUI();
+    return entitlements;
+  }
+
+  try {
+    const response = await fetch("https://api.orcafind.com/entitlements", {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Entitlements error ${response.status}`);
+    }
+
+    entitlements = await response.json();
+  } catch (err) {
+    entitlements = { plan: "free", is_premium: false, limits: { x_single_variants: 2, x_thread_tweets_min: 4, x_thread_tweets_max: 7 } };
+  }
+
+  applyEntitlementsToUI();
+  return entitlements;
+}
+
+function applyEntitlementsToUI() {
+  const format = document.getElementById("contentFormat");
+  if (!format) {
+    return;
+  }
+
+  const isPremium = !!entitlements?.is_premium;
+  if (!isPremium && format.options[format.selectedIndex]?.dataset?.premium === "true") {
+    format.value = "professional";
+    updateStudioOutputTags();
+  }
+}
+
 function setHeroSnapshot(snapshot) {
   const ids = [
     "metricPrimaryValue",
@@ -319,7 +383,17 @@ function initStudioControls() {
     xStyle.addEventListener("change", updateStudioOutputTags);
   }
   if (format) {
-    format.addEventListener("change", updateStudioOutputTags);
+    format.addEventListener("change", () => {
+      const selected = format.options[format.selectedIndex];
+      if (selected?.dataset?.premium === "true" && !entitlements?.is_premium) {
+        showToast("Pro feature", "This format is available on Pro.", "error");
+        format.value = "professional";
+        updateStudioOutputTags();
+        openPremiumModal();
+        return;
+      }
+      updateStudioOutputTags();
+    });
   }
 
   updateStudioOutputTags();
@@ -460,6 +534,7 @@ function updateUIForUser(user) {
   setAvatar("headerAvatar", displayName);
   closeAuthModal();
   closeProfileModal();
+  supabaseClient.auth.getSession().then(({ data }) => fetchEntitlements(data?.session?.access_token));
 
   console.log("User is authenticated:", email);
 }
@@ -504,6 +579,7 @@ function resetUI() {
   closeAuthModal();
   closeProfileModal();
   setResultsVisibility(false);
+  fetchEntitlements(null);
   setAuthMode("signin");
 }
 
@@ -569,6 +645,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setHeroSnapshot(heroSnapshots[heroRotationIndex]);
   startHeroRotation();
   setResultsVisibility(false);
+  supabaseClient.auth.getSession().then(({ data }) => fetchEntitlements(data?.session?.access_token));
 
   const headerProfile = document.getElementById("headerProfile");
   if (headerProfile) {
