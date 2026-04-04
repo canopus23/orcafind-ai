@@ -56,9 +56,11 @@ origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True, # Required to allow Authorization headers
-    allow_methods=["*"],    # Allows GET, POST, OPTIONS, etc.
-    allow_headers=["*"],    # Allows Content-Type, Authorization, etc.
+    # We use Bearer tokens (Authorization header), not cookies.
+    # Keeping credentials disabled avoids wildcard/CORS edge-cases.
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 @app.get("/")
