@@ -7,8 +7,21 @@ let heroRotationIndex = 0;
 let heroRotationTimer;
 let toastTimerSeed = 0;
 let lastGenerated = { x: "", linkedin: "" };
-let entitlements = { plan: "free", is_premium: false, limits: { x_single_variants: 2, x_thread_tweets_min: 4, x_thread_tweets_max: 7 } };
+let entitlements = {
+  plan: "free",
+  is_premium: false,
+  limits: {
+    x_single_variants: 2,
+    x_thread_tweets_min: 4,
+    x_thread_tweets_max: 7,
+    video_shorts_total: 1,
+    video_shorts_used: 0,
+    video_shorts_remaining: 1,
+    video_shorts_quality: "watermarked_lowres",
+  },
+};
 let videoPollTimer;
+let studioMode = "text";
 
 const heroSnapshots = [
   {
@@ -103,7 +116,7 @@ function showToast(title, message, type = "default") {
   }, 3200);
 }
 
-function setVideoUIState({ statusText, isBusy, resultUrl } = {}) {
+function setVideoUIState({ statusText, isBusy, resultUrl, qualityLabel } = {}) {
   const statusEl = document.getElementById("videoStatus");
   const resultEl = document.getElementById("videoResult");
   const btn = document.getElementById("videoGenerateBtn");
@@ -126,13 +139,14 @@ function setVideoUIState({ statusText, isBusy, resultUrl } = {}) {
 
   if (resultEl) {
     if (resultUrl) {
+      const badge = qualityLabel || (entitlements?.is_premium ? "HD" : "Low-res + watermark");
       resultEl.classList.remove("is-hidden");
       resultEl.innerHTML = `
         <div class="platform-card">
           <div class="platform-header">
             <span>Video Result</span>
             <span class="platform-actions">
-              <span class="platform-badge">MP4</span>
+              <span class="platform-badge">${badge}</span>
               <a class="btn btn-ghost btn-mini" href="${resultUrl}" target="_blank" rel="noreferrer">Download</a>
             </span>
           </div>
@@ -148,6 +162,38 @@ function setVideoUIState({ statusText, isBusy, resultUrl } = {}) {
   }
 }
 
+function setStudioMode(mode) {
+  studioMode = mode === "video" ? "video" : "text";
+  try {
+    window.localStorage.setItem("orcafind_studio_mode", studioMode);
+  } catch (_err) {}
+
+  const textPanel = document.getElementById("studioTextPanel");
+  const videoPanel = document.getElementById("studioVideoPanel");
+  const tabText = document.getElementById("studioTabText");
+  const tabVideo = document.getElementById("studioTabVideo");
+
+  if (textPanel) textPanel.classList.toggle("is-hidden", studioMode !== "text");
+  if (videoPanel) videoPanel.classList.toggle("is-hidden", studioMode !== "video");
+
+  if (tabText) {
+    tabText.classList.toggle("is-active", studioMode === "text");
+    tabText.setAttribute("aria-selected", studioMode === "text" ? "true" : "false");
+  }
+  if (tabVideo) {
+    tabVideo.classList.toggle("is-active", studioMode === "video");
+    tabVideo.setAttribute("aria-selected", studioMode === "video" ? "true" : "false");
+  }
+
+  if (studioMode === "text") {
+    const input = document.getElementById("inputText");
+    input?.focus?.();
+  } else {
+    const yt = document.getElementById("ytUrl");
+    yt?.focus?.();
+  }
+}
+
 function stopVideoPolling() {
   if (videoPollTimer) {
     window.clearInterval(videoPollTimer);
@@ -156,8 +202,9 @@ function stopVideoPolling() {
 }
 
 async function startVideoShorts() {
-  if (!entitlements?.is_premium) {
-    showToast("Pro feature", "AI Video is available on Pro.", "error");
+  const remaining = Number(entitlements?.limits?.video_shorts_remaining ?? 0);
+  if (!entitlements?.is_premium && remaining <= 0) {
+    showToast("Upgrade to Pro", "You have used your free video export. Upgrade for unlimited HD video.", "error");
     openPremiumModal();
     return;
   }
@@ -174,8 +221,12 @@ async function startVideoShorts() {
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (!session) {
     openAuthModal("signin");
-    showToast("Authentication required", "Sign in to generate premium video shorts.", "error");
+    showToast("Authentication required", "Sign in to generate AI video shorts.", "error");
     return;
+  }
+
+  if (!entitlements?.is_premium) {
+    showToast("Free export", "This export will be low-resolution and include a watermark.", "success");
   }
 
   setVideoUIState({ statusText: "Creating job in Runway…", isBusy: true, resultUrl: null });
@@ -199,11 +250,16 @@ async function startVideoShorts() {
 
     const data = await response.json();
     if (!response.ok) {
+      if (response.status === 402 || response.status === 403) {
+        openPremiumModal();
+      }
       throw new Error(data?.detail || "Failed to create video job");
     }
 
     const jobId = data.id;
     setVideoUIState({ statusText: "Job started. Rendering video…", isBusy: true, resultUrl: null });
+    // Update remaining counts (free tier gets consumed at job creation).
+    supabaseClient.auth.getSession().then(({ data }) => fetchEntitlements(data?.session?.access_token));
 
     videoPollTimer = window.setInterval(async () => {
       try {
@@ -218,8 +274,12 @@ async function startVideoShorts() {
 
         if (statusData.status === "done" && statusData.result_url) {
           stopVideoPolling();
-          setVideoUIState({ statusText: null, isBusy: false, resultUrl: statusData.result_url });
-          showToast("Video ready", "Your short video is ready to download.", "success");
+          const quality = statusData.quality || (entitlements?.is_premium ? "hd" : "watermarked_lowres");
+          const qualityLabel = quality === "watermarked_lowres" ? "Low-res + watermark" : "HD";
+          setVideoUIState({ statusText: null, isBusy: false, resultUrl: statusData.result_url, qualityLabel });
+          showToast("Video ready", quality === "watermarked_lowres" ? "Your watermarked export is ready." : "Your HD export is ready.", "success");
+          // Refresh limits after consumption.
+          supabaseClient.auth.getSession().then(({ data }) => fetchEntitlements(data?.session?.access_token));
           return;
         }
 
@@ -357,7 +417,19 @@ function handlePremiumBackdrop(event) {
 
 async function fetchEntitlements(accessToken) {
   if (!accessToken) {
-    entitlements = { plan: "free", is_premium: false, limits: { x_single_variants: 2, x_thread_tweets_min: 4, x_thread_tweets_max: 7 } };
+    entitlements = {
+      plan: "free",
+      is_premium: false,
+      limits: {
+        x_single_variants: 2,
+        x_thread_tweets_min: 4,
+        x_thread_tweets_max: 7,
+        video_shorts_total: 1,
+        video_shorts_used: 0,
+        video_shorts_remaining: 1,
+        video_shorts_quality: "watermarked_lowres",
+      },
+    };
     applyEntitlementsToUI();
     return entitlements;
   }
@@ -376,7 +448,19 @@ async function fetchEntitlements(accessToken) {
 
     entitlements = await response.json();
   } catch (err) {
-    entitlements = { plan: "free", is_premium: false, limits: { x_single_variants: 2, x_thread_tweets_min: 4, x_thread_tweets_max: 7 } };
+    entitlements = {
+      plan: "free",
+      is_premium: false,
+      limits: {
+        x_single_variants: 2,
+        x_thread_tweets_min: 4,
+        x_thread_tweets_max: 7,
+        video_shorts_total: 1,
+        video_shorts_used: 0,
+        video_shorts_remaining: 1,
+        video_shorts_quality: "watermarked_lowres",
+      },
+    };
   }
 
   applyEntitlementsToUI();
@@ -386,6 +470,11 @@ async function fetchEntitlements(accessToken) {
 function applyEntitlementsToUI() {
   const format = document.getElementById("contentFormat");
   if (!format) {
+    // Still allow non-studio pages to call this safely.
+    const hint = document.getElementById("videoLimitHint");
+    if (hint) {
+      hint.textContent = "";
+    }
     return;
   }
 
@@ -393,6 +482,16 @@ function applyEntitlementsToUI() {
   if (!isPremium && format.options[format.selectedIndex]?.dataset?.premium === "true") {
     format.value = "professional";
     updateStudioOutputTags();
+  }
+
+  const hint = document.getElementById("videoLimitHint");
+  if (hint) {
+    if (isPremium) {
+      hint.textContent = "Pro: HD exports enabled.";
+    } else {
+      const remaining = Number(entitlements?.limits?.video_shorts_remaining ?? 0);
+      hint.textContent = `Free exports remaining: ${remaining} (low-res + watermark).`;
+    }
   }
 }
 
@@ -793,6 +892,14 @@ document.addEventListener("DOMContentLoaded", () => {
   setResultsVisibility(false);
   supabaseClient.auth.getSession().then(({ data }) => fetchEntitlements(data?.session?.access_token));
   setVideoUIState({ statusText: null, isBusy: false, resultUrl: null });
+
+  try {
+    const savedMode = window.localStorage.getItem("orcafind_studio_mode");
+    if (savedMode === "video" || savedMode === "text") {
+      studioMode = savedMode;
+    }
+  } catch (_err) {}
+  setStudioMode(studioMode);
 
   const headerProfile = document.getElementById("headerProfile");
   if (headerProfile) {

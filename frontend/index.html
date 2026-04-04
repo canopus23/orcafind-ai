@@ -125,6 +125,19 @@
       letter-spacing: -0.02em;
     }
 
+    .brand-copy {
+      display: grid;
+      line-height: 1.1;
+    }
+
+    .brand-tagline {
+      margin-top: 2px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: rgba(46, 67, 96, 0.7);
+      letter-spacing: 0.01em;
+    }
+
     .brand-icon {
       width: 42px;
       height: 42px;
@@ -1326,7 +1339,10 @@
       <div class="container topbar">
         <a class="brand-mark" href="#top">
           <span class="brand-icon">O</span>
-          <span>OrcaFind AI</span>
+          <span class="brand-copy">
+            <span>OrcaFind AI</span>
+            <span class="brand-tagline">Built for modern creator teams</span>
+          </span>
         </a>
 
         <nav class="topnav">
@@ -1337,8 +1353,24 @@
         </nav>
 
         <div class="nav-actions">
-          <span class="pill">Built for modern creator teams</span>
-          <a class="btn btn-ghost" href="/studio/?auth=signin">Sign In</a>
+          <div id="homeHeaderAuth" class="header-auth">
+            <a class="btn btn-ghost auth-trigger" href="/studio/?auth=signin">Sign In</a>
+            <a class="btn btn-secondary auth-trigger" href="/studio/?auth=signup">Sign Up</a>
+          </div>
+
+          <a
+            id="homeHeaderProfile"
+            class="header-profile"
+            href="/studio/"
+            aria-label="Open your OrcaFind workspace in Studio"
+          >
+            <span id="homeHeaderAvatar" class="profile-avatar">O</span>
+            <span class="profile-copy">
+              <strong id="homeHeaderName">Workspace</strong>
+              <span id="homeHeaderEmail">Signed in</span>
+            </span>
+          </a>
+
           <a class="btn btn-primary" href="/studio/">Open Studio</a>
         </div>
       </div>
@@ -1505,5 +1537,8 @@
     </footer>
 
   </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/home.js" defer></script>
 </body>
 </html>

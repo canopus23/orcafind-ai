@@ -14,6 +14,7 @@ from app.services.r2_storage import (
     upload_bytes,
 )
 from app.services.runway_client import RunwayClient
+from app.services.video_transform import lowres_watermark_mp4
 
 
 @dataclass
@@ -25,6 +26,8 @@ class VideoJob:
     style: str
     platform: str
     captions: bool
+    delivery_tier: str = "pro"  # pro | free
+    delivery_quality: str = "hd"  # hd | watermarked_lowres
     status: str = "queued"  # queued | running | done | failed
     progress: int = 0
     created_at: float = field(default_factory=lambda: time.time())
@@ -40,6 +43,8 @@ class VideoJob:
             "progress": self.progress,
             "error": self.error,
             "result_url": self.result_url,
+            "delivery_tier": self.delivery_tier,
+            "quality": self.delivery_quality,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
@@ -61,7 +66,9 @@ async def create_job(
     style: str,
     platform: str,
     captions: bool,
+    delivery_tier: str = "pro",
 ) -> VideoJob:
+    normalized_tier = delivery_tier if delivery_tier in {"pro", "free"} else "pro"
     job = VideoJob(
         id=new_job_id(),
         user_id=user_id,
@@ -70,6 +77,8 @@ async def create_job(
         style=style,
         platform=platform,
         captions=captions,
+        delivery_tier=normalized_tier,
+        delivery_quality="hd" if normalized_tier == "pro" else "watermarked_lowres",
     )
     async with _LOCK:
         _JOBS[job.id] = job
@@ -136,9 +145,18 @@ async def run_job(job_id: str):
             response.raise_for_status()
             video_bytes = response.content
 
+        if job.delivery_tier == "free":
+            # Best-effort: if ffmpeg isn't available, keep original to avoid failing the job.
+            try:
+                video_bytes = lowres_watermark_mp4(video_bytes)
+                await _update(job_id, delivery_quality="watermarked_lowres")
+            except Exception:
+                await _update(job_id, delivery_quality="hd")
+                pass
+
         bucket = get_bucket_name()
         prefix = get_key_prefix()
-        object_key = build_object_key(prefix, job.user_id, job_id, extension="mp4")
+        object_key = build_object_key(prefix, job.user_id, job_id, job.delivery_tier, extension="mp4")
         upload_bytes(
             bucket=bucket,
             key=object_key,
@@ -156,4 +174,3 @@ async def run_job(job_id: str):
         )
     except Exception as exc:
         await _update(job_id, status="failed", progress=100, error=str(exc))
-

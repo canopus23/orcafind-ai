@@ -262,6 +262,35 @@
     .studio-topbar-copy h3 { font-size: 1.25rem; letter-spacing: -0.03em; margin-bottom: 10px; }
     .studio-topbar-copy p { color: var(--muted); line-height: 1.7; max-width: 60ch; }
 
+    .studio-segment {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px;
+      border-radius: 999px;
+      background: rgba(19, 103, 255, 0.08);
+      border: 1px solid rgba(111, 132, 163, 0.18);
+      flex-shrink: 0;
+    }
+
+    .studio-tab {
+      border: none;
+      background: transparent;
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-weight: 800;
+      color: #36516f;
+      cursor: pointer;
+      transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+      white-space: nowrap;
+    }
+
+    .studio-tab.is-active {
+      background: rgba(255, 255, 255, 0.96);
+      color: #153766;
+      box-shadow: 0 10px 18px rgba(15, 35, 76, 0.08);
+    }
+
     .workspace-frame { padding: 18px; border-radius: 20px; background: linear-gradient(180deg, rgba(248, 251, 255, 0.78), rgba(238, 244, 251, 0.85)); }
     .workspace-frame.is-active { box-shadow: 0 24px 40px rgba(19, 103, 255, 0.1); transform: translateY(-1px); }
 
@@ -445,6 +474,8 @@
       .nav-actions { width: 100%; }
       .nav-actions .btn { width: 100%; }
       .studio-panel { padding: 22px; }
+      .studio-topbar { align-items: flex-start; }
+      .studio-segment { width: 100%; justify-content: space-between; }
     }
 
     @media (max-width: 640px) {
@@ -498,9 +529,14 @@
                 <h3>Generate polished posts from one source of truth.</h3>
                 <p>Paste an article, transcript, release note, or raw idea. OrcaFind will convert it into social-ready drafts designed for distribution.</p>
               </div>
+              <div class="studio-segment" role="tablist" aria-label="Studio mode">
+                <button id="studioTabText" class="studio-tab is-active" role="tab" aria-selected="true" onclick="setStudioMode('text')">Text Posts</button>
+                <button id="studioTabVideo" class="studio-tab" role="tab" aria-selected="false" onclick="setStudioMode('video')">AI Video</button>
+              </div>
             </div>
 
-            <div id="workspaceFrame" class="workspace-frame">
+            <div id="studioTextPanel">
+              <div id="workspaceFrame" class="workspace-frame">
               <div class="composer-meta" style="margin-top: 0;">
                 <div class="meta-cluster">
                   <strong>Output</strong>
@@ -549,13 +585,16 @@
 
               <div id="output" class="output-grid is-hidden"></div>
             </div>
+            </div>
 
+            <div id="studioVideoPanel" class="is-hidden">
             <div class="workspace-frame" style="margin-top: 18px;">
               <div class="studio-topbar" style="margin-bottom: 14px;">
                 <div class="studio-topbar-copy">
-                  <span>AI Video (Pro)</span>
+                  <span>AI Video</span>
                   <h3 style="margin-bottom: 6px;">Turn a YouTube link into a short video post.</h3>
-                  <p>Creates a vertical short using Runway, then stores it in Cloudflare R2 for download.</p>
+                  <p>Free: generate 1 low-resolution video with a watermark. Pro: HD exports without a watermark.</p>
+                  <div id="videoLimitHint" class="auth-hint" style="margin-top: 10px;"></div>
                 </div>
               </div>
 
@@ -594,6 +633,7 @@
 
               <div id="videoStatus" class="auth-hint is-hidden" style="margin-top: 12px;"></div>
               <div id="videoResult" class="is-hidden" style="margin-top: 12px;"></div>
+            </div>
             </div>
           </div>
         </div>

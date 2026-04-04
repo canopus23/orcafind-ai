@@ -12,7 +12,14 @@ from app.schemas.request import ContentRequest
 from app.schemas.video import VideoShortsRequest
 from app.services.ai_service import generate_social_content
 from app.services.razorpay_service import create_order as razorpay_create_order, get_razorpay_key_id, verify_signature
-from app.services.subscriptions import grant_pro, is_pro, link_order_to_user, get_user_for_order
+from app.services.subscriptions import (
+    grant_pro,
+    is_pro,
+    link_order_to_user,
+    get_user_for_order,
+    get_video_usage,
+    record_video_usage,
+)
 from app.services.video_jobs import create_job, get_job as get_video_job, run_job
 
 app = FastAPI(title="OrcaFind AI API")
@@ -70,6 +77,10 @@ async def root():
 @app.get("/entitlements")
 async def entitlements(user=Depends(verify_user)):
     premium = is_premium_user(user)
+    user_id = str(user.get("sub") or "user")
+    free_video_limit = int(os.getenv("FREE_VIDEO_LIMIT_TOTAL", "1"))
+    used = get_video_usage(user_id) if not premium else 0
+    remaining = max(0, free_video_limit - used) if not premium else 10_000
     return {
         "plan": "pro" if premium else "free",
         "is_premium": premium,
@@ -77,6 +88,10 @@ async def entitlements(user=Depends(verify_user)):
             "x_single_variants": 4 if premium else 2,
             "x_thread_tweets_min": 4,
             "x_thread_tweets_max": 10 if premium else 7,
+            "video_shorts_total": 10_000 if premium else free_video_limit,
+            "video_shorts_used": used,
+            "video_shorts_remaining": remaining,
+            "video_shorts_quality": "hd" if premium else "watermarked_lowres",
         },
     }
 
@@ -166,10 +181,18 @@ async def repurpose_content(req: ContentRequest, user=Depends(verify_user)):
 
 @app.post("/video/shorts")
 async def create_video_shorts(req: VideoShortsRequest, user=Depends(verify_user)):
-    if not is_premium_user(user):
-        raise HTTPException(status_code=403, detail="Premium subscription required")
+    premium = is_premium_user(user)
 
     user_id = str(user.get("sub") or "user")
+
+    if not premium:
+        free_video_limit = int(os.getenv("FREE_VIDEO_LIMIT_TOTAL", "1"))
+        used = get_video_usage(user_id)
+        if used >= free_video_limit:
+            # 402 is more semantically correct than 403 for paywall features.
+            raise HTTPException(status_code=402, detail="Upgrade to Pro to generate more videos")
+        record_video_usage(user_id)
+
     job = await create_job(
         user_id=user_id,
         youtube_url=str(req.youtube_url),
@@ -177,6 +200,7 @@ async def create_video_shorts(req: VideoShortsRequest, user=Depends(verify_user)
         style=req.style,
         platform=req.platform,
         captions=req.captions,
+        delivery_tier="pro" if premium else "free",
     )
 
     asyncio.create_task(run_job(job.id))
