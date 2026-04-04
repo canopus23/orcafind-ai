@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OrcaFind AI | Upgrade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --surface: rgba(255, 255, 255, 0.9);
+      --surface-strong: #ffffff;
+      --ink: #0d1b2a;
+      --muted: #60708a;
+      --line: rgba(103, 125, 157, 0.22);
+      --brand: #1367ff;
+      --brand-strong: #0f52cc;
+      --brand-soft: rgba(19, 103, 255, 0.12);
+      --success: #0e9f6e;
+      --danger: #c2415b;
+      --shadow-xl: 0 24px 80px rgba(11, 26, 56, 0.12);
+      --shadow-lg: 0 18px 44px rgba(15, 35, 76, 0.1);
+      --radius-xl: 28px;
+      --radius-lg: 20px;
+      --radius-md: 14px;
+      --page-width: 1120px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      min-height: 100vh;
+      font-family: "Plus Jakarta Sans", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(19, 103, 255, 0.18), transparent 34%),
+        radial-gradient(circle at top right, rgba(74, 222, 128, 0.12), transparent 32%),
+        linear-gradient(180deg, #f8fbff 0%, #eef4fb 55%, #f6f8fc 100%);
+      overflow-x: hidden;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button, input { font: inherit; }
+
+    .container {
+      width: min(calc(100% - 32px), var(--page-width));
+      margin: 0 auto;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 22px 0;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      background: linear-gradient(135deg, #1367ff, #0ab5ff);
+      box-shadow: 0 12px 28px rgba(19, 103, 255, 0.24);
+    }
+
+    .btn {
+      border: none;
+      border-radius: 14px;
+      padding: 12px 16px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+
+    .btn:hover { transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid rgba(111, 132, 163, 0.22);
+      color: #244165;
+    }
+
+    .btn-primary {
+      color: white;
+      background: linear-gradient(135deg, var(--brand), #3f8cff);
+      box-shadow: 0 16px 28px rgba(19, 103, 255, 0.24);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, var(--brand-strong), #2e7cff);
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(111, 132, 163, 0.16);
+      color: #294264;
+      font-size: 0.9rem;
+      font-weight: 800;
+    }
+
+    .hero {
+      padding: 8px 0 26px;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+      gap: 22px;
+      align-items: start;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid rgba(111, 132, 163, 0.16);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-lg);
+      backdrop-filter: blur(18px);
+    }
+
+    .left {
+      padding: 32px;
+    }
+
+    .kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      width: fit-content;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: var(--brand-soft);
+      color: var(--brand);
+      font-size: 0.83rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 4vw, 3.2rem);
+      letter-spacing: -0.05em;
+      line-height: 1.04;
+      margin-bottom: 12px;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      line-height: 1.75;
+      font-size: 1.02rem;
+      margin-bottom: 18px;
+      max-width: 62ch;
+    }
+
+    .toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px;
+      border-radius: 18px;
+      background: rgba(19, 103, 255, 0.08);
+      margin-bottom: 18px;
+    }
+
+    .toggle button {
+      border: none;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: transparent;
+      color: #36516f;
+      font-weight: 900;
+      cursor: pointer;
+      transition: background 0.18s ease, box-shadow 0.18s ease, color 0.18s ease;
+    }
+
+    .toggle button.is-active {
+      background: white;
+      color: #153766;
+      box-shadow: 0 10px 20px rgba(15, 35, 76, 0.1);
+    }
+
+    .plans {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .plan {
+      padding: 18px;
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid rgba(111, 132, 163, 0.16);
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+      cursor: pointer;
+    }
+
+    .plan:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 18px 34px rgba(15, 35, 76, 0.12);
+    }
+
+    .plan.is-selected {
+      border-color: rgba(19, 103, 255, 0.28);
+      box-shadow: 0 22px 42px rgba(19, 103, 255, 0.14);
+    }
+
+    .plan-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .plan h3 {
+      font-size: 1.12rem;
+      letter-spacing: -0.03em;
+    }
+
+    .price {
+      font-weight: 900;
+      font-size: 1.5rem;
+      letter-spacing: -0.04em;
+      margin-top: 2px;
+    }
+
+    .per {
+      color: var(--muted);
+      font-size: 0.92rem;
+      margin-top: 2px;
+    }
+
+    .features {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+      color: #425a79;
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+
+    .feature {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-top: 6px;
+      background: rgba(14, 159, 110, 0.75);
+      flex-shrink: 0;
+    }
+
+    .dot.gray { background: rgba(103, 125, 157, 0.45); }
+
+    .right {
+      padding: 26px;
+      position: sticky;
+      top: 22px;
+    }
+
+    .summary-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .summary-head h2 {
+      font-size: 1.15rem;
+      letter-spacing: -0.03em;
+    }
+
+    .summary {
+      padding: 16px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid rgba(111, 132, 163, 0.14);
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 0;
+      color: #425a79;
+      font-weight: 700;
+    }
+
+    .row span:last-child {
+      color: #1f3655;
+    }
+
+    .divider {
+      height: 1px;
+      background: rgba(111, 132, 163, 0.16);
+      margin: 8px 0;
+    }
+
+    .total {
+      font-size: 1.05rem;
+      letter-spacing: -0.02em;
+    }
+
+    .field {
+      margin-top: 14px;
+      display: grid;
+      gap: 8px;
+    }
+
+    label {
+      font-size: 0.9rem;
+      font-weight: 900;
+      color: #35506f;
+    }
+
+    input {
+      width: 100%;
+      border: 1px solid rgba(111, 132, 163, 0.18);
+      background: rgba(255, 255, 255, 0.94);
+      color: var(--ink);
+      border-radius: 14px;
+      padding: 14px 15px;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: rgba(19, 103, 255, 0.38);
+      box-shadow: 0 0 0 4px rgba(19, 103, 255, 0.09);
+    }
+
+    .cta {
+      margin-top: 16px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .note {
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.6;
+      margin-top: 10px;
+    }
+
+    .toast-stack {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 60;
+      display: grid;
+      gap: 12px;
+      width: min(360px, calc(100vw - 24px));
+    }
+
+    .toast {
+      padding: 16px 18px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.97);
+      border: 1px solid rgba(111, 132, 163, 0.16);
+      box-shadow: 0 18px 36px rgba(11, 26, 56, 0.14);
+      color: #27415f;
+      animation: toast-rise 0.22s ease;
+    }
+
+    .toast strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.95rem;
+      letter-spacing: -0.02em;
+    }
+
+    .toast p {
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: #5b6d84;
+    }
+
+    .toast.success { border-color: rgba(14, 159, 110, 0.18); }
+    .toast.error { border-color: rgba(194, 65, 91, 0.18); }
+
+    @keyframes toast-rise {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 980px) {
+      .hero-grid { grid-template-columns: 1fr; }
+      .right { position: static; }
+      .plans { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <a class="brand" href="index.html#top">
+        <span class="brand-icon">O</span>
+        <span>OrcaFind AI</span>
+      </a>
+      <a class="btn btn-ghost" href="index.html#studio">Back to studio</a>
+    </div>
+  </div>
+
+  <section class="hero">
+    <div class="container hero-grid">
+      <div class="card left">
+        <span class="kicker">Upgrade</span>
+        <h1>Unlock Pro formats and AI Video shorts.</h1>
+        <p class="subtitle">
+          Upgrade your workspace to access premium formats (Story-driven, Product launch), higher X limits, and the AI Video pipeline powered by Runway with Cloudflare R2 delivery.
+        </p>
+
+        <div class="toggle" role="tablist" aria-label="Billing period">
+          <button id="monthlyBtn" class="is-active" type="button" onclick="setBilling('monthly')">Monthly</button>
+          <button id="yearlyBtn" type="button" onclick="setBilling('yearly')">Yearly <span style="color: var(--success); font-weight: 900;">Save 20%</span></button>
+        </div>
+
+        <div class="plans">
+          <div id="freePlan" class="plan" role="button" tabindex="0" onclick="selectPlan('free')">
+            <div class="plan-top">
+              <div>
+                <h3>Free</h3>
+                <div class="per">For trying the workflow</div>
+              </div>
+              <div style="text-align: right;">
+                <div class="price">$0</div>
+                <div class="per">Forever</div>
+              </div>
+            </div>
+            <div class="features">
+              <div class="feature"><span class="dot gray"></span><span>Professional / Casual / Educational formats</span></div>
+              <div class="feature"><span class="dot gray"></span><span>Limited X output variants and thread length</span></div>
+              <div class="feature"><span class="dot gray"></span><span>No AI Video generation</span></div>
+            </div>
+          </div>
+
+          <div id="proPlan" class="plan is-selected" role="button" tabindex="0" onclick="selectPlan('pro')">
+            <div class="plan-top">
+              <div>
+                <h3>Pro</h3>
+                <div class="per">For creators and SaaS teams</div>
+              </div>
+              <div style="text-align: right;">
+                <div id="proPrice" class="price">$19</div>
+                <div id="proPer" class="per">per month</div>
+              </div>
+            </div>
+            <div class="features">
+              <div class="feature"><span class="dot"></span><span>Story-driven and Product launch formats</span></div>
+              <div class="feature"><span class="dot"></span><span>More X variations and longer threads</span></div>
+              <div class="feature"><span class="dot"></span><span>AI Video shorts from YouTube links (Runway)</span></div>
+              <div class="feature"><span class="dot"></span><span>Cloud delivery via R2 download links</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="card right">
+        <div class="summary-head">
+          <h2>Checkout</h2>
+          <span id="planPill" class="pill">Pro selected</span>
+        </div>
+
+        <div class="summary">
+          <div class="row"><span>Plan</span><span id="summaryPlan">Pro</span></div>
+          <div class="row"><span>Billing</span><span id="summaryBilling">Monthly</span></div>
+          <div class="divider"></div>
+          <div class="row total"><span>Total</span><span id="summaryTotal">$19 / mo</span></div>
+        </div>
+
+        <div class="field">
+          <label for="checkoutEmail">Email</label>
+          <input id="checkoutEmail" type="email" placeholder="you@company.com">
+        </div>
+
+        <div class="cta">
+          <button class="btn btn-primary" type="button" onclick="proceedToPayment()">Proceed to payment</button>
+          <button class="btn btn-ghost" type="button" onclick="contactSales()">Contact sales</button>
+        </div>
+
+        <p class="note">
+          This page is the dedicated checkout screen. Next step is wiring Stripe checkout and automatically syncing subscription status into entitlements.
+        </p>
+      </aside>
+    </div>
+  </section>
+
+  <div id="toastStack" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="checkout.js" defer></script>
+</body>
+</html>
+
