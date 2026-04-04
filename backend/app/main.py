@@ -140,7 +140,8 @@ async def entitlements(user=Depends(verify_user)):
     premium = admin or is_premium_user(user)
     user_id = str(user.get("sub") or "user")
 
-    free_image_limit = int(os.getenv("FREE_IMAGE_GENERATIONS_TOTAL", "20"))
+    # AI images are Pro-only.
+    free_image_limit = 0
     env = os.getenv("ENV", "development").strip().lower()
     try:
         used_images = get_image_usage(user_id) if not premium else 0
@@ -161,7 +162,7 @@ async def entitlements(user=Depends(verify_user)):
             "x_single_variants": 4 if premium else 2,
             "x_thread_tweets_min": 4,
             "x_thread_tweets_max": 10 if premium else 7,
-            "image_generations_total": 10_000 if premium else free_image_limit,
+            "image_generations_total": 10_000 if premium else 0,
             "image_generations_used": used_images,
             "image_generations_remaining": remaining_images,
         },
@@ -179,17 +180,7 @@ async def generate_images(
     user_id = str(user.get("sub") or "user")
 
     if not premium:
-        env = os.getenv("ENV", "development").strip().lower()
-        if env in {"prod", "production"} and not is_usage_db_configured():
-            raise HTTPException(status_code=503, detail="Usage database is not configured. Set DATABASE_URL.")
-
-        free_image_limit = int(os.getenv("FREE_IMAGE_GENERATIONS_TOTAL", "20"))
-        try:
-            used_images = get_image_usage(user_id)
-        except Exception:
-            raise HTTPException(status_code=503, detail="Usage database is unreachable. Please try again shortly.")
-        if used_images + int(req.count) > free_image_limit:
-            raise HTTPException(status_code=402, detail="Upgrade to Pro to generate more images")
+        raise HTTPException(status_code=402, detail="Upgrade to Pro to generate AI images")
 
     # Prefer OpenAI if configured; fall back to placeholder images for local/dev.
     images = None
@@ -210,9 +201,7 @@ async def generate_images(
             aspect=req.aspect,
             count=req.count,
         )
-    if not premium:
-        # Count-based accounting to match UI "count" selector.
-        record_image_usage(user_id, n=req.count)
+    # Pro/Admin: usage accounting can be added later if desired.
     return {"images": images}
 
 

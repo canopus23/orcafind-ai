@@ -30,9 +30,9 @@ let entitlements = {
     x_single_variants: 2,
     x_thread_tweets_min: 4,
     x_thread_tweets_max: 7,
-    image_generations_total: 20,
+    image_generations_total: 0,
     image_generations_used: 0,
-    image_generations_remaining: 20,
+    image_generations_remaining: 0,
   },
 };
 let studioMode = "text";
@@ -631,9 +631,9 @@ async function fetchEntitlements(accessToken) {
         x_single_variants: 2,
         x_thread_tweets_min: 4,
         x_thread_tweets_max: 7,
-        image_generations_total: 20,
+        image_generations_total: 0,
         image_generations_used: 0,
-        image_generations_remaining: 20,
+        image_generations_remaining: 0,
       },
     };
     applyEntitlementsToUI();
@@ -662,9 +662,9 @@ async function fetchEntitlements(accessToken) {
         x_single_variants: 2,
         x_thread_tweets_min: 4,
         x_thread_tweets_max: 7,
-        image_generations_total: 20,
+        image_generations_total: 0,
         image_generations_used: 0,
-        image_generations_remaining: 20,
+        image_generations_remaining: 0,
       },
     };
   }
@@ -696,8 +696,7 @@ function applyEntitlementsToUI() {
     if (isPremium) {
       hint.textContent = "Pro: higher image generation limits enabled.";
     } else {
-      const remaining = Number(entitlements?.limits?.image_generations_remaining ?? 0);
-      hint.textContent = `Free generations remaining: ${remaining}.`;
+      hint.textContent = "Pro feature: upgrade to generate AI images.";
     }
   }
 

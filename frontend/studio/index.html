@@ -851,8 +851,17 @@
       .nav-actions { width: 100%; }
       .nav-actions .btn { width: 100%; }
       .studio-panel { padding: 22px; }
-      .studio-topbar { align-items: flex-start; }
-      .studio-segment { width: 100%; justify-content: space-between; }
+      .studio-topbar { flex-direction: column; align-items: stretch; gap: 16px; }
+      .studio-topbar-copy { width: 100%; }
+      .studio-segment {
+        width: 100%;
+        justify-content: flex-start;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x mandatory;
+      }
+      .studio-segment::-webkit-scrollbar { height: 0; }
+      .studio-tab { flex: 0 0 auto; scroll-snap-align: start; }
     }
 
     @media (max-width: 640px) {
@@ -870,6 +879,9 @@
       .nav-actions .btn { width: 100%; justify-content: center; }
       .header-profile { width: 100%; justify-content: flex-start; }
       .composer-card textarea { min-height: 220px; }
+      .studio-topbar-copy h3 { font-size: 1.15rem; }
+      .studio-segment { padding: 6px; gap: 6px; }
+      .studio-tab { padding: 10px 12px; font-size: 0.92rem; }
     }
   </style>
 </head>
@@ -1003,8 +1015,8 @@
                   <div id="studioImagesPanel" class="panel-card is-hidden">
                     <div class="panel-head">
                       <div>
-                        <h4>Image Generation</h4>
-                        <p>Create post-ready images from a short visual brief or from the source content.</p>
+                        <h4>Image Generation (Pro)</h4>
+                        <p>Create post-ready images from a short visual brief plus your source content.</p>
                       </div>
                     </div>
                     <div class="panel-body">
