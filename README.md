@@ -36,7 +36,19 @@ ENV=development uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 ### Production notes
 
-- Add persistent storage for entitlements/subscriptions (current grants/usage counters are in-memory).
-- Add rate limiting and abuse protection.
-- Prefer uploading generated images to R2 (supported) to avoid large base64 payloads.
-- Configure CORS origins via environment for staging/prod.
+### Deploy (Vercel + FastAPI on Railway)
+
+Frontend (Vercel):
+- Set `window.__ORCAFIND_API_BASE_URL` (optional) to point to Railway FastAPI base URL.
+- Set `window.__ORCAFIND_SUPABASE_URL` / `window.__ORCAFIND_SUPABASE_ANON_KEY` (optional) if you want to avoid hardcoding.
+
+Backend (Railway):
+- Add a Railway Postgres and set `DATABASE_URL` (required for persistent subscriptions/usage).
+- Add a Railway Redis and set `REDIS_URL` (recommended for rate limiting).
+- Set `ENV=production`.
+- Set `CORS_ALLOW_ORIGINS` to your Vercel production domain(s).
+- Optional: set `CORS_ALLOW_ORIGIN_REGEX=https://.*\\.vercel\\.app` for preview deploys.
+- Optional: set `SENTRY_DSN` for monitoring.
+
+Notes:
+- Generated images are automatically uploaded to R2 if configured; otherwise the API returns base64 data URLs.

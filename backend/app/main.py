@@ -2,13 +2,16 @@ import os
 import re
 import logging
 from typing import Optional, Set
-import asyncio
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
 
 # Ensure these imports match the actual file paths and function names
 from app.dependencies.auth import verify_user
+from app.dependencies.rate_limit import RateLimitConfig, rate_limit
+from app.middleware.request_context import RequestContextMiddleware
 from app.schemas.billing import RazorpayCreateOrderRequest, RazorpayVerifyRequest
 from app.schemas.request import ContentRequest
 from app.schemas.images import ImageGenerateRequest
@@ -23,11 +26,32 @@ from app.services.subscriptions import (
     get_user_for_order,
     get_image_usage,
     record_image_usage,
+    init_schema,
 )
 
 logger = logging.getLogger("orcafind.api")
 
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+
+if os.getenv("SENTRY_DSN"):
+    sentry_sdk.init(
+        dsn=os.getenv("SENTRY_DSN"),
+        integrations=[FastApiIntegration()],
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.0")),
+        environment=os.getenv("ENV", "development"),
+        release=os.getenv("RELEASE", None),
+    )
+
 app = FastAPI(title="OrcaFind AI API")
+app.add_middleware(RequestContextMiddleware)
+
+
+@app.on_event("startup")
+def _startup():
+    init_schema()
 
 def _parse_csv_set(value: Optional[str], *, lowercase: bool = True) -> Set[str]:
     if not value:
@@ -80,17 +104,18 @@ def is_admin_user(payload: dict) -> bool:
 
 # Define allowed origins explicitly for CORS with credentials.
 # Browsers block wildcard "*" when an Authorization header is present.
-origins = [
+origins = _parse_csv_set(os.getenv("CORS_ALLOW_ORIGINS"), lowercase=False) or {
     "https://orcafind.com",
     "https://www.orcafind.com",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-]
+}
 
 # CORSMiddleware must be added first to handle preflight OPTIONS requests
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=list(origins),
+    allow_origin_regex=os.getenv("CORS_ALLOW_ORIGIN_REGEX"),
     # We use Bearer tokens (Authorization header), not cookies.
     # Keeping credentials disabled avoids wildcard/CORS edge-cases.
     allow_credentials=False,
@@ -127,7 +152,11 @@ async def entitlements(user=Depends(verify_user)):
 
 
 @app.post("/images/generate")
-async def generate_images(req: ImageGenerateRequest, user=Depends(verify_user)):
+async def generate_images(
+    req: ImageGenerateRequest,
+    user=Depends(verify_user),
+    _rl=Depends(rate_limit(RateLimitConfig(limit=20, window_seconds=60, key_prefix="images"))),
+):
     admin = is_admin_user(user)
     premium = admin or is_premium_user(user)
     user_id = str(user.get("sub") or "user")
@@ -135,10 +164,8 @@ async def generate_images(req: ImageGenerateRequest, user=Depends(verify_user)):
     if not premium:
         free_image_limit = int(os.getenv("FREE_IMAGE_GENERATIONS_TOTAL", "20"))
         used_images = get_image_usage(user_id)
-        if used_images >= free_image_limit:
+        if used_images + int(req.count) > free_image_limit:
             raise HTTPException(status_code=402, detail="Upgrade to Pro to generate more images")
-        # Count-based accounting to match UI "count" selector.
-        record_image_usage(user_id, n=req.count)
 
     # Prefer OpenAI if configured; fall back to placeholder images for local/dev.
     images = None
@@ -159,6 +186,9 @@ async def generate_images(req: ImageGenerateRequest, user=Depends(verify_user)):
             aspect=req.aspect,
             count=req.count,
         )
+    if not premium:
+        # Count-based accounting to match UI "count" selector.
+        record_image_usage(user_id, n=req.count)
     return {"images": images}
 
 
@@ -172,7 +202,6 @@ def _parse_sections(result: str) -> dict:
     Returns a dict with keys: x, linkedin, instagram, facebook (missing keys -> "").
     """
     text = (result or "").strip()
-    keys = ["X", "LinkedIn", "Instagram", "Facebook"]
     out = {"x": "", "linkedin": "", "instagram": "", "facebook": ""}
 
     # Generic header scanner.
@@ -207,7 +236,11 @@ def _parse_sections(result: str) -> dict:
 
 
 @app.post("/posts/complete")
-async def complete_post(req: CompletePostRequest, user=Depends(verify_user)):
+async def complete_post(
+    req: CompletePostRequest,
+    user=Depends(verify_user),
+    _rl=Depends(rate_limit(RateLimitConfig(limit=10, window_seconds=60, key_prefix="complete"))),
+):
     admin = is_admin_user(user)
     premium = admin or is_premium_user(user)
     if not premium:
@@ -293,7 +326,8 @@ async def razorpay_create(req: RazorpayCreateOrderRequest, user=Depends(verify_u
         },
     )
 
-    link_order_to_user(order.get("id"), user_id)
+    if order.get("id"):
+        link_order_to_user(order.get("id"), user_id)
 
     return {
         "key_id": get_razorpay_key_id(),
@@ -327,7 +361,11 @@ async def razorpay_verify(req: RazorpayVerifyRequest, user=Depends(verify_user))
     return {"status": "ok", "plan": "pro"}
 
 @app.post("/repurpose/")
-async def repurpose_content(req: ContentRequest, user=Depends(verify_user)):
+async def repurpose_content(
+    req: ContentRequest,
+    user=Depends(verify_user),
+    _rl=Depends(rate_limit(RateLimitConfig(limit=30, window_seconds=60, key_prefix="repurpose"))),
+):
     """
     Protected endpoint. 'verify_user' will raise a 401 if the JWT is invalid.
     """
