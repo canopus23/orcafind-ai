@@ -16,15 +16,23 @@ class RunwayClient:
         api_key = os.getenv("RUNWAY_API_KEY")
         # Runway docs list the API hostname as `api.dev.runwayml.com`.
         # Users can override this for their environment.
-        base_url = os.getenv("RUNWAY_API_BASE_URL", "").strip() or "https://api.dev.runwayml.com/v1"
+        base_url = os.getenv("RUNWAY_API_BASE_URL", "").strip() or "https://api.dev.runwayml.com"
         workflow_id = (os.getenv("RUNWAY_WORKFLOW_ID", "").strip() or "")
         # Runway requires an explicit API version header.
         version = os.getenv("RUNWAY_VERSION", "").strip() or "2024-11-06"
         if not api_key:
             raise RuntimeError("Missing required env var: RUNWAY_API_KEY")
+        if "api.runwayml.com" in base_url:
+            raise RuntimeError(
+                "Invalid RUNWAY_API_BASE_URL: use https://api.dev.runwayml.com (Runway API host), not api.runwayml.com"
+            )
         if not workflow_id:
             raise RuntimeError("Missing required env var: RUNWAY_WORKFLOW_ID")
-        return RunwayClient(api_key=api_key, base_url=base_url, workflow_id=workflow_id, version=version)
+        # Normalize so callers can set either https://api.dev.runwayml.com or https://api.dev.runwayml.com/v1
+        normalized = base_url.rstrip("/")
+        if not normalized.endswith("/v1"):
+            normalized = f"{normalized}/v1"
+        return RunwayClient(api_key=api_key, base_url=normalized, workflow_id=workflow_id, version=version)
 
     def _headers(self) -> Dict[str, str]:
         return {
