@@ -50,6 +50,23 @@ def is_premium_user(payload: dict) -> bool:
     email = _get_user_email(payload)
     return bool(email and email.strip().lower() in allowlist)
 
+
+def is_admin_user(payload: dict) -> bool:
+    """
+    Admin users bypass paywalls/limits for testing.
+    Configure via env:
+    - ADMIN_EMAIL_ALLOWLIST: comma-separated emails
+    - ADMIN_SUB_ALLOWLIST: optional comma-separated Supabase user IDs ("sub") for extra safety
+    """
+    sub_allowlist = _parse_allowlist(os.getenv("ADMIN_SUB_ALLOWLIST"))
+    user_id = str(payload.get("sub") or "")
+    if user_id and user_id in sub_allowlist:
+        return True
+
+    email_allowlist = _parse_allowlist(os.getenv("ADMIN_EMAIL_ALLOWLIST"))
+    email = _get_user_email(payload)
+    return bool(email and email.strip().lower() in email_allowlist)
+
 # Define allowed origins explicitly for CORS with credentials.
 # Browsers block wildcard "*" when an Authorization header is present.
 origins = [
@@ -76,13 +93,15 @@ async def root():
 
 @app.get("/entitlements")
 async def entitlements(user=Depends(verify_user)):
-    premium = is_premium_user(user)
+    admin = is_admin_user(user)
+    premium = admin or is_premium_user(user)
     user_id = str(user.get("sub") or "user")
     free_video_limit = int(os.getenv("FREE_VIDEO_LIMIT_TOTAL", "1"))
     used = get_video_usage(user_id) if not premium else 0
     remaining = max(0, free_video_limit - used) if not premium else 10_000
     return {
-        "plan": "pro" if premium else "free",
+        "plan": "admin" if admin else ("pro" if premium else "free"),
+        "is_admin": admin,
         "is_premium": premium,
         "limits": {
             "x_single_variants": 4 if premium else 2,
@@ -169,7 +188,7 @@ async def repurpose_content(req: ContentRequest, user=Depends(verify_user)):
             raise HTTPException(status_code=400, detail="Input text cannot be empty")
             
         # Process content via AI service
-        premium = is_premium_user(user)
+        premium = is_admin_user(user) or is_premium_user(user)
         result = generate_social_content(req.text, x_style=req.x_style, content_format=req.format, is_premium=premium)
         return {"result": result}
     except HTTPException:
@@ -181,7 +200,8 @@ async def repurpose_content(req: ContentRequest, user=Depends(verify_user)):
 
 @app.post("/video/shorts")
 async def create_video_shorts(req: VideoShortsRequest, user=Depends(verify_user)):
-    premium = is_premium_user(user)
+    admin = is_admin_user(user)
+    premium = admin or is_premium_user(user)
 
     user_id = str(user.get("sub") or "user")
 

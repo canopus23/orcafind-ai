@@ -9,6 +9,7 @@ let toastTimerSeed = 0;
 let lastGenerated = { x: "", linkedin: "" };
 let entitlements = {
   plan: "free",
+  is_admin: false,
   is_premium: false,
   limits: {
     x_single_variants: 2,
@@ -419,6 +420,7 @@ async function fetchEntitlements(accessToken) {
   if (!accessToken) {
     entitlements = {
       plan: "free",
+      is_admin: false,
       is_premium: false,
       limits: {
         x_single_variants: 2,
@@ -450,6 +452,7 @@ async function fetchEntitlements(accessToken) {
   } catch (err) {
     entitlements = {
       plan: "free",
+      is_admin: false,
       is_premium: false,
       limits: {
         x_single_variants: 2,
@@ -479,6 +482,7 @@ function applyEntitlementsToUI() {
   }
 
   const isPremium = !!entitlements?.is_premium;
+  const isAdmin = !!entitlements?.is_admin || entitlements?.plan === "admin";
   if (!isPremium && format.options[format.selectedIndex]?.dataset?.premium === "true") {
     format.value = "professional";
     updateStudioOutputTags();
@@ -486,7 +490,9 @@ function applyEntitlementsToUI() {
 
   const hint = document.getElementById("videoLimitHint");
   if (hint) {
-    if (isPremium) {
+    if (isAdmin) {
+      hint.textContent = "Admin: unlimited HD exports enabled (testing mode).";
+    } else if (isPremium) {
       hint.textContent = "Pro: HD exports enabled.";
     } else {
       const remaining = Number(entitlements?.limits?.video_shorts_remaining ?? 0);
