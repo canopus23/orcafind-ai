@@ -5,6 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OrcaFind AI | Studio</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem("orcafind_theme");
+        var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var theme = saved || (prefersDark ? "dark" : "light");
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+      } catch (e) {}
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -31,6 +42,20 @@
       --page-width: 1200px;
     }
 
+    html[data-theme="dark"] {
+      --bg: #070b14;
+      --surface: rgba(16, 24, 41, 0.72);
+      --surface-strong: rgba(12, 18, 33, 0.92);
+      --surface-dark: #0a1222;
+      --surface-dark-alt: #0f1a30;
+      --ink: rgba(245, 250, 255, 0.92);
+      --muted: rgba(185, 200, 221, 0.72);
+      --line: rgba(255, 255, 255, 0.10);
+      --brand-soft: rgba(19, 103, 255, 0.20);
+      --shadow-xl: 0 30px 90px rgba(0, 0, 0, 0.5);
+      --shadow-lg: 0 22px 60px rgba(0, 0, 0, 0.45);
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
 
@@ -44,6 +69,64 @@
         linear-gradient(180deg, #f8fbff 0%, #eef4fb 52%, #f6f8fc 100%);
       overflow-x: hidden;
     }
+
+    html[data-theme="dark"] body {
+      background:
+        radial-gradient(circle at top left, rgba(19, 103, 255, 0.22), transparent 38%),
+        radial-gradient(circle at top right, rgba(10, 181, 255, 0.14), transparent 36%),
+        linear-gradient(180deg, #050814 0%, #070b14 40%, #040610 100%);
+    }
+
+    html[data-theme="dark"] .site-header {
+      background: rgba(6, 10, 18, 0.62);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    html[data-theme="dark"] .panel-card {
+      background: rgba(10, 16, 28, 0.78);
+      border-color: rgba(255, 255, 255, 0.10);
+      box-shadow: 0 22px 60px rgba(0, 0, 0, 0.42);
+    }
+
+    html[data-theme="dark"] .panel-head {
+      border-bottom-color: rgba(255, 255, 255, 0.08);
+      background: linear-gradient(135deg, rgba(19, 103, 255, 0.16), rgba(10, 181, 255, 0.10));
+    }
+
+    html[data-theme="dark"] .textarea-shell {
+      background: linear-gradient(180deg, rgba(10, 16, 28, 0.72), rgba(10, 16, 28, 0.56));
+    }
+
+    html[data-theme="dark"] .composer-card textarea,
+    html[data-theme="dark"] .field input,
+    html[data-theme="dark"] .field textarea,
+    html[data-theme="dark"] .field select {
+      background: rgba(6, 10, 18, 0.66);
+      border-color: rgba(255, 255, 255, 0.10);
+      color: rgba(245, 250, 255, 0.92);
+    }
+
+    html[data-theme="dark"] .chat-bubble {
+      background: rgba(6, 10, 18, 0.70);
+      border-color: rgba(255, 255, 255, 0.10);
+      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
+    }
+
+    html[data-theme="dark"] .chat-text {
+      color: rgba(235, 245, 255, 0.86);
+    }
+
+    html[data-theme="dark"] .chat-pill {
+      background: rgba(19, 103, 255, 0.18);
+      color: rgba(235, 245, 255, 0.92);
+    }
+
+    html[data-theme="dark"] .btn.btn-ghost {
+      color: rgba(235, 245, 255, 0.86);
+      border-color: rgba(255, 255, 255, 0.10);
+      background: rgba(10, 16, 28, 0.35);
+    }
+
 
     button, input, textarea, select { font: inherit; }
     a { color: inherit; text-decoration: none; }
@@ -737,6 +820,9 @@
 
         <div class="nav-actions">
           <span class="pill">Studio workspace</span>
+          <button class="btn btn-ghost" type="button" data-theme-toggle onclick="toggleTheme()">
+            <span data-theme-toggle-text>Dark</span>
+          </button>
           <div id="headerAuth" class="header-auth">
             <button class="btn btn-ghost auth-trigger" onclick="openAuthModal('signin')">Sign In</button>
             <button class="btn btn-primary auth-trigger" onclick="openAuthModal('signup')">Sign Up</button>
@@ -1110,6 +1196,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/theme.js" defer></script>
   <script src="/script.js" defer></script>
 </body>
 </html>

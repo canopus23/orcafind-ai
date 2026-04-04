@@ -5,6 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OrcaFind AI | Pricing (Coming Soon)</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem("orcafind_theme");
+        var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var theme = saved || (prefersDark ? "dark" : "light");
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+      } catch (e) {}
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -29,6 +40,18 @@
       --page-width: 1120px;
     }
 
+    html[data-theme="dark"] {
+      --bg: #070b14;
+      --surface: rgba(10, 16, 28, 0.78);
+      --surface-strong: rgba(6, 10, 18, 0.86);
+      --ink: rgba(245, 250, 255, 0.92);
+      --muted: rgba(185, 200, 221, 0.72);
+      --line: rgba(255, 255, 255, 0.10);
+      --brand-soft: rgba(19, 103, 255, 0.20);
+      --shadow-xl: 0 30px 90px rgba(0, 0, 0, 0.5);
+      --shadow-lg: 0 22px 60px rgba(0, 0, 0, 0.45);
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
 
@@ -41,6 +64,30 @@
         radial-gradient(circle at top right, rgba(74, 222, 128, 0.12), transparent 32%),
         linear-gradient(180deg, #f8fbff 0%, #eef4fb 55%, #f6f8fc 100%);
       overflow-x: hidden;
+    }
+
+    html[data-theme="dark"] body {
+      background:
+        radial-gradient(circle at top left, rgba(19, 103, 255, 0.22), transparent 38%),
+        radial-gradient(circle at top right, rgba(10, 181, 255, 0.14), transparent 36%),
+        linear-gradient(180deg, #050814 0%, #070b14 40%, #040610 100%);
+    }
+
+    html[data-theme="dark"] .topbar {
+      background: rgba(6, 10, 18, 0.58);
+      border-color: rgba(255, 255, 255, 0.08);
+    }
+
+    html[data-theme="dark"] .card {
+      background: rgba(10, 16, 28, 0.78);
+      border-color: rgba(255, 255, 255, 0.10);
+      box-shadow: 0 22px 60px rgba(0, 0, 0, 0.42);
+    }
+
+    html[data-theme="dark"] .btn.btn-ghost {
+      color: rgba(235, 245, 255, 0.86);
+      border-color: rgba(255, 255, 255, 0.10);
+      background: rgba(10, 16, 28, 0.35);
     }
 
     a { color: inherit; text-decoration: none; }
@@ -424,6 +471,9 @@
         <span>OrcaFind AI</span>
       </a>
       <div style="display: inline-flex; gap: 10px; align-items: center;">
+        <button class="btn btn-ghost" type="button" data-theme-toggle onclick="toggleTheme()">
+          <span data-theme-toggle-text>Dark</span>
+        </button>
         <a class="btn btn-ghost" href="/studio/">Open Studio</a>
         <a class="btn btn-ghost" href="/">Home</a>
       </div>
@@ -452,5 +502,7 @@
       </div>
     </div>
   </section>
+
+  <script src="/theme.js" defer></script>
 </body>
 </html>
