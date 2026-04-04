@@ -3,11 +3,14 @@ import time
 from dataclasses import dataclass
 
 from fastapi import HTTPException, Request
+import logging
 
 try:
     import redis
 except Exception:  # pragma: no cover
     redis = None
+
+logger = logging.getLogger("orcafind.ratelimit")
 
 
 @dataclass
@@ -45,12 +48,20 @@ def rate_limit(config: RateLimitConfig):
         identity = (xff.split(",")[0].strip() if xff else "") or (request.client.host if request.client else "unknown")
         key = _key_for(request, config.key_prefix, identity, config.window_seconds)
 
-        # Atomic-ish: INCR then set TTL on first hit.
-        current = client.incr(key)
-        if current == 1:
-            client.expire(key, config.window_seconds)
+        try:
+            # Atomic-ish: INCR then set TTL on first hit.
+            current = client.incr(key)
+            if current == 1:
+                client.expire(key, config.window_seconds)
 
-        if current > config.limit:
-            raise HTTPException(status_code=429, detail="Rate limit exceeded")
+            if current > config.limit:
+                raise HTTPException(status_code=429, detail="Rate limit exceeded")
+        except HTTPException:
+            raise
+        except Exception as exc:
+            # Fail-open if Redis is unreachable/misconfigured; don't take down the API.
+            req_id = getattr(getattr(request, "state", None), "request_id", None)
+            logger.warning("Rate limit bypassed (redis error) request_id=%s err=%s", req_id, exc)
+            return
 
     return _dep
