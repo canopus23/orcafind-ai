@@ -26,6 +26,11 @@ def _aspect_to_openai_size(aspect: str) -> str:
 
 def _style_prompt(style: str) -> str:
     style = (style or "saas_minimal").strip().lower()
+    if style == "realistic":
+        return (
+            "Photorealistic, natural lighting, shallow depth of field, premium product photography vibe, "
+            "clean composition, no text."
+        )
     if style == "abstract_gradient":
         return "Abstract gradient background, soft lighting, modern SaaS brand feel, no text."
     if style == "product_mock":

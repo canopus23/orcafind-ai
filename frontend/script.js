@@ -847,6 +847,11 @@ function initActiveNav() {
 
 function setResultsVisibility(isVisible) {
   const output = document.getElementById("output");
+  const resultsCard = document.getElementById("resultsCard");
+
+  if (resultsCard) {
+    resultsCard.classList.toggle("is-hidden", !isVisible);
+  }
 
   if (output) {
     output.classList.toggle("is-hidden", !isVisible);
