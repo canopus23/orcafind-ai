@@ -2,7 +2,7 @@ import os
 import re
 import logging
 from typing import Optional, Set
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import sentry_sdk
@@ -387,18 +387,18 @@ async def razorpay_verify(req: RazorpayVerifyRequest, user=Depends(verify_user))
 @app.post("/repurpose/")
 async def repurpose_content(
     req: ContentRequest,
+    request: Request,
     user=Depends(verify_user),
     _rl=Depends(rate_limit(RateLimitConfig(limit=30, window_seconds=60, key_prefix="repurpose"))),
 ):
     """
     Protected endpoint. 'verify_user' will raise a 401 if the JWT is invalid.
     """
+    # Input validation
+    if not req.text.strip():
+        raise HTTPException(status_code=400, detail="Input text cannot be empty")
+
     try:
-        # Input validation
-        if not req.text.strip():
-            raise HTTPException(status_code=400, detail="Input text cannot be empty")
-            
-        # Process content via AI service
         premium = is_admin_user(user) or is_premium_user(user)
         result = generate_social_content(req.text, x_style=req.x_style, content_format=req.format, is_premium=premium)
         sections = _parse_sections(result)
@@ -406,14 +406,12 @@ async def repurpose_content(
     except RuntimeError as e:
         msg = str(e or "")
         if "OPENAI_API_KEY" in msg:
-            raise HTTPException(status_code=503, detail="AI provider is not configured (missing OPENAI_API_KEY).")
-        logger.exception("Runtime error in /repurpose/")
-        raise HTTPException(status_code=500, detail="Internal Server Error during content generation")
-    except HTTPException:
+            raise HTTPException(
+                status_code=503,
+                detail={"message": "AI provider is not configured (missing OPENAI_API_KEY).", "request_id": request.state.request_id},
+            )
+        # Let middleware return a JSON 500 with request_id.
         raise
-    except Exception as e:
-        logger.exception("Error in /repurpose/")
-        raise HTTPException(status_code=500, detail="Internal Server Error during content generation")
 
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
