@@ -798,7 +798,7 @@ function updateStudioOutputTags() {
   const xStyleValue = xStyle.value === "single" ? "single post" : "thread";
   const formatValue = format.value || "professional";
 
-  outputTag.textContent = `Output: X ${xStyle.value === "single" ? "post variations" : "thread"} + LinkedIn`;
+  outputTag.textContent = `Posts: X ${xStyle.value === "single" ? "post variations" : "thread"} + LinkedIn`;
   formatTag.textContent = `Format: ${formatValue.replace("-", " ")}`;
 }
 
@@ -1245,7 +1245,7 @@ async function generate() {
     role: "assistant",
     title: "OrcaFind",
     pill: "Working",
-    text: "Generating X, LinkedIn, Instagram, and Facebook captions from your source content…",
+    text: "Generating X and LinkedIn posts, plus Instagram and Facebook captions…",
   });
 
   try {
@@ -1320,7 +1320,7 @@ async function generate() {
       });
     }
 
-    showToast("Generated", "Your captions are ready.", "success");
+    showToast("Generated", "Your posts and captions are ready.", "success");
 
   } catch (err) {
     addChatMessage({
