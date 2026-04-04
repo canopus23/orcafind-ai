@@ -1,4 +1,5 @@
 import os
+import re
 from typing import Optional, Set
 import asyncio
 from fastapi import FastAPI, Depends, HTTPException
@@ -160,9 +161,21 @@ async def generate_images(req: ImageGenerateRequest, user=Depends(verify_user)):
 
 
 def _split_social_result(result: str) -> tuple[str, str]:
-    parts = (result or "").split("LinkedIn:")
-    x_text = (parts[0] or "").replace("X:", "").strip()
-    linkedin_text = (parts[1] or "").strip() if len(parts) > 1 else ""
+    """
+    Parse the model output using stable section headers:
+      X:
+      LinkedIn:
+    """
+    text = (result or "").strip()
+    # Prefer a strict header-based parse (multiline, dot matches newline).
+    match = re.search(r"(?is)^\s*X:\s*(.*?)^\s*LinkedIn:\s*(.*)\s*$", text, re.MULTILINE)
+    if match:
+        return match.group(1).strip(), match.group(2).strip()
+
+    # Fallback: case-insensitive split for unexpected formatting.
+    parts = re.split(r"(?i)linkedin:\s*", text, maxsplit=1)
+    x_text = re.sub(r"(?is)^\s*x:\s*", "", parts[0] if parts else "").strip()
+    linkedin_text = (parts[1] if len(parts) > 1 else "").strip()
     return x_text, linkedin_text
 
 
@@ -182,6 +195,8 @@ async def complete_post(req: CompletePostRequest, user=Depends(verify_user)):
         is_premium=True,
     )
     x_text, linkedin_text = _split_social_result(result)
+    if not linkedin_text:
+        raise HTTPException(status_code=502, detail="LinkedIn output missing from generation result")
 
     # Build a concise image brief if the user didn't provide one.
     image_brief = (req.image_brief or "").strip()
