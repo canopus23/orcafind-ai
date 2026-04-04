@@ -1,8 +1,6 @@
 import os
 from openai import OpenAI
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
 # Renamed from generate_content to generate_social_content
 def generate_social_content(
     text: str,
@@ -10,6 +8,13 @@ def generate_social_content(
     content_format: str = "professional",
     is_premium: bool = False,
 ):
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY is not configured")
+
+    text_model = os.getenv("OPENAI_TEXT_MODEL", "").strip() or "gpt-4o-mini"
+    client = OpenAI(api_key=api_key)
+
     x_style_normalized = (x_style or "thread").strip().lower()
     if x_style_normalized not in {"single", "thread"}:
         x_style_normalized = "thread"
@@ -86,7 +91,7 @@ Source content:
 """.strip()
 
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model=text_model,
         messages=[
             {"role": "system", "content": "You are a concise, high-signal social content expert."},
             {"role": "user", "content": prompt}

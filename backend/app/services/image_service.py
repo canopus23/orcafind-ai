@@ -1,9 +1,12 @@
 import base64
 import datetime as _dt
 import os
+import uuid
 from typing import Any, Dict, List, Tuple
 
 from openai import OpenAI
+
+from app.services.r2_storage import build_object_key, get_bucket_name, get_download_url, get_key_prefix, upload_bytes
 
 
 def _aspect_dimensions(aspect: str) -> Tuple[int, int]:
@@ -87,7 +90,25 @@ def generate_openai_images(
         b64 = getattr(item, "b64_json", None) or (item.get("b64_json") if isinstance(item, dict) else None)
         if not b64:
             continue
-        images.append({"label": f"Option {idx+1}", "data_url": f"data:image/png;base64,{b64}"})
+        # Prefer storing to R2 if configured. Fall back to data URLs.
+        url: str = ""
+        try:
+            # If R2 isn't configured this will raise, and we use the data URL fallback.
+            png_bytes = base64.b64decode(b64)
+            bucket = get_bucket_name()
+            prefix = get_key_prefix()
+            object_key = build_object_key(prefix, "images", user_id, uuid.uuid4().hex, extension="png")
+            upload_bytes(bucket=bucket, key=object_key, content=png_bytes, content_type="image/png")
+            url = get_download_url(bucket=bucket, key=object_key)
+        except Exception:
+            url = ""
+
+        payload: Dict[str, Any] = {"label": f"Option {idx+1}"}
+        if url:
+            payload["url"] = url
+        else:
+            payload["data_url"] = f"data:image/png;base64,{b64}"
+        images.append(payload)
     if not images:
         raise RuntimeError("OpenAI image generation returned no images")
     return images

@@ -1,5 +1,6 @@
 import os
 import re
+import logging
 from typing import Optional, Set
 import asyncio
 from fastapi import FastAPI, Depends, HTTPException
@@ -10,7 +11,6 @@ import uvicorn
 from app.dependencies.auth import verify_user
 from app.schemas.billing import RazorpayCreateOrderRequest, RazorpayVerifyRequest
 from app.schemas.request import ContentRequest
-from app.schemas.video import VideoShortsRequest
 from app.schemas.images import ImageGenerateRequest
 from app.schemas.complete_post import CompletePostRequest
 from app.services.ai_service import generate_social_content
@@ -21,19 +21,24 @@ from app.services.subscriptions import (
     is_pro,
     link_order_to_user,
     get_user_for_order,
-    get_video_usage,
-    record_video_usage,
     get_image_usage,
     record_image_usage,
 )
-from app.services.video_jobs import create_job, get_job as get_video_job, run_job
+
+logger = logging.getLogger("orcafind.api")
 
 app = FastAPI(title="OrcaFind AI API")
 
-def _parse_allowlist(value: Optional[str]) -> Set[str]:
+def _parse_csv_set(value: Optional[str], *, lowercase: bool = True) -> Set[str]:
     if not value:
         return set()
-    return {email.strip().lower() for email in value.split(",") if email.strip()}
+    items = []
+    for raw in value.split(","):
+        item = raw.strip()
+        if not item:
+            continue
+        items.append(item.lower() if lowercase else item)
+    return set(items)
 
 
 def _get_user_email(payload: dict) -> Optional[str]:
@@ -49,7 +54,7 @@ def _get_user_email(payload: dict) -> Optional[str]:
 
 
 def is_premium_user(payload: dict) -> bool:
-    allowlist = _parse_allowlist(os.getenv("PREMIUM_EMAIL_ALLOWLIST"))
+    allowlist = _parse_csv_set(os.getenv("PREMIUM_EMAIL_ALLOWLIST"), lowercase=True)
     user_id = str(payload.get("sub") or "user")
     if is_pro(user_id):
         return True
@@ -64,12 +69,12 @@ def is_admin_user(payload: dict) -> bool:
     - ADMIN_EMAIL_ALLOWLIST: comma-separated emails
     - ADMIN_SUB_ALLOWLIST: optional comma-separated Supabase user IDs ("sub") for extra safety
     """
-    sub_allowlist = _parse_allowlist(os.getenv("ADMIN_SUB_ALLOWLIST"))
+    sub_allowlist = _parse_csv_set(os.getenv("ADMIN_SUB_ALLOWLIST"), lowercase=False)
     user_id = str(payload.get("sub") or "")
     if user_id and user_id in sub_allowlist:
         return True
 
-    email_allowlist = _parse_allowlist(os.getenv("ADMIN_EMAIL_ALLOWLIST"))
+    email_allowlist = _parse_csv_set(os.getenv("ADMIN_EMAIL_ALLOWLIST"), lowercase=True)
     email = _get_user_email(payload)
     return bool(email and email.strip().lower() in email_allowlist)
 
@@ -102,9 +107,6 @@ async def entitlements(user=Depends(verify_user)):
     admin = is_admin_user(user)
     premium = admin or is_premium_user(user)
     user_id = str(user.get("sub") or "user")
-    free_video_limit = int(os.getenv("FREE_VIDEO_LIMIT_TOTAL", "1"))
-    used = get_video_usage(user_id) if not premium else 0
-    remaining = max(0, free_video_limit - used) if not premium else 10_000
 
     free_image_limit = int(os.getenv("FREE_IMAGE_GENERATIONS_TOTAL", "20"))
     used_images = get_image_usage(user_id) if not premium else 0
@@ -342,50 +344,8 @@ async def repurpose_content(req: ContentRequest, user=Depends(verify_user)):
     except HTTPException:
         raise
     except Exception as e:
-        # Log the error to the server console for debugging
-        print(f"Error in /repurpose/: {str(e)}")
+        logger.exception("Error in /repurpose/")
         raise HTTPException(status_code=500, detail="Internal Server Error during content generation")
-
-@app.post("/video/shorts")
-async def create_video_shorts(req: VideoShortsRequest, user=Depends(verify_user)):
-    admin = is_admin_user(user)
-    premium = admin or is_premium_user(user)
-
-    user_id = str(user.get("sub") or "user")
-
-    if not premium:
-        free_video_limit = int(os.getenv("FREE_VIDEO_LIMIT_TOTAL", "1"))
-        used = get_video_usage(user_id)
-        if used >= free_video_limit:
-            # 402 is more semantically correct than 403 for paywall features.
-            raise HTTPException(status_code=402, detail="Upgrade to Pro to generate more videos")
-        record_video_usage(user_id)
-
-    job = await create_job(
-        user_id=user_id,
-        youtube_url=str(req.youtube_url),
-        duration_seconds=req.duration_seconds,
-        style=req.style,
-        platform=req.platform,
-        captions=req.captions,
-        delivery_tier="pro" if premium else "free",
-    )
-
-    asyncio.create_task(run_job(job.id))
-    return job.to_dict()
-
-
-@app.get("/video/shorts/{job_id}")
-async def get_video_shorts(job_id: str, user=Depends(verify_user)):
-    job = await get_video_job(job_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    user_id = str(user.get("sub") or "user")
-    if job.user_id != user_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
-
-    return job.to_dict()
 
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

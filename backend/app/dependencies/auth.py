@@ -1,5 +1,6 @@
 import json
 import os
+import logging
 from functools import lru_cache
 from urllib.error import URLError
 from urllib.request import urlopen
@@ -8,8 +9,11 @@ from dotenv import load_dotenv
 from fastapi import HTTPException, Request
 from jose import jwt
 
-# Load environment variables from .env file
-load_dotenv()
+logger = logging.getLogger("orcafind.auth")
+
+# Load environment variables from .env file in development only.
+if os.getenv("ENV", "").strip().lower() not in {"prod", "production"}:
+    load_dotenv()
 
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -49,7 +53,7 @@ def _resolve_jwk(token: str) -> tuple[dict, str]:
     try:
         jwks = _fetch_jwks(jwks_url)
     except (URLError, TimeoutError, ValueError) as exc:
-        print(f"Failed to fetch JWKS from {jwks_url}: {exc}")
+        logger.warning("Failed to fetch JWKS from %s: %s", jwks_url, exc)
         raise HTTPException(status_code=401, detail="Unable to validate token signature") from exc
 
     kid = header.get("kid")
@@ -106,5 +110,5 @@ def verify_user(request: Request):
     except HTTPException:
         raise
     except Exception as exc:
-        print(f"JWT verification error: {exc}")
+        logger.warning("JWT verification error: %s", exc)
         raise HTTPException(status_code=401, detail="Invalid or expired token") from exc

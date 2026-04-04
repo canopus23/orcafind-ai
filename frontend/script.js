@@ -2,6 +2,10 @@ const SUPABASE_URL = "https://rcfehmuiovcesucsvfsr.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjZmVobXVpb3ZjZXN1Y3N2ZnNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1MzE3MzAsImV4cCI6MjA5MDEwNzczMH0.8J4k5tlyA5G3gr70JT8aDbY36cidBc4s08hlwE-z9tY";
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const API_BASE_URL = window.__ORCAFIND_API_BASE_URL
+  || (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+    ? "http://127.0.0.1:8000"
+    : "https://api.orcafind.com");
 let authMode = "signin";
 let heroRotationIndex = 0;
 let heroRotationTimer;
@@ -266,7 +270,7 @@ async function startImageGeneration() {
       payload.style = style;
     }
 
-    const response = await fetch("https://api.orcafind.com/images/generate", {
+    const response = await fetch(`${API_BASE_URL}/images/generate`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -294,7 +298,7 @@ async function startImageGeneration() {
       });
     } else {
       images.forEach((img, idx) => {
-        const url = img?.data_url || "";
+        const url = img?.url || img?.data_url || "";
         if (!url) return;
         addChatMessage({
           role: "assistant",
@@ -376,7 +380,7 @@ async function startCompletePostGeneration() {
   if (imageStyle) payload.image_style = imageStyle;
 
   try {
-    const response = await fetch("https://api.orcafind.com/posts/complete", {
+    const response = await fetch(`${API_BASE_URL}/posts/complete`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -393,15 +397,16 @@ async function startCompletePostGeneration() {
     }
 
     const image = (data.images || [])[0] || null;
+    const imageUrl = image?.url || image?.data_url || null;
     addChatMessage({
       role: "assistant",
       title: "Post Builder",
       pill: "Bundle",
       text: "Generated a complete bundle: copy plus image.",
-      actionsHTML: image?.data_url
-        ? `<a class="btn btn-secondary btn-mini" href="${image.data_url}" download="orcafind-post-image.png">Download</a>`
+      actionsHTML: imageUrl
+        ? `<a class="btn btn-secondary btn-mini" href="${imageUrl}" download="orcafind-post-image.png">Download</a>`
         : "",
-      imageDataUrl: image?.data_url || null,
+      imageDataUrl: imageUrl,
     });
 
     const sections = {
@@ -598,7 +603,7 @@ async function fetchEntitlements(accessToken) {
   }
 
   try {
-    const response = await fetch("https://api.orcafind.com/entitlements", {
+    const response = await fetch(`${API_BASE_URL}/entitlements`, {
       method: "GET",
       headers: {
         "Authorization": `Bearer ${accessToken}`
@@ -1069,7 +1074,7 @@ function updateUIForUser(user) {
   closeProfileModal();
   supabaseClient.auth.getSession().then(({ data }) => fetchEntitlements(data?.session?.access_token));
 
-  console.log("User is authenticated:", email);
+  // Intentionally no console logging in production UI.
 }
 
 function resetUI() {
@@ -1244,7 +1249,7 @@ async function generate() {
   });
 
   try {
-    const response = await fetch("https://api.orcafind.com/repurpose/", {
+    const response = await fetch(`${API_BASE_URL}/repurpose/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
