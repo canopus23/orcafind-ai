@@ -435,6 +435,10 @@ function setHeroSnapshot(snapshot) {
 }
 
 function startHeroRotation() {
+  // Studio page doesn't include the hero metrics.
+  if (!document.getElementById("metricPrimaryValue")) {
+    return;
+  }
   if (heroRotationTimer) {
     window.clearInterval(heroRotationTimer);
   }
@@ -798,6 +802,12 @@ document.addEventListener("DOMContentLoaded", () => {
         openProfileModal();
       }
     });
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const auth = params.get("auth");
+  if (auth === "signin" || auth === "signup") {
+    openAuthModal(auth);
   }
 });
 

@@ -1336,24 +1336,15 @@
 
         <nav class="topnav">
           <a class="nav-link" href="#platform">Platform</a>
-          <a class="nav-link" href="#studio">Studio</a>
           <a class="nav-link" href="#results">Results</a>
           <a class="nav-link" href="#testimonials">Customers</a>
+          <a class="nav-link" href="checkout.html">Pricing</a>
         </nav>
 
         <div class="nav-actions">
           <span class="pill">Built for modern creator teams</span>
-          <div id="headerAuth" class="header-auth">
-            <button class="btn btn-ghost auth-trigger" onclick="openAuthModal('signin')">Sign In</button>
-            <button class="btn btn-primary auth-trigger" onclick="openAuthModal('signup')">Sign Up</button>
-          </div>
-          <div id="headerProfile" class="header-profile" role="button" tabindex="0" aria-live="polite" onclick="openProfileModal()">
-            <div id="headerAvatar" class="profile-avatar">O</div>
-            <div class="profile-copy">
-              <strong id="headerProfileName">Workspace user</strong>
-              <span id="headerProfileEmail">Sign in to access the studio</span>
-            </div>
-          </div>
+          <a class="btn btn-ghost" href="studio.html?auth=signin">Sign In</a>
+          <a class="btn btn-primary" href="studio.html">Open Studio</a>
         </div>
       </div>
     </header>
@@ -1370,7 +1361,7 @@
             </p>
 
             <div class="hero-actions">
-              <a class="btn btn-primary" href="#studio">Open Content Studio</a>
+              <a class="btn btn-primary" href="studio.html">Open Content Studio</a>
               <a class="btn btn-secondary" href="#platform">See how it works</a>
             </div>
 
@@ -1444,117 +1435,6 @@
         </div>
       </section>
 
-      <section class="section reveal" id="studio">
-        <div class="container studio-wrap">
-          <div class="studio-panel">
-            <div class="studio-topbar">
-              <div class="studio-topbar-copy">
-                <span>Content Studio</span>
-                <h3>Generate polished posts from one source of truth.</h3>
-                <p>Paste an article, transcript, release note, or raw idea. OrcaFind will convert it into social-ready drafts designed for distribution.</p>
-              </div>
-            </div>
-
-            <div id="workspaceFrame" class="workspace-frame">
-              <div class="composer-meta" style="margin-top: 0;">
-                <div class="meta-cluster">
-                  <strong>Output</strong>
-                  <span class="tag">
-                    X:
-                    <select id="xStyle" aria-label="X output style" style="border: none; background: transparent; font-weight: 800; color: inherit;">
-                      <option value="single">Single post</option>
-                      <option value="thread" selected>Thread</option>
-                    </select>
-                  </span>
-                  <span class="tag">
-                    Format:
-                    <select id="contentFormat" aria-label="Content format" style="border: none; background: transparent; font-weight: 800; color: inherit;">
-                      <option value="professional" selected>Professional</option>
-                      <option value="casual">Casual</option>
-                      <option value="educational">Educational</option>
-                      <option value="story" data-premium="true">Story-driven (Pro)</option>
-                      <option value="launch" data-premium="true">Product launch (Pro)</option>
-                    </select>
-                  </span>
-                </div>
-              </div>
-
-              <textarea id="inputText" placeholder="Paste your article, transcript, launch note, or raw thoughts here..."></textarea>
-
-              <div class="composer-meta">
-                <div class="meta-cluster">
-                  <strong id="textHealthLabel">Ready for a sharp repurpose</strong>
-                  <span id="charCount">0 characters</span>
-                </div>
-                <div class="meta-cluster">
-                  <div class="progress-rail">
-                    <div id="textProgress" class="progress-fill"></div>
-                  </div>
-                  <span id="readinessLabel">Waiting for input</span>
-                </div>
-              </div>
-
-              <div class="action-bar">
-                <div class="action-meta">
-                  <span id="outputTag" class="tag">Output: X thread + LinkedIn</span>
-                  <span id="formatTag" class="tag">Format: professional</span>
-                </div>
-                <button id="generateBtn" class="btn btn-primary" onclick="generate()">Generate Posts</button>
-              </div>
-
-              <div id="output" class="output-grid is-hidden"></div>
-
-            </div>
-
-            <div class="workspace-frame" style="margin-top: 18px;">
-              <div class="studio-topbar" style="margin-bottom: 14px;">
-                <div class="studio-topbar-copy">
-                  <span>AI Video (Pro)</span>
-                  <h3 style="margin-bottom: 6px;">Turn a YouTube link into a short video post.</h3>
-                  <p>Creates a vertical short using Runway, then stores it in Cloudflare R2 for download.</p>
-                </div>
-              </div>
-
-              <div class="composer-meta" style="margin-top: 0;">
-                <div class="meta-cluster" style="flex: 1;">
-                  <span class="tag" style="width: 100%;">
-                    <strong style="margin-right: 10px;">YouTube URL</strong>
-                    <input id="ytUrl" placeholder="https://www.youtube.com/watch?v=..." style="border: none; background: transparent; padding: 0; width: 100%;">
-                  </span>
-                </div>
-              </div>
-
-              <div class="composer-meta" style="margin-top: 12px;">
-                <div class="meta-cluster">
-                  <span class="tag">
-                    Duration:
-                    <select id="videoDuration" aria-label="Video duration" style="border: none; background: transparent; font-weight: 800; color: inherit;">
-                      <option value="15">15s</option>
-                      <option value="30" selected>30s</option>
-                      <option value="60">60s</option>
-                    </select>
-                  </span>
-                  <span class="tag">
-                    Style:
-                    <select id="videoStyle" aria-label="Video style" style="border: none; background: transparent; font-weight: 800; color: inherit;">
-                      <option value="captioned" selected>Captioned</option>
-                      <option value="kinetic">Kinetic text</option>
-                      <option value="minimal">Minimal</option>
-                    </select>
-                  </span>
-                </div>
-                <div class="meta-cluster">
-                  <button id="videoGenerateBtn" class="btn btn-primary" onclick="startVideoShorts()">Generate Video</button>
-                </div>
-              </div>
-
-              <div id="videoStatus" class="auth-hint is-hidden" style="margin-top: 12px;"></div>
-              <div id="videoResult" class="is-hidden" style="margin-top: 12px;"></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <section class="section reveal" id="results">
         <div class="container">
           <div class="section-head">
@@ -1585,7 +1465,7 @@
                 <h3>Ship your content system with the credibility of a mature SaaS product.</h3>
                 <p>From first impression to authenticated workflow, the interface now tells a stronger product story and gives users a cleaner path into the core repurposing action.</p>
               </div>
-              <a class="btn btn-primary" href="#studio">Start in the Studio</a>
+              <a class="btn btn-primary" href="studio.html">Start in the Studio</a>
             </div>
           </div>
         </div>
@@ -1629,110 +1509,6 @@
       </div>
     </footer>
 
-    <div id="authModal" class="auth-modal" aria-hidden="true" onclick="handleModalBackdrop(event)">
-      <div class="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
-        <div class="auth-dialog-top">
-          <div>
-            <h3 id="authModalTitle">Welcome back</h3>
-            <p id="authModalDescription">Sign in to access your OrcaFind workspace and protected generation flow.</p>
-          </div>
-          <button class="btn btn-ghost auth-close" aria-label="Close authentication dialog" onclick="closeAuthModal()">×</button>
-        </div>
-
-        <div class="auth-mode-switch">
-          <button id="signInModeBtn" class="btn mode-btn is-active" onclick="setAuthMode('signin')">Sign In</button>
-          <button id="signUpModeBtn" class="btn mode-btn" onclick="setAuthMode('signup')">Sign Up</button>
-        </div>
-
-        <div id="authModeCopy" class="auth-mode-copy">
-          Sign in with your existing account, or use Google if you want the fastest path into the studio.
-        </div>
-
-        <div class="auth-form">
-          <div class="field-group">
-            <label for="email">Work email</label>
-            <input id="email" type="email" placeholder="you@company.com">
-          </div>
-
-          <div class="field-group">
-            <label for="password">Password</label>
-            <input id="password" type="password" placeholder="Enter your password">
-          </div>
-
-          <div class="auth-actions">
-            <button id="primaryAuthAction" class="btn btn-primary" onclick="submitAuthAction()">Sign In</button>
-            <button class="btn btn-secondary" onclick="loginWithGoogle()">Continue with Google</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div id="profileModal" class="auth-modal" aria-hidden="true" onclick="handleProfileBackdrop(event)">
-      <div class="auth-dialog profile-dialog" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
-        <div class="auth-dialog-top">
-          <div>
-            <h3 id="profileModalTitle">Profile</h3>
-            <p>Manage your session and view your workspace details.</p>
-          </div>
-          <button class="btn btn-ghost auth-close" aria-label="Close profile dialog" onclick="closeProfileModal()">×</button>
-        </div>
-
-        <div class="profile-card" style="margin-bottom: 14px;">
-          <div id="profileAvatar" class="profile-avatar">O</div>
-          <div class="profile-meta">
-            <h4 id="profileName">Workspace user</h4>
-            <p id="profileEmail">Signed in and ready to generate content.</p>
-          </div>
-        </div>
-
-        <div class="signed-in-list" style="margin-bottom: 14px;">
-          <div class="signed-in-item">
-            <strong>Workspace status</strong>
-            Your session is active. Protected content generation is available now.
-          </div>
-          <div class="signed-in-item">
-            <strong>Practical next step</strong>
-            Paste your source content into the studio and generate platform-ready posts in one click.
-          </div>
-        </div>
-
-        <button class="btn btn-ghost" style="color: var(--danger); width: 100%;" onclick="logout()">Sign Out</button>
-      </div>
-    </div>
-
-    <div id="premiumModal" class="auth-modal" aria-hidden="true" onclick="handlePremiumBackdrop(event)">
-      <div class="auth-dialog profile-dialog" role="dialog" aria-modal="true" aria-labelledby="premiumModalTitle">
-        <div class="auth-dialog-top">
-          <div>
-            <h3 id="premiumModalTitle">Upgrade to Pro</h3>
-            <p>Unlock premium formats and higher output limits for X and LinkedIn.</p>
-          </div>
-          <button class="btn btn-ghost auth-close" aria-label="Close upgrade dialog" onclick="closePremiumModal()">×</button>
-        </div>
-
-        <div class="signed-in-list" style="margin-bottom: 14px;">
-          <div class="signed-in-item">
-            <strong>Pro formats</strong>
-            Story-driven and Product launch formats (with stronger structure and CTA patterns).
-          </div>
-          <div class="signed-in-item">
-            <strong>Higher limits</strong>
-            More X post variations and longer threads where it helps performance.
-          </div>
-          <div class="signed-in-item">
-            <strong>Priority roadmap</strong>
-            Early access to premium features like voice profiles, content history, and exports.
-          </div>
-        </div>
-
-        <a class="btn btn-primary" style="width: 100%; display: inline-flex; justify-content: center;" href="checkout.html">Continue to upgrade</a>
-      </div>
-    </div>
-
-    <div id="toastStack" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
   </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js" defer></script>
 </body>
 </html>
