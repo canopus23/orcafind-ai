@@ -116,7 +116,7 @@ function showToast(title, message, type = "default") {
 }
 
 function setStudioMode(mode) {
-  studioMode = mode === "images" ? "images" : "text";
+  studioMode = mode === "images" ? "images" : mode === "builder" ? "builder" : "text";
   try {
     window.localStorage.setItem("orcafind_studio_mode", studioMode);
   } catch (_err) {}
@@ -125,9 +125,12 @@ function setStudioMode(mode) {
   const imagesPanel = document.getElementById("studioImagesPanel");
   const tabText = document.getElementById("studioTabText");
   const tabImages = document.getElementById("studioTabImages");
+  const builderPanel = document.getElementById("studioBuilderPanel");
+  const tabBuilder = document.getElementById("studioTabBuilder");
 
   if (textPanel) textPanel.classList.toggle("is-hidden", studioMode !== "text");
   if (imagesPanel) imagesPanel.classList.toggle("is-hidden", studioMode !== "images");
+  if (builderPanel) builderPanel.classList.toggle("is-hidden", studioMode !== "builder");
 
   if (tabText) {
     tabText.classList.toggle("is-active", studioMode === "text");
@@ -137,13 +140,20 @@ function setStudioMode(mode) {
     tabImages.classList.toggle("is-active", studioMode === "images");
     tabImages.setAttribute("aria-selected", studioMode === "images" ? "true" : "false");
   }
+  if (tabBuilder) {
+    tabBuilder.classList.toggle("is-active", studioMode === "builder");
+    tabBuilder.setAttribute("aria-selected", studioMode === "builder" ? "true" : "false");
+  }
 
   if (studioMode === "text") {
     const input = document.getElementById("inputText");
     input?.focus?.();
-  } else {
+  } else if (studioMode === "images") {
     const brief = document.getElementById("imageBrief");
     (brief || document.getElementById("inputText"))?.focus?.();
+  } else {
+    const input = document.getElementById("inputText");
+    input?.focus?.();
   }
 }
 
@@ -155,6 +165,7 @@ function clearSource() {
   input.value = "";
   input.dispatchEvent(new Event("input", { bubbles: true }));
   setResultsVisibility(false);
+  setCompleteResult(null);
 }
 
 function setImageUIState({ statusText, isBusy, images } = {}) {
@@ -206,6 +217,70 @@ function setImageUIState({ statusText, isBusy, images } = {}) {
 
   resultEl.classList.remove("is-hidden");
   resultEl.innerHTML = `<div class="output-grid" style="margin-top: 0;">${cards}</div>`;
+}
+
+function setCompleteResult(payload) {
+  const container = document.getElementById("completeResult");
+  if (!container) return;
+
+  if (!payload) {
+    container.classList.add("is-hidden");
+    container.innerHTML = "";
+    return;
+  }
+
+  const img = payload.image?.data_url || "";
+  const xText = payload.x || "";
+  const linkedinText = payload.linkedin || "";
+  const imgName = payload.image?.label || "Post image";
+
+  container.classList.remove("is-hidden");
+  container.innerHTML = `
+    <div class="complete-grid">
+      <div>
+        <img src="${img}" alt="${imgName}" />
+        <div class="complete-actions">
+          <a class="btn btn-secondary btn-mini" href="${img}" download="orcafind-post-image.png">Download image</a>
+          <button class="btn btn-ghost btn-mini" onclick="copyComplete('x')">Copy X</button>
+          <button class="btn btn-ghost btn-mini" onclick="copyComplete('linkedin')">Copy LinkedIn</button>
+        </div>
+      </div>
+      <div class="complete-copy">
+        <div class="platform-card">
+          <div class="platform-header">
+            <span>Twitter / X</span>
+            <span class="platform-badge">Ready</span>
+          </div>
+          <div class="box">${xText}</div>
+        </div>
+        <div class="platform-card">
+          <div class="platform-header">
+            <span>LinkedIn</span>
+            <span class="platform-badge">Formatted</span>
+          </div>
+          <div class="box">${linkedinText}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function copyComplete(which) {
+  const container = document.getElementById("completeResult");
+  if (!container) return;
+  // We store the latest complete payload on window for simple access.
+  const payload = window.__orcafind_complete_payload;
+  const text = which === "linkedin" ? payload?.linkedin : payload?.x;
+  if (!text || !text.trim()) {
+    showToast("Nothing to copy", "Generate the complete post first.", "error");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(text.trim());
+    showToast("Copied", which === "linkedin" ? "LinkedIn copied." : "X copied.", "success");
+  } catch (_err) {
+    showToast("Copy failed", "Your browser blocked clipboard access.", "error");
+  }
 }
 
 async function startImageGeneration() {
@@ -269,6 +344,95 @@ async function startImageGeneration() {
   } catch (err) {
     setImageUIState({ statusText: null, isBusy: false, images: null });
     showToast("Image failed", err.message || "Failed to generate images.", "error");
+  }
+}
+
+async function startCompletePostGeneration() {
+  if (!entitlements?.is_premium) {
+    showToast("Pro feature", "Post Builder is available on Pro.", "error");
+    openPremiumModal();
+    return;
+  }
+
+  const text = document.getElementById("inputText")?.value?.trim() || "";
+  if (!text) {
+    showToast("Missing content", "Paste source content first.", "error");
+    return;
+  }
+
+  const xStyle = document.getElementById("builderXStyle")?.value || "single";
+  const format = document.getElementById("builderFormat")?.value || "professional";
+  const aspect = document.getElementById("builderImageAspect")?.value || "square";
+  const imageBrief = document.getElementById("builderImageBrief")?.value?.trim() || "";
+  const imageStyle = document.getElementById("builderImageStyle")?.value?.trim() || "";
+
+  const statusEl = document.getElementById("builderStatus");
+  const btn = document.getElementById("builderGenerateBtn");
+  if (btn) {
+    btn.classList.add("is-loading");
+    btn.disabled = true;
+  }
+  if (statusEl) {
+    statusEl.classList.remove("is-hidden");
+    statusEl.textContent = "Generating full post bundle…";
+  }
+
+  setResultsVisibility(false);
+  setCompleteResult(null);
+
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session) {
+    openAuthModal("signin");
+    showToast("Authentication required", "Sign in to generate a complete post bundle.", "error");
+    if (btn) {
+      btn.classList.remove("is-loading");
+      btn.disabled = false;
+    }
+    if (statusEl) statusEl.classList.add("is-hidden");
+    return;
+  }
+
+  const payload = {
+    text,
+    x_style: xStyle,
+    format,
+    image_aspect: aspect,
+    image_count: 1,
+  };
+  if (imageBrief) payload.image_brief = imageBrief;
+  if (imageStyle) payload.image_style = imageStyle;
+
+  try {
+    const response = await fetch("https://api.orcafind.com/posts/complete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      if (response.status === 402 || response.status === 403) {
+        openPremiumModal();
+      }
+      throw new Error(data?.detail || "Failed to generate complete post");
+    }
+
+    window.__orcafind_complete_payload = data;
+    setCompleteResult({ x: data.x, linkedin: data.linkedin, image: (data.images || [])[0] });
+    showToast("Complete post ready", "Copy the text and download the image.", "success");
+  } catch (err) {
+    showToast("Post builder failed", err.message || "Failed to generate complete post.", "error");
+  } finally {
+    if (btn) {
+      btn.classList.remove("is-loading");
+      btn.disabled = false;
+    }
+    if (statusEl) {
+      statusEl.classList.add("is-hidden");
+      statusEl.textContent = "";
+    }
   }
 }
 
@@ -462,6 +626,17 @@ function applyEntitlementsToUI() {
     } else {
       const remaining = Number(entitlements?.limits?.image_generations_remaining ?? 0);
       hint.textContent = `Free generations remaining: ${remaining}.`;
+    }
+  }
+
+  const builderHint = document.getElementById("builderProHint");
+  if (builderHint) {
+    if (isAdmin) {
+      builderHint.textContent = "Admin: Post Builder enabled (testing mode).";
+    } else if (isPremium) {
+      builderHint.textContent = "Pro: Generate a complete post bundle (copy + image).";
+    } else {
+      builderHint.textContent = "Upgrade to Pro to unlock Post Builder (copy + image in one run).";
     }
   }
 }
@@ -670,6 +845,9 @@ function setResultsVisibility(isVisible) {
   if (output) {
     output.classList.toggle("is-hidden", !isVisible);
   }
+  if (isVisible) {
+    setCompleteResult(null);
+  }
 }
 
 async function copyPlatform(which) {
@@ -866,7 +1044,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   try {
     const savedMode = window.localStorage.getItem("orcafind_studio_mode");
-    if (savedMode === "images" || savedMode === "text") {
+    if (savedMode === "images" || savedMode === "builder" || savedMode === "text") {
       studioMode = savedMode;
     }
   } catch (_err) {}

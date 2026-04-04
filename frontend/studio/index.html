@@ -365,11 +365,18 @@
     }
 
     .results-card .panel-body { padding: 18px; }
+    .complete-grid { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 16px; align-items: start; }
+    .complete-grid img { width: 100%; border-radius: 18px; border: 1px solid rgba(111, 132, 163, 0.16); background: rgba(16, 35, 63, 0.06); }
+    .complete-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+    .complete-actions .btn { padding: 10px 12px; border-radius: 12px; }
+    .complete-copy { display: grid; gap: 12px; }
+    .complete-copy .platform-card { min-height: auto; }
 
     @media (max-width: 980px) {
       .studio-body {
         grid-template-columns: 1fr;
       }
+      .complete-grid { grid-template-columns: 1fr; }
     }
 
     .studio-panel, .workspace-frame, .auth-screen-card, .feature-card {
@@ -665,6 +672,7 @@
               <div class="studio-segment" role="tablist" aria-label="Studio mode">
                 <button id="studioTabText" class="studio-tab is-active" role="tab" aria-selected="true" onclick="setStudioMode('text')">Text Posts</button>
                 <button id="studioTabImages" class="studio-tab" role="tab" aria-selected="false" onclick="setStudioMode('images')">AI Images</button>
+                <button id="studioTabBuilder" class="studio-tab" role="tab" aria-selected="false" onclick="setStudioMode('builder')">Post Builder</button>
               </div>
             </div>
 
@@ -707,6 +715,7 @@
                     </div>
                   </div>
                   <div class="panel-body">
+                    <div id="completeResult" class="is-hidden"></div>
                     <div id="output" class="output-grid is-hidden"></div>
                   </div>
                 </div>
@@ -824,6 +833,80 @@
                       <div id="imageResult" class="is-hidden" style="margin-top: 14px;"></div>
                     </div>
                   </div>
+
+                  <div id="studioBuilderPanel" class="panel-card is-hidden">
+                    <div class="panel-head">
+                      <div>
+                        <h4>Post Builder (Pro)</h4>
+                        <p>Generate a complete post bundle: platform copy plus a matching image.</p>
+                      </div>
+                    </div>
+                    <div class="panel-body">
+                      <div id="builderProHint" class="auth-hint" style="margin-top: 0;"></div>
+
+                      <div class="field-stack" style="margin-top: 12px;">
+                        <div class="field">
+                          <label for="builderXStyle">X output</label>
+                          <div class="control">
+                            <select id="builderXStyle" aria-label="X output style">
+                              <option value="single" selected>Post variations</option>
+                              <option value="thread">Thread</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div class="field">
+                          <label for="builderFormat">Format</label>
+                          <div class="control">
+                            <select id="builderFormat" aria-label="Content format">
+                              <option value="professional" selected>Professional</option>
+                              <option value="casual">Casual</option>
+                              <option value="educational">Educational</option>
+                              <option value="story" data-premium="true">Story-driven (Pro)</option>
+                              <option value="launch" data-premium="true">Product launch (Pro)</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div class="field">
+                          <label for="builderImageBrief">Image brief</label>
+                          <div class="control">
+                            <input id="builderImageBrief" placeholder="Optional: describe the visual, mood, or key message..." />
+                          </div>
+                          <div class="field-hint">Leave blank to auto-generate an image brief from your source text.</div>
+                        </div>
+
+                        <div class="field">
+                          <label for="builderImageAspect">Image size</label>
+                          <div class="control">
+                            <select id="builderImageAspect" aria-label="Image size">
+                              <option value="square" selected>Square (1:1)</option>
+                              <option value="portrait">Portrait (4:5)</option>
+                              <option value="landscape">Landscape (16:9)</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div class="field">
+                          <label for="builderImageStyle">Image style</label>
+                          <div class="control">
+                            <select id="builderImageStyle" aria-label="Image style">
+                              <option value="" selected>Choose a style (optional)</option>
+                              <option value="saas_minimal">SaaS minimal</option>
+                              <option value="abstract_gradient">Abstract gradient</option>
+                              <option value="product_mock">Product mock</option>
+                              <option value="illustration">Illustration</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="side-actions">
+                        <button id="builderGenerateBtn" class="btn btn-primary" onclick="startCompletePostGeneration()">Generate Complete Post</button>
+                        <div id="builderStatus" class="auth-hint is-hidden"></div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </aside>
             </div>
@@ -925,6 +1008,10 @@
           <div class="signed-in-item">
             <strong>AI Images</strong>
             Generate post-ready images and cover art from your source content.
+          </div>
+          <div class="signed-in-item">
+            <strong>Post Builder</strong>
+            Generate a complete post bundle (copy plus image) in one run.
           </div>
         </div>
 
