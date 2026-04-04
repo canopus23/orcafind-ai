@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="OrcaFind">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1367ff"/>
+      <stop offset="1" stop-color="#0ab5ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="18" fill="url(#g)"/>
+  <path d="M32 14c10 0 18 8 18 18S42 50 32 50 14 42 14 32s8-18 18-18Zm0 8c-5.523 0-10 4.477-10 10s4.477 10 10 10 10-4.477 10-10-4.477-10-10-10Z" fill="rgba(255,255,255,0.95)"/>
+</svg>
+

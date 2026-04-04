@@ -862,7 +862,12 @@ function initActiveNav() {
   const links = Array.from(document.querySelectorAll(".nav-link"));
   const sections = links
     .map((link) => {
-      const target = document.querySelector(link.getAttribute("href"));
+      const href = (link.getAttribute("href") || "").trim();
+      // Only hash links (e.g. "#platform") can be used as selectors.
+      if (!href.startsWith("#")) {
+        return null;
+      }
+      const target = document.querySelector(href);
       return target ? { link, target } : null;
     })
     .filter(Boolean);

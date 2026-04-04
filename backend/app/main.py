@@ -102,14 +102,15 @@ def is_admin_user(payload: dict) -> bool:
     email = _get_user_email(payload)
     return bool(email and email.strip().lower() in email_allowlist)
 
-# Define allowed origins explicitly for CORS with credentials.
-# Browsers block wildcard "*" when an Authorization header is present.
-origins = _parse_csv_set(os.getenv("CORS_ALLOW_ORIGINS"), lowercase=False) or {
+# Define allowed origins explicitly for CORS.
+# We always include the known production/local origins to avoid misconfiguration in env overrides.
+default_origins = {
     "https://orcafind.com",
     "https://www.orcafind.com",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 }
+origins = set(_parse_csv_set(os.getenv("CORS_ALLOW_ORIGINS"), lowercase=False)) | default_origins
 
 # CORSMiddleware must be added first to handle preflight OPTIONS requests
 app.add_middleware(
