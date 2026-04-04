@@ -120,8 +120,9 @@ app.add_middleware(
     # We use Bearer tokens (Authorization header), not cookies.
     # Keeping credentials disabled avoids wildcard/CORS edge-cases.
     allow_credentials=False,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
+    # Be permissive on headers/methods so preflights don't fail due to unexpected headers.
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 @app.get("/")
