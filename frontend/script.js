@@ -170,7 +170,6 @@ function clearSource() {
 
 function setImageUIState({ statusText, isBusy, images } = {}) {
   const statusEl = document.getElementById("imageStatus");
-  const resultEl = document.getElementById("imageResult");
   const btn = document.getElementById("imageGenerateBtn");
 
   if (btn) {
@@ -188,35 +187,6 @@ function setImageUIState({ statusText, isBusy, images } = {}) {
       statusEl.textContent = "";
     }
   }
-
-  if (!resultEl) return;
-  if (!images || !images.length) {
-    resultEl.classList.add("is-hidden");
-    resultEl.innerHTML = "";
-    return;
-  }
-
-  const cards = images
-    .map((img, idx) => {
-      const url = img.data_url || "";
-      const label = img.label || `Option ${idx + 1}`;
-      return `
-        <div class="platform-card">
-          <div class="platform-header">
-            <span>${label}</span>
-            <span class="platform-actions">
-              <span class="platform-badge">PNG</span>
-              <a class="btn btn-ghost btn-mini" href="${url}" download="orcafind-post-${idx + 1}.png">Download</a>
-            </span>
-          </div>
-          <img src="${url}" alt="${label}" style="width: 100%; border-radius: 16px; border: 1px solid rgba(111, 132, 163, 0.16); background: rgba(16, 35, 63, 0.06);" />
-        </div>
-      `;
-    })
-    .join("");
-
-  resultEl.classList.remove("is-hidden");
-  resultEl.innerHTML = `<div class="output-grid" style="margin-top: 0;">${cards}</div>`;
 }
 
 // Post Builder results are rendered into the same chat feed as other outputs.
@@ -248,6 +218,19 @@ async function startImageGeneration() {
     return;
   }
 
+  addChatMessage({
+    role: "user",
+    title: "You",
+    pill: "Images",
+    text: `Generate ${count} image${count === 1 ? "" : "s"} · ${aspect}${style ? ` · ${style}` : ""}\n\n${brief}`,
+  });
+  addChatMessage({
+    role: "assistant",
+    title: "OrcaFind",
+    pill: "Working",
+    text: "Generating post images…",
+  });
+
   setImageUIState({ statusText: "Generating image concepts…", isBusy: true, images: null });
   try {
     const payload = {
@@ -276,11 +259,39 @@ async function startImageGeneration() {
       throw new Error(data?.detail || "Failed to generate images");
     }
 
-    setImageUIState({ statusText: null, isBusy: false, images: data.images || [] });
+    setImageUIState({ statusText: null, isBusy: false, images: null });
+    const images = Array.isArray(data.images) ? data.images : [];
+    if (!images.length) {
+      addChatMessage({
+        role: "assistant",
+        title: "AI Images",
+        pill: "Empty",
+        text: "No images were returned. Try increasing the brief clarity and run again.",
+      });
+    } else {
+      images.forEach((img, idx) => {
+        const url = img?.data_url || "";
+        if (!url) return;
+        addChatMessage({
+          role: "assistant",
+          title: "AI Image",
+          pill: `Option ${idx + 1}`,
+          text: img?.label ? String(img.label) : "Post-ready image generated.",
+          actionsHTML: `<a class="btn btn-secondary btn-mini" href="${url}" download="orcafind-post-${idx + 1}.png">Download</a>`,
+          imageDataUrl: url,
+        });
+      });
+    }
     showToast("Images ready", "Your post images are ready to download.", "success");
     supabaseClient.auth.getSession().then(({ data }) => fetchEntitlements(data?.session?.access_token));
   } catch (err) {
     setImageUIState({ statusText: null, isBusy: false, images: null });
+    addChatMessage({
+      role: "assistant",
+      title: "AI Images",
+      pill: "Failed",
+      text: err.message || "Failed to generate images.",
+    });
     showToast("Image failed", err.message || "Failed to generate images.", "error");
   }
 }
@@ -315,8 +326,7 @@ async function startCompletePostGeneration() {
     statusEl.textContent = "Generating full post bundle…";
   }
 
-  setResultsVisibility(false);
-  clearChat();
+  setResultsVisibility(true);
 
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (!session) {
@@ -1190,7 +1200,6 @@ async function generate() {
 
   button.innerText = "Processing...";
   button.disabled = true;
-  clearChat();
   addChatMessage({
     role: "user",
     title: "You",
