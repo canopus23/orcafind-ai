@@ -1,5 +1,6 @@
 import os
 from typing import Optional, Set
+import asyncio
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
@@ -7,7 +8,9 @@ import uvicorn
 # Ensure these imports match the actual file paths and function names
 from app.dependencies.auth import verify_user
 from app.schemas.request import ContentRequest
+from app.schemas.video import VideoShortsRequest
 from app.services.ai_service import generate_social_content
+from app.services.video_jobs import create_job, get_job as get_video_job, run_job
 
 app = FastAPI(title="OrcaFind AI API")
 
@@ -89,6 +92,37 @@ async def repurpose_content(req: ContentRequest, user=Depends(verify_user)):
         # Log the error to the server console for debugging
         print(f"Error in /repurpose/: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal Server Error during content generation")
+
+@app.post("/video/shorts")
+async def create_video_shorts(req: VideoShortsRequest, user=Depends(verify_user)):
+    if not is_premium_user(user):
+        raise HTTPException(status_code=403, detail="Premium subscription required")
+
+    user_id = str(user.get("sub") or "user")
+    job = await create_job(
+        user_id=user_id,
+        youtube_url=str(req.youtube_url),
+        duration_seconds=req.duration_seconds,
+        style=req.style,
+        platform=req.platform,
+        captions=req.captions,
+    )
+
+    asyncio.create_task(run_job(job.id))
+    return job.to_dict()
+
+
+@app.get("/video/shorts/{job_id}")
+async def get_video_shorts(job_id: str, user=Depends(verify_user)):
+    job = await get_video_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    user_id = str(user.get("sub") or "user")
+    if job.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    return job.to_dict()
 
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

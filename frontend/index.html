@@ -1505,6 +1505,52 @@
               <div id="output" class="output-grid is-hidden"></div>
 
             </div>
+
+            <div class="workspace-frame" style="margin-top: 18px;">
+              <div class="studio-topbar" style="margin-bottom: 14px;">
+                <div class="studio-topbar-copy">
+                  <span>AI Video (Pro)</span>
+                  <h3 style="margin-bottom: 6px;">Turn a YouTube link into a short video post.</h3>
+                  <p>Creates a vertical short using Runway, then stores it in Cloudflare R2 for download.</p>
+                </div>
+              </div>
+
+              <div class="composer-meta" style="margin-top: 0;">
+                <div class="meta-cluster" style="flex: 1;">
+                  <span class="tag" style="width: 100%;">
+                    <strong style="margin-right: 10px;">YouTube URL</strong>
+                    <input id="ytUrl" placeholder="https://www.youtube.com/watch?v=..." style="border: none; background: transparent; padding: 0; width: 100%;">
+                  </span>
+                </div>
+              </div>
+
+              <div class="composer-meta" style="margin-top: 12px;">
+                <div class="meta-cluster">
+                  <span class="tag">
+                    Duration:
+                    <select id="videoDuration" aria-label="Video duration" style="border: none; background: transparent; font-weight: 800; color: inherit;">
+                      <option value="15">15s</option>
+                      <option value="30" selected>30s</option>
+                      <option value="60">60s</option>
+                    </select>
+                  </span>
+                  <span class="tag">
+                    Style:
+                    <select id="videoStyle" aria-label="Video style" style="border: none; background: transparent; font-weight: 800; color: inherit;">
+                      <option value="captioned" selected>Captioned</option>
+                      <option value="kinetic">Kinetic text</option>
+                      <option value="minimal">Minimal</option>
+                    </select>
+                  </span>
+                </div>
+                <div class="meta-cluster">
+                  <button id="videoGenerateBtn" class="btn btn-primary" onclick="startVideoShorts()">Generate Video</button>
+                </div>
+              </div>
+
+              <div id="videoStatus" class="auth-hint is-hidden" style="margin-top: 12px;"></div>
+              <div id="videoResult" class="is-hidden" style="margin-top: 12px;"></div>
+            </div>
           </div>
         </div>
       </section>

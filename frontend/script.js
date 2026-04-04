@@ -8,6 +8,7 @@ let heroRotationTimer;
 let toastTimerSeed = 0;
 let lastGenerated = { x: "", linkedin: "" };
 let entitlements = { plan: "free", is_premium: false, limits: { x_single_variants: 2, x_thread_tweets_min: 4, x_thread_tweets_max: 7 } };
+let videoPollTimer;
 
 const heroSnapshots = [
   {
@@ -100,6 +101,147 @@ function showToast(title, message, type = "default") {
       node.remove();
     }
   }, 3200);
+}
+
+function setVideoUIState({ statusText, isBusy, resultUrl } = {}) {
+  const statusEl = document.getElementById("videoStatus");
+  const resultEl = document.getElementById("videoResult");
+  const btn = document.getElementById("videoGenerateBtn");
+
+  if (btn) {
+    btn.classList.toggle("is-loading", !!isBusy);
+    btn.disabled = !!isBusy;
+    btn.textContent = isBusy ? "Generating..." : "Generate Video";
+  }
+
+  if (statusEl) {
+    if (statusText) {
+      statusEl.classList.remove("is-hidden");
+      statusEl.textContent = statusText;
+    } else {
+      statusEl.classList.add("is-hidden");
+      statusEl.textContent = "";
+    }
+  }
+
+  if (resultEl) {
+    if (resultUrl) {
+      resultEl.classList.remove("is-hidden");
+      resultEl.innerHTML = `
+        <div class="platform-card">
+          <div class="platform-header">
+            <span>Video Result</span>
+            <span class="platform-actions">
+              <span class="platform-badge">MP4</span>
+              <a class="btn btn-ghost btn-mini" href="${resultUrl}" target="_blank" rel="noreferrer">Download</a>
+            </span>
+          </div>
+          <video controls style="width: 100%; border-radius: 16px; background: #0b1524;">
+            <source src="${resultUrl}" type="video/mp4" />
+          </video>
+        </div>
+      `;
+    } else {
+      resultEl.classList.add("is-hidden");
+      resultEl.innerHTML = "";
+    }
+  }
+}
+
+function stopVideoPolling() {
+  if (videoPollTimer) {
+    window.clearInterval(videoPollTimer);
+    videoPollTimer = undefined;
+  }
+}
+
+async function startVideoShorts() {
+  if (!entitlements?.is_premium) {
+    showToast("Pro feature", "AI Video is available on Pro.", "error");
+    openPremiumModal();
+    return;
+  }
+
+  const ytUrl = document.getElementById("ytUrl")?.value?.trim();
+  const duration = Number(document.getElementById("videoDuration")?.value || 30);
+  const style = document.getElementById("videoStyle")?.value || "captioned";
+
+  if (!ytUrl) {
+    showToast("Missing URL", "Paste a YouTube link to generate a short.", "error");
+    return;
+  }
+
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session) {
+    openAuthModal("signin");
+    showToast("Authentication required", "Sign in to generate premium video shorts.", "error");
+    return;
+  }
+
+  setVideoUIState({ statusText: "Creating job in Runway…", isBusy: true, resultUrl: null });
+  stopVideoPolling();
+
+  try {
+    const response = await fetch("https://api.orcafind.com/video/shorts", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        youtube_url: ytUrl,
+        duration_seconds: duration,
+        style,
+        platform: "shorts",
+        captions: true,
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data?.detail || "Failed to create video job");
+    }
+
+    const jobId = data.id;
+    setVideoUIState({ statusText: "Job started. Rendering video…", isBusy: true, resultUrl: null });
+
+    videoPollTimer = window.setInterval(async () => {
+      try {
+        const statusRes = await fetch(`https://api.orcafind.com/video/shorts/${jobId}`, {
+          method: "GET",
+          headers: { "Authorization": `Bearer ${session.access_token}` },
+        });
+        const statusData = await statusRes.json();
+        if (!statusRes.ok) {
+          throw new Error(statusData?.detail || "Failed to fetch job status");
+        }
+
+        if (statusData.status === "done" && statusData.result_url) {
+          stopVideoPolling();
+          setVideoUIState({ statusText: null, isBusy: false, resultUrl: statusData.result_url });
+          showToast("Video ready", "Your short video is ready to download.", "success");
+          return;
+        }
+
+        if (statusData.status === "failed") {
+          stopVideoPolling();
+          setVideoUIState({ statusText: null, isBusy: false, resultUrl: null });
+          showToast("Video failed", statusData.error || "Video generation failed.", "error");
+          return;
+        }
+
+        const progress = typeof statusData.progress === "number" ? statusData.progress : 0;
+        setVideoUIState({ statusText: `Rendering video… ${progress}%`, isBusy: true, resultUrl: null });
+      } catch (err) {
+        stopVideoPolling();
+        setVideoUIState({ statusText: null, isBusy: false, resultUrl: null });
+        showToast("Video status error", err.message || "Failed to poll job.", "error");
+      }
+    }, 3000);
+  } catch (err) {
+    setVideoUIState({ statusText: null, isBusy: false, resultUrl: null });
+    showToast("Video request failed", err.message || "Failed to start video generation.", "error");
+  }
 }
 
 function setButtonLoading(id, isLoading, idleLabel, loadingLabel) {
@@ -646,6 +788,7 @@ document.addEventListener("DOMContentLoaded", () => {
   startHeroRotation();
   setResultsVisibility(false);
   supabaseClient.auth.getSession().then(({ data }) => fetchEntitlements(data?.session?.access_token));
+  setVideoUIState({ statusText: null, isBusy: false, resultUrl: null });
 
   const headerProfile = document.getElementById("headerProfile");
   if (headerProfile) {
