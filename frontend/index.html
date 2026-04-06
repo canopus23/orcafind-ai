@@ -1620,8 +1620,8 @@
 
         <div class="nav-actions">
           <div id="homeHeaderAuth" class="header-auth">
-            <a class="btn btn-ghost auth-trigger" href="/studio/?auth=signin">Sign In</a>
-            <a class="btn btn-secondary auth-trigger" href="/studio/?auth=signup">Sign Up</a>
+            <a class="btn btn-ghost auth-trigger" href="/auth/?mode=signin&next=/studio/">Sign In</a>
+            <a class="btn btn-secondary auth-trigger" href="/auth/?mode=signup&next=/studio/">Sign Up</a>
           </div>
 
           <button
@@ -1685,11 +1685,11 @@
       <div class="sidebar-auth" id="homeSidebarAccount">
         <div class="sidebar-section-title">Account</div>
         <div id="homeSideAuth" class="sidebar-list" style="margin-top:10px;">
-          <a class="sidebar-item" href="/studio/?auth=signin" onclick="closeHomeSidebar()">
+          <a class="sidebar-item" href="/auth/?mode=signin&next=/studio/" onclick="closeHomeSidebar()">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M10 17l5-5-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 12H3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M21 3v18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             <span>Sign In</span>
           </a>
-          <a class="sidebar-item" href="/studio/?auth=signup" onclick="closeHomeSidebar()">
+          <a class="sidebar-item" href="/auth/?mode=signup&next=/studio/" onclick="closeHomeSidebar()">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" stroke-width="2"/><path d="M19 8v6M22 11h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             <span>Create Account</span>
           </a>

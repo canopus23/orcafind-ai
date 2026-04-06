@@ -7,12 +7,41 @@ const API_BASE_URL = window.__ORCAFIND_API_BASE_URL
     ? "http://127.0.0.1:8000"
     : "https://api.orcafind.com");
 
+function isAuthPage() {
+  return window.location.pathname === "/auth" || window.location.pathname.startsWith("/auth/");
+}
+
+function buildRelativeUrl({ stripParams = [] } = {}) {
+  const url = new URL(window.location.href);
+  stripParams.forEach((key) => url.searchParams.delete(key));
+  const qs = url.searchParams.toString();
+  return `${url.pathname}${qs ? `?${qs}` : ""}${url.hash || ""}`;
+}
+
+function getSafeNextFromURL() {
+  const next = (new URLSearchParams(window.location.search).get("next") || "").trim();
+  // Only allow same-origin relative paths.
+  if (next && next.startsWith("/") && !next.startsWith("//") && !next.includes("://")) {
+    if (next === "/auth" || next.startsWith("/auth/")) return "/studio/";
+    return next;
+  }
+  return null;
+}
+
+function redirectToAuth(mode, next) {
+  if (isAuthPage()) return;
+  const params = new URLSearchParams();
+  params.set("mode", mode === "signup" ? "signup" : "signin");
+  params.set("next", next || buildRelativeUrl({ stripParams: ["auth"] }));
+  window.location.href = `/auth/?${params.toString()}`;
+}
+
 async function getAccessTokenOrPromptAuth({ toastTitle, toastBody, mode } = {}) {
   const { data: { session } } = await supabaseClient.auth.getSession();
   const token = session?.access_token;
   if (token) return token;
-  if (mode) openAuthModal(mode);
-  if (toastTitle || toastBody) {
+  if (mode) redirectToAuth(mode, buildRelativeUrl({ stripParams: ["auth"] }));
+  if (!mode && (toastTitle || toastBody)) {
     showToast(toastTitle || "Authentication required", toastBody || "Sign in to continue.", "error");
   }
   return null;
@@ -551,16 +580,7 @@ function setAuthMode(mode) {
 }
 
 function openAuthModal(mode = "signin") {
-  const modal = document.getElementById("authModal");
-  const emailInput = document.getElementById("email");
-  if (modal) {
-    setAuthMode(mode);
-    modal.classList.add("is-visible");
-    modal.setAttribute("aria-hidden", "false");
-    window.setTimeout(() => {
-      emailInput?.focus();
-    }, 30);
-  }
+  redirectToAuth(mode, buildRelativeUrl({ stripParams: ["auth"] }));
 }
 
 function closeAuthModal() {
@@ -1107,6 +1127,12 @@ async function submitAuthAction() {
 supabaseClient.auth.onAuthStateChange((event, session) => {
   if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
     updateUIForUser(session.user);
+    if (isAuthPage()) {
+      const next = getSafeNextFromURL() || "/studio/";
+      window.setTimeout(() => {
+        window.location.href = next;
+      }, 120);
+    }
   } else if (event === 'SIGNED_OUT') {
     resetUI();
   } else if (event === 'INITIAL_SESSION' && !session?.user) {
@@ -1223,7 +1249,8 @@ function resetUI() {
   closeProfileModal();
   setResultsVisibility(false);
   fetchEntitlements(null);
-  setAuthMode("signin");
+  const requested = new URLSearchParams(window.location.search).get("mode");
+  setAuthMode(requested === "signup" ? "signup" : "signin");
 }
 
 /* ---------- AUTH ACTIONS ---------- */
@@ -1261,10 +1288,11 @@ async function logout() {
 }
 
 async function loginWithGoogle() {
+  const next = getSafeNextFromURL() || buildRelativeUrl({ stripParams: ["auth"] });
   const { error } = await supabaseClient.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: window.location.origin
+      redirectTo: `${window.location.origin}/auth/?mode=signin&next=${encodeURIComponent(next)}`
     }
   });
 
@@ -1321,7 +1349,24 @@ document.addEventListener("DOMContentLoaded", () => {
   const params = new URLSearchParams(window.location.search);
   const auth = params.get("auth");
   if (auth === "signin" || auth === "signup") {
-    openAuthModal(auth);
+    // Back-compat: old deep links used ?auth=signin on /studio/.
+    redirectToAuth(auth, buildRelativeUrl({ stripParams: ["auth"] }));
+  }
+
+  if (isAuthPage()) {
+    const requested = params.get("mode");
+    if (requested === "signin" || requested === "signup") {
+      setAuthMode(requested);
+      document.title = requested === "signup" ? "OrcaFind AI | Sign Up" : "OrcaFind AI | Sign In";
+    } else {
+      document.title = "OrcaFind AI | Sign In";
+    }
+    const hint = document.getElementById("authNextHint");
+    if (hint) {
+      hint.textContent = params.get("next")
+        ? "After sign-in, we’ll take you back to where you left off."
+        : "After sign-in, we’ll open the Studio.";
+    }
   }
 });
 
