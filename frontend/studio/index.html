@@ -1062,13 +1062,13 @@
             <a class="btn btn-ghost auth-trigger" href="/auth/?mode=signin&next=/studio/">Sign In</a>
             <a class="btn btn-primary auth-trigger" href="/auth/?mode=signup&next=/studio/">Sign Up</a>
           </div>
-          <div id="headerProfile" class="header-profile" role="button" tabindex="0" aria-live="polite" onclick="openProfileModal()">
-            <div id="headerAvatar" class="profile-avatar">O</div>
-            <div class="profile-copy">
+          <a id="headerProfile" class="header-profile" href="/profile/" aria-label="Open profile">
+            <span id="headerAvatar" class="profile-avatar">O</span>
+            <span class="profile-copy">
               <strong id="headerProfileName">Workspace user</strong>
               <span id="headerProfileEmail">Sign in to access the studio</span>
-            </div>
-          </div>
+            </span>
+          </a>
         </div>
       </div>
     </header>
@@ -1126,10 +1126,10 @@
               <span id="studioSideEmail">Signed in</span>
             </div>
           </div>
-          <button class="sidebar-item" type="button" onclick="openProfileModal(); closeStudioSidebar();">
+          <a class="sidebar-item" href="/profile/" onclick="closeStudioSidebar();">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" stroke-width="2"/><path d="M20 21a8 8 0 0 0-16 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             <span>Profile</span>
-          </button>
+          </a>
           <button class="sidebar-item" type="button" onclick="logout(); closeStudioSidebar();">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 7l5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 12H8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             <span>Sign Out</span>

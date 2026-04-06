@@ -598,11 +598,8 @@ function handleModalBackdrop(event) {
 }
 
 function openProfileModal() {
-  const modal = document.getElementById("profileModal");
-  if (modal) {
-    modal.classList.add("is-visible");
-    modal.setAttribute("aria-hidden", "false");
-  }
+  // Profile is now a dedicated page.
+  window.location.href = "/profile/";
 }
 
 function closeProfileModal() {
@@ -1338,12 +1335,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const headerProfile = document.getElementById("headerProfile");
   if (headerProfile) {
-    headerProfile.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        openProfileModal();
-      }
-    });
+    // If headerProfile is an anchor, it already works with keyboard by default.
+    if (headerProfile.tagName !== "A") {
+      headerProfile.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openProfileModal();
+        }
+      });
+    }
   }
 
   const params = new URLSearchParams(window.location.search);

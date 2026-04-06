@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OrcaFind AI | Profile</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem("orcafind_theme");
+        var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var theme = saved || (prefersDark ? "dark" : "light");
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --surface: rgba(255, 255, 255, 0.86);
+      --surface-strong: #ffffff;
+      --ink: #0d1b2a;
+      --muted: #60708a;
+      --line: rgba(103, 125, 157, 0.22);
+      --brand: #1367ff;
+      --brand-strong: #0f52cc;
+      --shadow-xl: 0 24px 80px rgba(11, 26, 56, 0.12);
+      --shadow-lg: 0 18px 44px rgba(15, 35, 76, 0.1);
+      --radius-xl: 28px;
+      --radius-lg: 20px;
+      --radius-md: 14px;
+      --page-width: 1120px;
+    }
+
+    html[data-theme="dark"] {
+      --bg: #070b14;
+      --surface: rgba(10, 16, 28, 0.78);
+      --surface-strong: rgba(6, 10, 18, 0.86);
+      --ink: rgba(245, 250, 255, 0.92);
+      --muted: rgba(185, 200, 221, 0.72);
+      --line: rgba(255, 255, 255, 0.10);
+      --shadow-xl: 0 30px 90px rgba(0, 0, 0, 0.5);
+      --shadow-lg: 0 22px 60px rgba(0, 0, 0, 0.45);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      font-family: "Plus Jakarta Sans", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(19, 103, 255, 0.18), transparent 34%),
+        radial-gradient(circle at top right, rgba(74, 222, 128, 0.12), transparent 32%),
+        linear-gradient(180deg, #f8fbff 0%, #eef4fb 55%, #f6f8fc 100%);
+      overflow-x: hidden;
+    }
+
+    html[data-theme="dark"] body {
+      background:
+        radial-gradient(circle at top left, rgba(19, 103, 255, 0.22), transparent 38%),
+        radial-gradient(circle at top right, rgba(10, 181, 255, 0.14), transparent 36%),
+        linear-gradient(180deg, #050814 0%, #070b14 40%, #040610 100%);
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; }
+
+    .container { width: min(calc(100% - 32px), var(--page-width)); margin: 0 auto; }
+
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(18px);
+      background: rgba(248, 251, 255, 0.7);
+      border-bottom: 1px solid rgba(111, 132, 163, 0.14);
+    }
+    html[data-theme="dark"] .site-header {
+      background: rgba(6, 10, 18, 0.62);
+      border-bottom-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .topbar {
+      min-height: 76px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+    }
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      background: linear-gradient(135deg, #1367ff, #0ab5ff);
+      box-shadow: 0 12px 28px rgba(19, 103, 255, 0.24);
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 14px;
+      padding: 12px 16px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-ghost { background: transparent; border: 1px solid rgba(111, 132, 163, 0.22); color: inherit; }
+    .btn-primary { color: white; background: linear-gradient(135deg, var(--brand), #3f8cff); box-shadow: 0 16px 28px rgba(19, 103, 255, 0.24); }
+    .btn-primary:hover { background: linear-gradient(135deg, var(--brand-strong), #2e7cff); }
+    .btn-icon { padding: 12px 12px; line-height: 0; }
+    .icon { width: 18px; height: 18px; display: inline-block; }
+    .icon-sun { display: inline-block; }
+    .icon-moon { display: none; }
+    html[data-theme="dark"] .icon-sun { display: none; }
+    html[data-theme="dark"] .icon-moon { display: inline-block; }
+
+    .page {
+      padding: 26px 0 70px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-lg);
+      backdrop-filter: blur(18px);
+      padding: 22px;
+    }
+
+    .card h1 {
+      font-size: 1.6rem;
+      letter-spacing: -0.04em;
+      margin-bottom: 8px;
+    }
+    .sub {
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .profile-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-top: 18px;
+      padding: 16px;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(111, 132, 163, 0.18);
+      background: rgba(255, 255, 255, 0.62);
+    }
+    html[data-theme="dark"] .profile-row {
+      background: rgba(6, 10, 18, 0.55);
+      border-color: rgba(255, 255, 255, 0.10);
+    }
+
+    .avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      background: linear-gradient(135deg, #1367ff, #0ab5ff);
+      box-shadow: 0 14px 26px rgba(19, 103, 255, 0.24);
+      flex-shrink: 0;
+    }
+
+    .profile-meta { min-width: 0; }
+    .profile-meta strong, .profile-meta span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .profile-meta strong { font-size: 1.05rem; }
+    .profile-meta span { color: var(--muted); margin-top: 4px; }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(111, 132, 163, 0.16);
+      background: rgba(255, 255, 255, 0.7);
+      font-weight: 900;
+    }
+    html[data-theme="dark"] .pill {
+      background: rgba(6, 10, 18, 0.46);
+      border-color: rgba(255, 255, 255, 0.10);
+    }
+
+    .kv {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .kv .stat {
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(111, 132, 163, 0.16);
+      background: rgba(255, 255, 255, 0.64);
+      padding: 14px 14px;
+    }
+    html[data-theme="dark"] .kv .stat {
+      background: rgba(6, 10, 18, 0.52);
+      border-color: rgba(255, 255, 255, 0.10);
+    }
+    .stat label { display: block; font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(62, 84, 112, 0.72); font-weight: 900; }
+    html[data-theme="dark"] .stat label { color: rgba(185, 200, 221, 0.62); }
+    .stat strong { display: block; margin-top: 8px; font-size: 1.15rem; letter-spacing: -0.03em; }
+    .stat span { display: block; margin-top: 4px; color: var(--muted); font-size: 0.9rem; }
+
+    .actions {
+      display: grid;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .notice {
+      margin-top: 14px;
+      padding: 14px 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(111, 132, 163, 0.16);
+      background: rgba(19, 103, 255, 0.08);
+      color: rgba(23, 42, 66, 0.9);
+      line-height: 1.6;
+    }
+    html[data-theme="dark"] .notice {
+      background: rgba(19, 103, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.10);
+      color: rgba(245, 250, 255, 0.9);
+    }
+
+    .toast-stack { position: fixed; right: 20px; bottom: 20px; z-index: 60; display: grid; gap: 12px; width: min(360px, calc(100vw - 24px)); }
+    .toast { padding: 16px 18px; border-radius: 18px; background: rgba(255, 255, 255, 0.97); border: 1px solid rgba(111, 132, 163, 0.16); box-shadow: 0 18px 36px rgba(11, 26, 56, 0.14); color: #27415f; animation: toast-rise 0.22s ease; }
+    html[data-theme="dark"] .toast { background: rgba(6, 10, 18, 0.86); border-color: rgba(255, 255, 255, 0.10); box-shadow: 0 22px 60px rgba(0,0,0,0.6); color: rgba(245, 250, 255, 0.9); }
+    .toast strong { display: block; margin-bottom: 6px; font-size: 0.95rem; letter-spacing: -0.02em; }
+    .toast p { font-size: 0.9rem; line-height: 1.6; color: #5b6d84; }
+    html[data-theme="dark"] .toast p { color: rgba(185, 200, 221, 0.72); }
+    .toast.success { border-color: rgba(14, 159, 110, 0.18); }
+    .toast.error { border-color: rgba(194, 65, 91, 0.18); }
+    @keyframes toast-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 480px) {
+      .container { width: min(calc(100% - 20px), var(--page-width)); }
+      .topbar { min-height: auto; padding: 14px 0; flex-wrap: wrap; }
+      .nav { width: 100%; justify-content: flex-start; }
+      .kv { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container topbar">
+      <a class="brand" href="/">
+        <span class="brand-icon">O</span>
+        <span>OrcaFind AI</span>
+      </a>
+
+      <nav class="nav" aria-label="Primary">
+        <button class="btn btn-ghost btn-icon" type="button" data-theme-toggle onclick="toggleTheme()" aria-label="Toggle theme">
+          <svg class="icon icon-sun" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z" stroke="currentColor" stroke-width="2"/>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <svg class="icon icon-moon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M21 13.2A8.5 8.5 0 0 1 10.8 3a7 7 0 1 0 10.2 10.2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <a class="btn btn-ghost" href="/studio/">Studio</a>
+        <a class="btn btn-ghost" href="/checkout/">Pricing</a>
+        <a id="authCta" class="btn btn-primary" href="/auth/?mode=signin&next=/profile/">Sign In</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <div class="container grid">
+      <section class="card" aria-label="Profile">
+        <h1>Profile</h1>
+        <p class="sub">Manage your workspace identity, plan status, and generation access.</p>
+
+        <div class="profile-row">
+          <div id="profileAvatar" class="avatar">O</div>
+          <div class="profile-meta">
+            <strong id="profileName">Workspace user</strong>
+            <span id="profileEmail">Sign in to view your account details.</span>
+          </div>
+          <div style="margin-left:auto;">
+            <span id="profilePlanPill" class="pill">Plan: Free</span>
+          </div>
+        </div>
+
+        <div class="kv" aria-label="Usage">
+          <div class="stat">
+            <label>Text</label>
+            <strong id="statText">Ready</strong>
+            <span>Text generation is available when signed in.</span>
+          </div>
+          <div class="stat">
+            <label>Images</label>
+            <strong id="statImages">Pro only</strong>
+            <span id="statImagesHint">Upgrade to Pro to unlock AI images.</span>
+          </div>
+        </div>
+
+        <div id="signedOutNotice" class="notice">
+          You are signed out. Use the Sign In button above to access your workspace.
+        </div>
+
+        <div id="signedInActions" class="actions" style="display:none;">
+          <a class="btn btn-primary" href="/studio/">Open Studio</a>
+          <button class="btn btn-ghost" type="button" onclick="profileSignOut()">Sign Out</button>
+        </div>
+      </section>
+
+      <aside class="card" aria-label="Workspace status">
+        <h1 style="font-size:1.25rem;">Workspace</h1>
+        <p class="sub">Quick status and plan details for this account.</p>
+
+        <div class="kv" style="margin-top:14px;">
+          <div class="stat">
+            <label>Status</label>
+            <strong id="workspaceStatus">Signed out</strong>
+            <span id="workspaceStatusHint">Sign in to unlock protected endpoints.</span>
+          </div>
+          <div class="stat">
+            <label>Role</label>
+            <strong id="workspaceRole">Standard</strong>
+            <span id="workspaceRoleHint">Admin access appears here when enabled.</span>
+          </div>
+        </div>
+
+        <div class="notice" style="margin-top:14px;">
+          Billing controls will live here once subscriptions are fully enabled.
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <div id="toastStack" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/theme.js" defer></script>
+  <script src="/profile/profile.js" defer></script>
+</body>
+</html>
+

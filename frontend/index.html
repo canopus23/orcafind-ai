@@ -1624,19 +1624,18 @@
             <a class="btn btn-secondary auth-trigger" href="/auth/?mode=signup&next=/studio/">Sign Up</a>
           </div>
 
-          <button
+          <a
             id="homeHeaderProfile"
             class="header-profile"
-            type="button"
-            aria-label="Open profile menu"
-            onclick="openHomeSidebar('account')"
+            href="/profile/"
+            aria-label="Open profile"
           >
             <span id="homeHeaderAvatar" class="profile-avatar">O</span>
             <span class="profile-copy">
               <strong id="homeHeaderName">Workspace</strong>
               <span id="homeHeaderEmail">Signed in</span>
             </span>
-          </button>
+          </a>
 
           <a class="btn btn-primary" href="/studio/">Open Studio</a>
         </div>
@@ -1702,6 +1701,11 @@
             <span id="homeSideEmail">Signed in</span>
           </span>
         </div>
+
+        <a id="homeSideProfileLink" class="sidebar-item" href="/profile/" style="display:none;" onclick="closeHomeSidebar()">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" stroke-width="2"/><path d="M20 21a8 8 0 0 0-16 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <span>Profile</span>
+        </a>
 
         <button id="homeSideSignOut" class="sidebar-item" type="button" style="display:none;" onclick="homeLogout()">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 7l5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 12H8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>

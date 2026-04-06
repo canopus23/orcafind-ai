@@ -29,6 +29,7 @@ function updateHeaderForUser(user) {
   const headerProfile = document.getElementById("homeHeaderProfile");
   const sideAuth = document.getElementById("homeSideAuth");
   const sideProfile = document.getElementById("homeSideProfile");
+  const sideProfileLink = document.getElementById("homeSideProfileLink");
   const sideSignOut = document.getElementById("homeSideSignOut");
 
   if (!headerAuth || !headerProfile) return;
@@ -43,6 +44,7 @@ function updateHeaderForUser(user) {
 
     if (sideAuth) sideAuth.classList.add("is-hidden");
     if (sideProfile) sideProfile.style.display = "flex";
+    if (sideProfileLink) sideProfileLink.style.display = "inline-flex";
     if (sideSignOut) sideSignOut.style.display = "inline-flex";
     setText("homeSideName", displayName);
     setText("homeSideEmail", user.email);
@@ -58,6 +60,7 @@ function updateHeaderForUser(user) {
 
   if (sideAuth) sideAuth.classList.remove("is-hidden");
   if (sideProfile) sideProfile.style.display = "none";
+  if (sideProfileLink) sideProfileLink.style.display = "none";
   if (sideSignOut) sideSignOut.style.display = "none";
   setText("homeSideName", "Workspace");
   setText("homeSideEmail", "Signed in");
