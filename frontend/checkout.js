@@ -1,9 +1,11 @@
 let selectedPlan = "pro";
 let billing = "monthly";
 
-const SUPABASE_URL = window.__ORCAFIND_SUPABASE_URL || "https://rcfehmuiovcesucsvfsr.supabase.co";
-const SUPABASE_ANON_KEY = window.__ORCAFIND_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjZmVobXVpb3ZjZXN1Y3N2ZnNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1MzE3MzAsImV4cCI6MjA5MDEwNzczMH0.8J4k5tlyA5G3gr70JT8aDbY36cidBc4s08hlwE-z9tY";
+const ORCAFIND_CONFIG = window.__ORCAFIND_CONFIG || {};
+const SUPABASE_URL = ORCAFIND_CONFIG.supabaseUrl || window.__ORCAFIND_SUPABASE_URL || "https://rcfehmuiovcesucsvfsr.supabase.co";
+const SUPABASE_ANON_KEY = ORCAFIND_CONFIG.supabaseAnonKey || window.__ORCAFIND_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjZmVobXVpb3ZjZXN1Y3N2ZnNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1MzE3MzAsImV4cCI6MjA5MDEwNzczMH0.8J4k5tlyA5G3gr70JT8aDbY36cidBc4s08hlwE-z9tY";
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const API_BASE_URL = ORCAFIND_CONFIG.apiBaseUrl || window.__ORCAFIND_API_BASE_URL || "https://api.orcafind.com";
 
 function showToast(title, message, type = "default") {
   const stack = document.getElementById("toastStack");
@@ -91,7 +93,7 @@ async function startRazorpayCheckout(email) {
     return;
   }
 
-  const orderRes = await fetch("https://api.orcafind.com/billing/razorpay/order", {
+  const orderRes = await fetch(`${API_BASE_URL}/billing/razorpay/order`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -122,7 +124,7 @@ async function startRazorpayCheckout(email) {
     theme: { color: "#1367ff" },
     handler: async function (response) {
       try {
-        const verifyRes = await fetch("https://api.orcafind.com/billing/razorpay/verify", {
+        const verifyRes = await fetch(`${API_BASE_URL}/billing/razorpay/verify`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

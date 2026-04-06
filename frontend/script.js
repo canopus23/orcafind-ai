@@ -1,8 +1,9 @@
-const SUPABASE_URL = window.__ORCAFIND_SUPABASE_URL || "https://rcfehmuiovcesucsvfsr.supabase.co";
-const SUPABASE_ANON_KEY = window.__ORCAFIND_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjZmVobXVpb3ZjZXN1Y3N2ZnNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1MzE3MzAsImV4cCI6MjA5MDEwNzczMH0.8J4k5tlyA5G3gr70JT8aDbY36cidBc4s08hlwE-z9tY";
+const ORCAFIND_CONFIG = window.__ORCAFIND_CONFIG || {};
+const SUPABASE_URL = ORCAFIND_CONFIG.supabaseUrl || window.__ORCAFIND_SUPABASE_URL || "https://rcfehmuiovcesucsvfsr.supabase.co";
+const SUPABASE_ANON_KEY = ORCAFIND_CONFIG.supabaseAnonKey || window.__ORCAFIND_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjZmVobXVpb3ZjZXN1Y3N2ZnNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1MzE3MzAsImV4cCI6MjA5MDEwNzczMH0.8J4k5tlyA5G3gr70JT8aDbY36cidBc4s08hlwE-z9tY";
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const API_BASE_URL = window.__ORCAFIND_API_BASE_URL
+const API_BASE_URL = ORCAFIND_CONFIG.apiBaseUrl || window.__ORCAFIND_API_BASE_URL
   || (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
     ? "http://127.0.0.1:8000"
     : "https://api.orcafind.com");
@@ -1342,9 +1343,15 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
     updateUIForUser(session.user);
     if (isAuthPage()) {
       const next = getSafeNextFromURL() || "/studio/";
-      window.setTimeout(() => {
-        window.location.href = next;
-      }, 120);
+      // Give Supabase a beat to persist the session before navigating away.
+      Promise.resolve()
+        .then(() => supabaseClient.auth.getSession())
+        .catch(() => null)
+        .finally(() => {
+          window.setTimeout(() => {
+            window.location.href = next;
+          }, 180);
+        });
     }
   } else if (event === 'SIGNED_OUT') {
     resetUI();
@@ -1472,7 +1479,15 @@ async function handleSignup() {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
   setButtonLoading("primaryAuthAction", true, "Create Account", "Creating account...");
-  const { error } = await supabaseClient.auth.signUp({ email, password });
+  const next = getSafeNextFromURL() || "/studio/";
+  const emailRedirectTo = `${window.location.origin}/auth/?mode=signin&next=${encodeURIComponent(next)}`;
+  const { error } = await supabaseClient.auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo,
+    },
+  });
   setButtonLoading("primaryAuthAction", false, authMode === "signup" ? "Create Account" : "Sign In", "Creating account...");
   if (error) {
     showToast("Signup failed", error.message, "error");
@@ -1488,7 +1503,10 @@ async function handleLogin() {
   const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
   setButtonLoading("primaryAuthAction", false, authMode === "signup" ? "Create Account" : "Sign In", "Signing in...");
   if (error) {
-    showToast("Login failed", error.message, "error");
+    const msg = String(error.message || "").toLowerCase().includes("email not confirmed")
+      ? "Please confirm your email address (check your inbox) before signing in."
+      : error.message;
+    showToast("Login failed", msg, "error");
   } else {
     showToast("Signed in", "Your workspace is ready.", "success");
   }
