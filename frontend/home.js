@@ -38,8 +38,7 @@ function updateHeaderForUser(user) {
     headerAuth.classList.add("is-hidden");
     headerProfile.classList.add("is-visible");
     const displayName = getDisplayName(user);
-    setText("homeHeaderName", displayName);
-    setText("homeHeaderEmail", user.email);
+    setText("homeHeaderGreeting", `Hi, ${displayName}!`);
     setAvatar("homeHeaderAvatar", displayName);
 
     if (sideAuth) sideAuth.classList.add("is-hidden");
@@ -54,8 +53,7 @@ function updateHeaderForUser(user) {
 
   headerAuth.classList.remove("is-hidden");
   headerProfile.classList.remove("is-visible");
-  setText("homeHeaderName", "Workspace");
-  setText("homeHeaderEmail", "Signed in");
+  setText("homeHeaderGreeting", "Hi!");
   setAvatar("homeHeaderAvatar", "OrcaFind");
 
   if (sideAuth) sideAuth.classList.remove("is-hidden");

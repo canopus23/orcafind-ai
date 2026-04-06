@@ -133,9 +133,9 @@
     }
 
     html[data-theme="dark"] .header-profile {
-      background: rgba(6, 10, 18, 0.56);
-      border-color: rgba(255, 255, 255, 0.10);
-      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.4);
+      background: rgba(16, 185, 129, 0.12);
+      border-color: rgba(16, 185, 129, 0.22);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
     }
 
     html[data-theme="dark"] .profile-copy strong {
@@ -444,11 +444,11 @@
       display: none;
       align-items: center;
       gap: 12px;
-      padding: 8px 10px 8px 8px;
+      padding: 10px 16px 10px 10px;
       border-radius: 999px;
-      background: rgba(255, 255, 255, 0.88);
-      border: 1px solid rgba(111, 132, 163, 0.18);
-      box-shadow: 0 10px 24px rgba(15, 35, 76, 0.08);
+      background: rgba(236, 253, 245, 0.92);
+      border: 1px solid rgba(16, 185, 129, 0.18);
+      box-shadow: 0 14px 34px rgba(15, 35, 76, 0.08);
       cursor: pointer;
     }
 
@@ -462,41 +462,33 @@
     }
 
     .profile-avatar {
-      width: 42px;
-      height: 42px;
+      width: 40px;
+      height: 40px;
       border-radius: 50%;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, #1367ff, #0ab5ff);
+      background: linear-gradient(135deg, #22c55e, #10b981);
       color: white;
       font-weight: 800;
       letter-spacing: -0.04em;
-      box-shadow: 0 12px 24px rgba(19, 103, 255, 0.24);
+      box-shadow: 0 14px 26px rgba(16, 185, 129, 0.26);
       flex-shrink: 0;
     }
 
-    .profile-copy {
-      min-width: 0;
-    }
-
-    .profile-copy strong,
-    .profile-copy span {
+    .profile-copy { min-width: 0; }
+    .profile-copy strong {
       display: block;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      font-size: 1.05rem;
+      letter-spacing: -0.03em;
+      color: #0a3a2a;
+      font-weight: 900;
     }
-
-    .profile-copy strong {
-      font-size: 0.92rem;
-      color: #1f3655;
-    }
-
-    .profile-copy span {
-      font-size: 0.78rem;
-      color: var(--muted);
-      margin-top: 2px;
+    html[data-theme="dark"] .profile-copy strong {
+      color: rgba(235, 255, 245, 0.92);
     }
 
     .auth-trigger {
@@ -1632,12 +1624,10 @@
           >
             <span id="homeHeaderAvatar" class="profile-avatar">O</span>
             <span class="profile-copy">
-              <strong id="homeHeaderName">Workspace</strong>
-              <span id="homeHeaderEmail">Signed in</span>
+              <strong id="homeHeaderGreeting">Hi!</strong>
             </span>
           </a>
 
-          <a class="btn btn-primary" href="/studio/">Open Studio</a>
         </div>
       </div>
     </header>
