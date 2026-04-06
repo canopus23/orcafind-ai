@@ -102,38 +102,37 @@ async function homeLogout() {
   }
 }
 
-function initHowItWorksTabs() {
-  const tabs = document.getElementById("snapshotTabs");
-  const indicator = document.getElementById("snapshotIndicator");
-  const progress = document.getElementById("snapshotProgress");
-  const panelsRoot = document.getElementById("snapshotPanels");
-  if (!tabs || !indicator || !progress || !panelsRoot) return;
+function initHowItWorksRail() {
+  const rail = document.getElementById("howRail");
+  const indicator = document.getElementById("howIndicator");
+  const progress = document.getElementById("howProgress");
+  const panelsRoot = document.getElementById("howPanels");
+  if (!rail || !indicator || !progress || !panelsRoot) return;
 
-  const buttons = Array.from(tabs.querySelectorAll("[data-snapshot-tab]"));
-  const panels = Array.from(panelsRoot.querySelectorAll("[data-snapshot-panel]"));
+  const buttons = Array.from(rail.querySelectorAll("[data-how-tab]"));
+  const panels = Array.from(panelsRoot.querySelectorAll("[data-how-panel]"));
   if (!buttons.length || !panels.length) return;
 
-  const order = buttons.map((btn) => btn.dataset.snapshotTab).filter(Boolean);
+  const order = buttons.map((btn) => btn.dataset.howTab).filter(Boolean);
   const ROTATE_MS = 7200;
   let rotateTimer = null;
-  let current = buttons.find((b) => b.getAttribute("aria-selected") === "true")?.dataset.snapshotTab || order[0];
+  let current = buttons.find((b) => b.getAttribute("aria-selected") === "true")?.dataset.howTab || order[0];
   let lastInteractionAt = 0;
 
   function updateIndicator() {
-    const active = buttons.find((b) => b.dataset.snapshotTab === current);
+    const active = buttons.find((b) => b.dataset.howTab === current);
     if (!active) return;
     const a = active.getBoundingClientRect();
-    const t = tabs.getBoundingClientRect();
-    const x = Math.max(0, a.left - t.left + tabs.scrollLeft);
-    tabs.style.setProperty("--indicator-x", `${x}px`);
-    tabs.style.setProperty("--indicator-w", `${Math.max(64, a.width)}px`);
+    const r = rail.getBoundingClientRect();
+    const x = Math.max(0, a.left - r.left + rail.scrollLeft);
+    rail.style.setProperty("--indicator-x", `${x}px`);
+    rail.style.setProperty("--indicator-w", `${Math.max(120, a.width)}px`);
   }
 
   function restartProgress() {
     progress.classList.remove("is-running");
-    // Force reflow so animation restarts.
     void progress.offsetWidth;
-    progress.style.setProperty("--snapshot-duration", `${ROTATE_MS}ms`);
+    progress.style.setProperty("--how-duration", `${ROTATE_MS}ms`);
     progress.classList.add("is-running");
   }
 
@@ -143,19 +142,18 @@ function initHowItWorksTabs() {
     if (user) lastInteractionAt = Date.now();
 
     buttons.forEach((btn) => {
-      const selected = btn.dataset.snapshotTab === current;
+      const selected = btn.dataset.howTab === current;
       btn.setAttribute("aria-selected", selected ? "true" : "false");
       btn.tabIndex = selected ? 0 : -1;
       if (selected && focus) btn.focus();
     });
 
     panels.forEach((panel) => {
-      const active = panel.dataset.snapshotPanel === current;
+      const active = panel.dataset.howPanel === current;
       panel.classList.toggle("is-active", active);
       panel.setAttribute("aria-hidden", active ? "false" : "true");
       if (active) {
         panel.classList.remove("is-entering");
-        // Restart enter animation.
         void panel.offsetWidth;
         panel.classList.add("is-entering");
         window.setTimeout(() => panel.classList.remove("is-entering"), 420);
@@ -170,12 +168,12 @@ function initHowItWorksTabs() {
     const initial = order.includes(current) ? current : order[0];
     current = initial;
     buttons.forEach((btn) => {
-      const selected = btn.dataset.snapshotTab === current;
+      const selected = btn.dataset.howTab === current;
       btn.setAttribute("aria-selected", selected ? "true" : "false");
       btn.tabIndex = selected ? 0 : -1;
     });
     panels.forEach((panel) => {
-      const active = panel.dataset.snapshotPanel === current;
+      const active = panel.dataset.howPanel === current;
       panel.classList.toggle("is-active", active);
       panel.setAttribute("aria-hidden", active ? "false" : "true");
     });
@@ -192,9 +190,7 @@ function initHowItWorksTabs() {
   }
 
   buttons.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      setActive(btn.dataset.snapshotTab, { user: true });
-    });
+    btn.addEventListener("click", () => setActive(btn.dataset.howTab, { user: true }));
     btn.addEventListener("keydown", (event) => {
       const idx = order.indexOf(current);
       if (event.key === "ArrowRight") {
@@ -217,7 +213,7 @@ function initHowItWorksTabs() {
   });
 
   window.addEventListener("resize", () => updateIndicator());
-  tabs.addEventListener("scroll", () => updateIndicator(), { passive: true });
+  rail.addEventListener("scroll", () => updateIndicator(), { passive: true });
 
   selectInitial();
   rotateTimer = window.setInterval(rotate, ROTATE_MS);
@@ -338,7 +334,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  initHowItWorksTabs();
+  initHowItWorksRail();
   initRevealAnimations();
   initCountUpMetrics();
   initActiveNav();
