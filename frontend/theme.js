@@ -30,8 +30,6 @@
     toggles.forEach((btn) => {
       const label = theme === "dark" ? "Light" : "Dark";
       btn.setAttribute("aria-label", `Switch to ${label} mode`);
-      const text = btn.querySelector("[data-theme-toggle-text]");
-      if (text) text.textContent = label;
     });
   }
 
@@ -53,4 +51,3 @@
     applyTheme(getPreferredTheme());
   });
 })();
-

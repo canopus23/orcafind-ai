@@ -478,8 +478,11 @@
         <span>OrcaFind AI</span>
       </a>
       <div style="display: inline-flex; gap: 10px; align-items: center;">
-        <button class="btn btn-ghost" type="button" data-theme-toggle onclick="toggleTheme()">
-          <span data-theme-toggle-text>Dark</span>
+        <button class="btn btn-ghost" type="button" data-theme-toggle onclick="toggleTheme()" aria-label="Toggle theme">
+          <svg style="width:18px;height:18px;display:inline-block;" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z" stroke="currentColor" stroke-width="2"/>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
         </button>
         <a class="btn btn-ghost" href="/studio/">Open Studio</a>
         <a class="btn btn-ghost" href="/">Home</a>

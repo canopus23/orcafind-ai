@@ -593,6 +593,26 @@ function closeProfileModal() {
   }
 }
 
+function openStudioSidebar() {
+  const panel = document.getElementById("studioSidebar");
+  const backdrop = document.getElementById("studioSidebarBackdrop");
+  if (panel) {
+    panel.classList.add("is-open");
+    panel.setAttribute("aria-hidden", "false");
+  }
+  if (backdrop) backdrop.classList.add("is-open");
+}
+
+function closeStudioSidebar() {
+  const panel = document.getElementById("studioSidebar");
+  const backdrop = document.getElementById("studioSidebarBackdrop");
+  if (panel) {
+    panel.classList.remove("is-open");
+    panel.setAttribute("aria-hidden", "true");
+  }
+  if (backdrop) backdrop.classList.remove("is-open");
+}
+
 function handleProfileBackdrop(event) {
   if (event.target?.id === "profileModal") {
     closeProfileModal();
@@ -1101,6 +1121,8 @@ function updateUIForUser(user) {
   const signedInHint = document.getElementById("accountSignedInHint");
   const headerProfile = document.getElementById("headerProfile");
   const headerAuth = document.getElementById("headerAuth");
+  const sideOut = document.getElementById("studioSideSignedOut");
+  const sideIn = document.getElementById("studioSideSignedIn");
   const displayName = getDisplayName(user);
   const email = user?.email || "Signed in";
 
@@ -1123,6 +1145,12 @@ function updateUIForUser(user) {
   if (headerAuth) {
     headerAuth.classList.add("is-hidden");
   }
+  if (sideOut) {
+    sideOut.style.display = "none";
+  }
+  if (sideIn) {
+    sideIn.style.display = "grid";
+  }
 
   setText("accountStatusTitle", "Workspace status");
   setText("accountStatusChip", "Authenticated");
@@ -1133,6 +1161,9 @@ function updateUIForUser(user) {
   setText("headerProfileEmail", email);
   setAvatar("profileAvatar", displayName);
   setAvatar("headerAvatar", displayName);
+  setText("studioSideName", displayName);
+  setText("studioSideEmail", email);
+  setAvatar("studioSideAvatar", displayName);
   closeAuthModal();
   closeProfileModal();
   supabaseClient.auth.getSession().then(({ data }) => fetchEntitlements(data?.session?.access_token));
@@ -1147,6 +1178,8 @@ function resetUI() {
   const signedInHint = document.getElementById("accountSignedInHint");
   const headerProfile = document.getElementById("headerProfile");
   const headerAuth = document.getElementById("headerAuth");
+  const sideOut = document.getElementById("studioSideSignedOut");
+  const sideIn = document.getElementById("studioSideSignedIn");
 
   if (emailInput) {
     emailInput.value = "";
@@ -1167,6 +1200,12 @@ function resetUI() {
   if (headerAuth) {
     headerAuth.classList.remove("is-hidden");
   }
+  if (sideOut) {
+    sideOut.style.display = "grid";
+  }
+  if (sideIn) {
+    sideIn.style.display = "none";
+  }
 
   setText("accountStatusTitle", "Workspace access");
   setText("accountStatusChip", "Authentication enabled");
@@ -1177,6 +1216,9 @@ function resetUI() {
   setText("headerProfileEmail", "Sign in to access the studio");
   setAvatar("profileAvatar", "OrcaFind");
   setAvatar("headerAvatar", "OrcaFind");
+  setText("studioSideName", "Workspace user");
+  setText("studioSideEmail", "Sign in to access the studio");
+  setAvatar("studioSideAvatar", "OrcaFind");
   closeAuthModal();
   closeProfileModal();
   setResultsVisibility(false);
@@ -1235,6 +1277,7 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     closeAuthModal();
     closeProfileModal();
+    closeStudioSidebar();
   }
 });
 

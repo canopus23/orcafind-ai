@@ -289,6 +289,108 @@
 
     .nav-actions { display: flex; align-items: center; gap: 12px; }
 
+    .header-controls {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-icon {
+      padding: 12px 12px;
+      border-radius: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 0;
+    }
+
+    .icon { width: 18px; height: 18px; display: inline-block; }
+    .icon-sun { display: inline-block; }
+    .icon-moon { display: none; }
+    html[data-theme="dark"] .icon-sun { display: none; }
+    html[data-theme="dark"] .icon-moon { display: inline-block; }
+
+    .mobile-menu-btn { display: none; }
+
+    .sidebar-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 16, 0.55);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      z-index: 40;
+    }
+
+    .sidebar {
+      position: fixed;
+      top: 0;
+      right: 0;
+      height: 100vh;
+      width: min(360px, calc(100vw - 56px));
+      background: rgba(255, 255, 255, 0.92);
+      border-left: 1px solid rgba(111, 132, 163, 0.16);
+      box-shadow: 0 30px 90px rgba(0, 0, 0, 0.22);
+      transform: translateX(102%);
+      transition: transform 0.24s ease;
+      z-index: 50;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      padding: 16px;
+      gap: 14px;
+      backdrop-filter: blur(18px);
+    }
+
+    html[data-theme="dark"] .sidebar {
+      background: rgba(6, 10, 18, 0.86);
+      border-left-color: rgba(255, 255, 255, 0.08);
+      box-shadow: 0 34px 90px rgba(0, 0, 0, 0.6);
+    }
+
+    .sidebar.is-open { transform: translateX(0); }
+    .sidebar-backdrop.is-open { opacity: 1; pointer-events: auto; }
+
+    .sidebar-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .sidebar-top strong { font-size: 1rem; letter-spacing: -0.02em; }
+    .sidebar-links { display: grid; gap: 8px; }
+    .sidebar-links a,
+    .sidebar-links button {
+      padding: 12px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(111, 132, 163, 0.16);
+      background: rgba(255, 255, 255, 0.82);
+      font-weight: 700;
+      color: rgba(23, 42, 66, 0.92);
+      text-align: left;
+      cursor: pointer;
+    }
+    html[data-theme="dark"] .sidebar-links a,
+    html[data-theme="dark"] .sidebar-links button {
+      background: rgba(10, 16, 28, 0.66);
+      border-color: rgba(255, 255, 255, 0.10);
+      color: rgba(245, 250, 255, 0.9);
+    }
+
+    .sidebar-profile {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(111, 132, 163, 0.16);
+      background: rgba(255, 255, 255, 0.82);
+    }
+    html[data-theme="dark"] .sidebar-profile {
+      background: rgba(10, 16, 28, 0.66);
+      border-color: rgba(255, 255, 255, 0.10);
+    }
+
     .pill {
       display: inline-flex;
       align-items: center;
@@ -882,6 +984,9 @@
       .studio-topbar-copy h3 { font-size: 1.15rem; }
       .studio-segment { padding: 6px; gap: 6px; }
       .studio-tab { padding: 10px 12px; font-size: 0.92rem; }
+      .topnav,
+      .nav-actions { display: none; }
+      .mobile-menu-btn { display: inline-flex; }
     }
   </style>
 </head>
@@ -900,11 +1005,26 @@
           <a class="nav-link" href="/#platform">Platform</a>
         </nav>
 
+        <div class="header-controls">
+          <button class="btn btn-ghost btn-icon" type="button" data-theme-toggle onclick="toggleTheme()">
+            <svg class="icon icon-sun" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z" stroke="currentColor" stroke-width="2"/>
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <svg class="icon icon-moon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M21 13.2A8.5 8.5 0 0 1 10.8 3a7 7 0 1 0 10.2 10.2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            </svg>
+          </button>
+
+          <button class="btn btn-ghost btn-icon mobile-menu-btn" type="button" aria-label="Open menu" onclick="openStudioSidebar()">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+
         <div class="nav-actions">
           <span class="pill">Studio workspace</span>
-          <button class="btn btn-ghost" type="button" data-theme-toggle onclick="toggleTheme()">
-            <span data-theme-toggle-text>Dark</span>
-          </button>
           <div id="headerAuth" class="header-auth">
             <button class="btn btn-ghost auth-trigger" onclick="openAuthModal('signin')">Sign In</button>
             <button class="btn btn-primary auth-trigger" onclick="openAuthModal('signup')">Sign Up</button>
@@ -919,6 +1039,41 @@
         </div>
       </div>
     </header>
+
+    <div id="studioSidebarBackdrop" class="sidebar-backdrop" onclick="closeStudioSidebar()"></div>
+    <aside id="studioSidebar" class="sidebar" aria-hidden="true">
+      <div class="sidebar-top">
+        <strong>Menu</strong>
+        <button class="btn btn-ghost btn-icon" type="button" aria-label="Close menu" onclick="closeStudioSidebar()">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="sidebar-links">
+        <a href="#studio" onclick="closeStudioSidebar()">Studio</a>
+        <a href="/checkout/" onclick="closeStudioSidebar()">Pricing</a>
+        <a href="/#platform" onclick="closeStudioSidebar()">Platform</a>
+        <button type="button" onclick="openProfileModal(); closeStudioSidebar();">Profile</button>
+
+        <div id="studioSideSignedOut" style="display:grid; gap:10px; margin-top: 8px;">
+          <button class="btn btn-ghost" type="button" onclick="openAuthModal('signin'); closeStudioSidebar();">Sign In</button>
+          <button class="btn btn-primary" type="button" onclick="openAuthModal('signup'); closeStudioSidebar();">Sign Up</button>
+        </div>
+
+        <div id="studioSideSignedIn" style="display:none; gap:10px; margin-top: 8px;">
+          <div class="sidebar-profile">
+            <div id="studioSideAvatar" class="profile-avatar">O</div>
+            <div class="profile-copy">
+              <strong id="studioSideName">Workspace user</strong>
+              <span id="studioSideEmail">Signed in</span>
+            </div>
+          </div>
+          <button class="btn btn-ghost" type="button" onclick="logout(); closeStudioSidebar();">Sign Out</button>
+        </div>
+      </div>
+    </aside>
 
     <main id="top">
       <section class="section" id="studio">

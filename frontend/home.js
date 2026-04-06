@@ -27,6 +27,9 @@ function getDisplayName(user) {
 function updateHeaderForUser(user) {
   const headerAuth = document.getElementById("homeHeaderAuth");
   const headerProfile = document.getElementById("homeHeaderProfile");
+  const sideAuth = document.getElementById("homeSideAuth");
+  const sideProfile = document.getElementById("homeSideProfile");
+  const sideSignOut = document.getElementById("homeSideSignOut");
 
   if (!headerAuth || !headerProfile) return;
 
@@ -37,6 +40,13 @@ function updateHeaderForUser(user) {
     setText("homeHeaderName", displayName);
     setText("homeHeaderEmail", user.email);
     setAvatar("homeHeaderAvatar", displayName);
+
+    if (sideAuth) sideAuth.classList.add("is-hidden");
+    if (sideProfile) sideProfile.style.display = "flex";
+    if (sideSignOut) sideSignOut.style.display = "inline-flex";
+    setText("homeSideName", displayName);
+    setText("homeSideEmail", user.email);
+    setAvatar("homeSideAvatar", displayName);
     return;
   }
 
@@ -45,6 +55,42 @@ function updateHeaderForUser(user) {
   setText("homeHeaderName", "Workspace");
   setText("homeHeaderEmail", "Signed in");
   setAvatar("homeHeaderAvatar", "OrcaFind");
+
+  if (sideAuth) sideAuth.classList.remove("is-hidden");
+  if (sideProfile) sideProfile.style.display = "none";
+  if (sideSignOut) sideSignOut.style.display = "none";
+  setText("homeSideName", "Workspace");
+  setText("homeSideEmail", "Signed in");
+  setAvatar("homeSideAvatar", "OrcaFind");
+}
+
+function openHomeSidebar() {
+  const panel = document.getElementById("homeSidebar");
+  const backdrop = document.getElementById("homeSidebarBackdrop");
+  if (panel) {
+    panel.classList.add("is-open");
+    panel.setAttribute("aria-hidden", "false");
+  }
+  if (backdrop) backdrop.classList.add("is-open");
+}
+
+function closeHomeSidebar() {
+  const panel = document.getElementById("homeSidebar");
+  const backdrop = document.getElementById("homeSidebarBackdrop");
+  if (panel) {
+    panel.classList.remove("is-open");
+    panel.setAttribute("aria-hidden", "true");
+  }
+  if (backdrop) backdrop.classList.remove("is-open");
+}
+
+async function homeLogout() {
+  try {
+    await supabaseClient.auth.signOut();
+  } finally {
+    closeHomeSidebar();
+    window.location.href = "/";
+  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -52,5 +98,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   supabaseClient.auth.onAuthStateChange((_event, session) => {
     updateHeaderForUser(session?.user);
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeHomeSidebar();
+    }
   });
 });
