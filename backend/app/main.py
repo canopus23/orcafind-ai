@@ -4,6 +4,7 @@ import logging
 from typing import Optional, Set
 from fastapi import FastAPI, Depends, HTTPException, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import uvicorn
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
@@ -49,6 +50,15 @@ if os.getenv("SENTRY_DSN"):
 app = FastAPI(title="OrcaFind AI API")
 app.add_middleware(RequestContextMiddleware)
 
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception):
+    # Always return JSON on unexpected errors. CORS headers are handled by CORSMiddleware.
+    request_id = getattr(request.state, "request_id", None)
+    logger.exception("Unhandled server error (request_id=%s)", request_id)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error", "request_id": request_id},
+    )
 
 @app.on_event("startup")
 def _startup():
