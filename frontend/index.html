@@ -1358,6 +1358,12 @@
       gap: 20px;
     }
 
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 20px;
+    }
+
     .feature-card,
     .testimonial-card,
     .section-card {
@@ -2096,7 +2102,8 @@
     @media (max-width: 1080px) {
       .hero-grid,
       .studio-wrap,
-      .grid-3 {
+      .grid-3,
+      .grid-4 {
         grid-template-columns: 1fr;
       }
 
@@ -2430,23 +2437,23 @@
 
             <div class="hero-metrics">
               <div class="metric-tile reveal">
-                <strong data-countup="72" data-suffix="%">72%</strong>
-                <span>Less time spent rewriting per platform</span>
-              </div>
-              <div class="metric-tile reveal">
-                <strong data-countup="4" data-suffix=" min">4 min</strong>
-                <span>From source draft to publish-ready outputs</span>
+                <strong data-countup="1" data-suffix="">1</strong>
+                <span>Source of truth per content run</span>
               </div>
               <div class="metric-tile reveal">
                 <strong data-countup="4" data-suffix="">4</strong>
-                <span>Outputs in one run: X, LinkedIn, IG, Facebook</span>
+                <span>Channels in one run (X, LinkedIn, IG, Facebook)</span>
+              </div>
+              <div class="metric-tile reveal">
+                <strong data-countup="3" data-suffix="">3</strong>
+                <span>AI image options per run on Pro</span>
               </div>
             </div>
 
             <div class="social-proof">
-              <div class="proof-item">72% faster weekly content production</div>
-              <div class="proof-item">Trusted by solo founders and growth teams</div>
-              <div class="proof-item">Consistent voice across X and LinkedIn</div>
+              <div class="proof-item">Faster weekly content production</div>
+              <div class="proof-item">Consistent voice across platforms</div>
+              <div class="proof-item">Copy-ready drafts and captions</div>
             </div>
           </div>
 
@@ -2643,11 +2650,11 @@
             </div>
             <p>
               OrcaFind is built around one job: take a strong source draft and turn it into platform-native output without losing clarity or voice.
-              It feels like a product, not a prompt playground.
+              It’s a focused workflow, not a generic chatbot UI.
             </p>
           </div>
 
-          <div class="grid-3">
+          <div class="grid-4">
             <article class="feature-card">
               <div class="feature-icon">01</div>
               <h3>One source of truth</h3>
@@ -2656,12 +2663,21 @@
 
             <article class="feature-card">
               <div class="feature-icon">02</div>
+              <h3>How it works</h3>
+              <p>See the four-step flow from source draft to posts, captions, and Pro images.</p>
+              <div style="margin-top:14px;">
+                <a class="btn btn-secondary" href="#how">View the workflow</a>
+              </div>
+            </article>
+
+            <article class="feature-card">
+              <div class="feature-icon">03</div>
               <h3>Multi-output by default</h3>
               <p>Generate X and LinkedIn posts, plus Instagram and Facebook captions in the same workflow.</p>
             </article>
 
             <article class="feature-card">
-              <div class="feature-icon">03</div>
+              <div class="feature-icon">04</div>
               <h3>Pro visuals when needed</h3>
               <p>Upgrade to Pro to generate up to 3 post-ready images per run, with download links in the results stream.</p>
             </article>

@@ -2,7 +2,7 @@ import os
 import re
 import logging
 from typing import Optional, Set
-from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi import FastAPI, Depends, HTTPException, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import sentry_sdk
@@ -16,7 +16,7 @@ from app.schemas.billing import RazorpayCreateOrderRequest, RazorpayVerifyReques
 from app.schemas.request import ContentRequest
 from app.schemas.images import ImageGenerateRequest
 from app.schemas.complete_post import CompletePostRequest
-from app.services.ai_service import generate_social_content
+from app.services.ai_service import generate_social_content, generate_social_content_from_image
 from app.services.image_service import generate_openai_images, generate_placeholder_images
 from app.services.razorpay_service import create_order as razorpay_create_order, get_razorpay_key_id, verify_signature
 from app.services.subscriptions import (
@@ -414,6 +414,76 @@ async def repurpose_content(
             status_code=502,
             detail={
                 "message": f"Upstream AI error: {type(e).__name__}: {raw}" if raw else f"Upstream AI error: {type(e).__name__}",
+                "request_id": request.state.request_id,
+            },
+        )
+
+
+@app.post("/repurpose/image")
+async def repurpose_from_image(
+    request: Request,
+    image: UploadFile = File(...),
+    prompt: str = Form(""),
+    x_style: str = Form("single"),
+    format: str = Form("professional"),
+    user=Depends(verify_user),
+    _rl=Depends(rate_limit(RateLimitConfig(limit=12, window_seconds=60, key_prefix="repurpose_image"))),
+):
+    """
+    Pro-only endpoint. Accepts an image upload and generates X/LinkedIn posts plus IG/FB captions.
+    """
+    premium = is_admin_user(user) or is_premium_user(user)
+    if not premium:
+        raise HTTPException(status_code=402, detail="Upgrade to Pro to generate posts from an image")
+
+    if not image:
+        raise HTTPException(status_code=400, detail="Image file is required")
+
+    content_type = (image.content_type or "").strip().lower()
+    if content_type and not content_type.startswith("image/"):
+        raise HTTPException(status_code=415, detail="Unsupported file type. Upload a PNG, JPEG, or WebP image.")
+
+    try:
+        raw = await image.read()
+        if not raw:
+            raise HTTPException(status_code=400, detail="Uploaded image is empty")
+        # 6MB guardrail to avoid huge payloads.
+        if len(raw) > 6 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="Image is too large. Please upload a smaller file (max 6MB).")
+
+        result = generate_social_content_from_image(
+            image_bytes=raw,
+            image_mime=content_type or "image/png",
+            user_prompt=prompt,
+            x_style=x_style,
+            content_format=format,
+            is_premium=True,
+        )
+        sections = _parse_sections(result)
+        return {"result": result, "sections": sections}
+    except HTTPException:
+        raise
+    except RuntimeError as e:
+        msg = str(e or "")
+        if "OPENAI_API_KEY" in msg:
+            raise HTTPException(
+                status_code=503,
+                detail={"message": "AI provider is not configured (missing OPENAI_API_KEY).", "request_id": request.state.request_id},
+            )
+        logger.exception("Runtime error in /repurpose/image (request_id=%s)", request.state.request_id)
+        raise HTTPException(
+            status_code=500,
+            detail={"message": "Internal Server Error during image-based generation.", "request_id": request.state.request_id},
+        )
+    except Exception as e:
+        raw_msg = str(e or "").strip().replace("\n", " ")
+        if len(raw_msg) > 220:
+            raw_msg = raw_msg[:217] + "..."
+        logger.exception("Error in /repurpose/image (request_id=%s)", request.state.request_id)
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "message": f"Upstream AI error: {type(e).__name__}: {raw_msg}" if raw_msg else f"Upstream AI error: {type(e).__name__}",
                 "request_id": request.state.request_id,
             },
         )

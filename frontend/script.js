@@ -160,25 +160,32 @@ function showToast(title, message, type = "default") {
 }
 
 function setStudioMode(mode) {
-  studioMode = mode === "images" ? "images" : mode === "builder" ? "builder" : "text";
+  studioMode = mode === "images" ? "images" : mode === "builder" ? "builder" : mode === "vision" ? "vision" : "text";
   try {
     window.localStorage.setItem("orcafind_studio_mode", studioMode);
   } catch (_err) {}
 
   const textPanel = document.getElementById("studioTextPanel");
+  const visionPanel = document.getElementById("studioVisionPanel");
   const imagesPanel = document.getElementById("studioImagesPanel");
   const tabText = document.getElementById("studioTabText");
+  const tabVision = document.getElementById("studioTabVision");
   const tabImages = document.getElementById("studioTabImages");
   const builderPanel = document.getElementById("studioBuilderPanel");
   const tabBuilder = document.getElementById("studioTabBuilder");
 
   if (textPanel) textPanel.classList.toggle("is-hidden", studioMode !== "text");
+  if (visionPanel) visionPanel.classList.toggle("is-hidden", studioMode !== "vision");
   if (imagesPanel) imagesPanel.classList.toggle("is-hidden", studioMode !== "images");
   if (builderPanel) builderPanel.classList.toggle("is-hidden", studioMode !== "builder");
 
   if (tabText) {
     tabText.classList.toggle("is-active", studioMode === "text");
     tabText.setAttribute("aria-selected", studioMode === "text" ? "true" : "false");
+  }
+  if (tabVision) {
+    tabVision.classList.toggle("is-active", studioMode === "vision");
+    tabVision.setAttribute("aria-selected", studioMode === "vision" ? "true" : "false");
   }
   if (tabImages) {
     tabImages.classList.toggle("is-active", studioMode === "images");
@@ -192,12 +199,204 @@ function setStudioMode(mode) {
   if (studioMode === "text") {
     const input = document.getElementById("inputText");
     input?.focus?.();
+  } else if (studioMode === "vision") {
+    const img = document.getElementById("visionImage");
+    img?.focus?.();
   } else if (studioMode === "images") {
     const brief = document.getElementById("imageBrief");
     (brief || document.getElementById("inputText"))?.focus?.();
   } else {
     const input = document.getElementById("inputText");
     input?.focus?.();
+  }
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    if (!file) return resolve("");
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function generateFromImage() {
+  const imageInput = document.getElementById("visionImage");
+  const promptInput = document.getElementById("visionPrompt");
+  const xStyleInput = document.getElementById("visionXStyle");
+  const formatInput = document.getElementById("visionFormat");
+  const button = document.getElementById("visionGenerateBtn");
+
+  const accessToken = await getAccessTokenOrPromptAuth({
+    mode: "signin",
+    toastTitle: "Authentication required",
+    toastBody: "Sign in to generate posts from an image.",
+  });
+  if (!accessToken) return;
+
+  if (!entitlements?.is_premium && !entitlements?.is_admin) {
+    showToast("Pro feature", "Upgrade to Pro to generate posts from an image.", "error");
+    openPremiumModal();
+    return;
+  }
+
+  const file = imageInput?.files?.[0];
+  if (!file) {
+    showToast("Missing image", "Upload an image to generate from.", "error");
+    return;
+  }
+
+  if (file.type && !file.type.startsWith("image/")) {
+    showToast("Unsupported file", "Please upload a PNG, JPG, or WebP image.", "error");
+    return;
+  }
+
+  if (file.size > 6 * 1024 * 1024) {
+    showToast("Image too large", "Please upload a smaller file (max 6MB).", "error");
+    return;
+  }
+
+  const userPrompt = String(promptInput?.value || "").trim();
+  const xStyle = String(xStyleInput?.value || "single").trim();
+  const format = String(formatInput?.value || "professional").trim();
+
+  if (formatInput) {
+    const selected = formatInput.options[formatInput.selectedIndex];
+    if (selected?.dataset?.premium === "true" && !entitlements?.is_premium) {
+      showToast("Pro feature", "This format is available on Pro.", "error");
+      formatInput.value = "professional";
+      openPremiumModal();
+      return;
+    }
+  }
+
+  button && (button.disabled = true);
+  if (button) {
+    button.classList.add("is-loading");
+    button.textContent = "Generating...";
+  }
+
+  let previewUrl = "";
+  try {
+    previewUrl = await readFileAsDataUrl(file);
+  } catch (_err) {
+    previewUrl = "";
+  }
+
+  addChatMessage({
+    role: "user",
+    title: "You",
+    pill: "Image",
+    text: userPrompt ? `Guidance: ${userPrompt}` : "Generate posts based on this image.",
+    imageDataUrl: previewUrl,
+  });
+
+  const typingId = addTypingMessage({
+    title: "OrcaFind",
+    pill: "Working",
+    label: "Analyzing image and writing posts...",
+  });
+
+  try {
+    const form = new FormData();
+    form.append("image", file);
+    form.append("prompt", userPrompt);
+    form.append("x_style", xStyle);
+    form.append("format", format);
+
+    const response = await fetch(`${API_BASE_URL}/repurpose/image`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+      },
+      body: form,
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      removeChatMessage(typingId);
+      if (response.status === 401) {
+        redirectToAuth("signin", buildRelativeUrl());
+        showToast("Session expired", "Please sign in again to continue.", "error");
+        return;
+      }
+      if (response.status === 402) {
+        showToast("Pro required", data.detail?.message || data.detail || "Upgrade to Pro to use image-based generation.", "error");
+        openPremiumModal();
+        return;
+      }
+      const detail = data.detail?.message || data.detail || "API Error";
+      addChatMessage({ role: "assistant", title: "Error", pill: "Failed", text: detail });
+      showToast("Generation failed", detail, "error");
+      return;
+    }
+
+    removeChatMessage(typingId);
+    const sections = data.sections || parseSectionsFromText(data.result);
+    const xText = (sections.x || "").trim();
+    const linkedinText = (sections.linkedin || "").trim();
+    const instagramText = (sections.instagram || "").trim();
+    const facebookText = (sections.facebook || "").trim();
+
+    if (xText) {
+      const id = storeCopyText(xText);
+      addChatMessage({
+        role: "assistant",
+        title: "Twitter / X",
+        pill: xStyle === "single" ? "Variations" : "Thread",
+        text: xText,
+        actionsHTML: `<button class="btn btn-ghost btn-mini" onclick="copyFromStore('${id}', 'X')">Copy</button>`,
+      });
+    }
+    if (linkedinText) {
+      const id = storeCopyText(linkedinText);
+      addChatMessage({
+        role: "assistant",
+        title: "LinkedIn",
+        pill: "Formatted",
+        text: linkedinText,
+        actionsHTML: `<button class="btn btn-ghost btn-mini" onclick="copyFromStore('${id}', 'LinkedIn')">Copy</button>`,
+      });
+    }
+    if (instagramText) {
+      const id = storeCopyText(instagramText);
+      addChatMessage({
+        role: "assistant",
+        title: "Instagram",
+        pill: "Caption",
+        text: instagramText,
+        actionsHTML: `<button class="btn btn-ghost btn-mini" onclick="copyFromStore('${id}', 'Instagram')">Copy</button>`,
+      });
+    }
+    if (facebookText) {
+      const id = storeCopyText(facebookText);
+      addChatMessage({
+        role: "assistant",
+        title: "Facebook",
+        pill: "Caption",
+        text: facebookText,
+        actionsHTML: `<button class="btn btn-ghost btn-mini" onclick="copyFromStore('${id}', 'Facebook')">Copy</button>`,
+      });
+    }
+
+    showToast("Generated", "Your image-based posts and captions are ready.", "success");
+  } catch (err) {
+    removeChatMessage(typingId);
+    addChatMessage({
+      role: "assistant",
+      title: "Connection Error",
+      pill: "Offline",
+      text: `Error connecting to API: ${err.message}`,
+    });
+    showToast("Connection error", `Error connecting to API: ${err.message}`, "error");
+  } finally {
+    if (button) {
+      button.classList.remove("is-loading");
+      button.disabled = false;
+      button.textContent = "Generate From Image";
+    }
   }
 }
 
@@ -728,6 +927,11 @@ function applyEntitlementsToUI() {
     updateStudioOutputTags();
   }
 
+  const visionFormat = document.getElementById("visionFormat");
+  if (visionFormat && !isPremium && visionFormat.options[visionFormat.selectedIndex]?.dataset?.premium === "true") {
+    visionFormat.value = "professional";
+  }
+
   const hint = document.getElementById("imageLimitHint");
   if (hint) {
     if (isPremium) {
@@ -872,6 +1076,7 @@ function updateStudioOutputTags() {
 function initStudioControls() {
   const xStyle = document.getElementById("xStyle");
   const format = document.getElementById("contentFormat");
+  const visionFormat = document.getElementById("visionFormat");
 
   if (xStyle) {
     xStyle.addEventListener("change", updateStudioOutputTags);
@@ -887,6 +1092,17 @@ function initStudioControls() {
         return;
       }
       updateStudioOutputTags();
+    });
+  }
+
+  if (visionFormat) {
+    visionFormat.addEventListener("change", () => {
+      const selected = visionFormat.options[visionFormat.selectedIndex];
+      if (selected?.dataset?.premium === "true" && !entitlements?.is_premium) {
+        showToast("Pro feature", "This format is available on Pro.", "error");
+        visionFormat.value = "professional";
+        openPremiumModal();
+      }
     });
   }
 
@@ -1028,7 +1244,7 @@ function addChatMessage({ id, role, title, text, html, pill, actionsHTML, imageD
   const safeText = text ? `<div class="chat-text">${escapeHTML(text)}</div>` : "";
   const safeHTML = html ? `<div class="chat-text">${html}</div>` : "";
   const imageHTML = imageDataUrl
-    ? `<div class="chat-image"><img src="${imageDataUrl}" alt="Generated post image" /></div>`
+    ? `<div class="chat-image"><img src="${imageDataUrl}" alt="Image" /></div>`
     : "";
   const actions = actionsHTML ? `<div class="chat-actions">${actionsHTML}</div>` : "";
 
@@ -1327,7 +1543,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   try {
     const savedMode = window.localStorage.getItem("orcafind_studio_mode");
-    if (savedMode === "images" || savedMode === "builder" || savedMode === "text") {
+    if (savedMode === "images" || savedMode === "builder" || savedMode === "vision" || savedMode === "text") {
       studioMode = savedMode;
     }
   } catch (_err) {}

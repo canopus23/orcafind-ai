@@ -1150,6 +1150,7 @@
               </div>
               <div class="studio-segment" role="tablist" aria-label="Studio mode">
                 <button id="studioTabText" class="studio-tab is-active" role="tab" aria-selected="true" onclick="setStudioMode('text')">Text Posts</button>
+                <button id="studioTabVision" class="studio-tab" role="tab" aria-selected="false" onclick="setStudioMode('vision')">From Image</button>
                 <button id="studioTabImages" class="studio-tab" role="tab" aria-selected="false" onclick="setStudioMode('images')">AI Images</button>
                 <button id="studioTabBuilder" class="studio-tab" role="tab" aria-selected="false" onclick="setStudioMode('builder')">Post Builder</button>
               </div>
@@ -1226,6 +1227,66 @@
                       <div class="side-actions">
                         <div id="generationSummary" class="field-hint" style="margin-top: 0;"></div>
                         <button id="generateBtn" class="btn btn-primary" onclick="generate()">Generate Posts</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div id="studioVisionPanel" class="panel-card is-hidden">
+                    <div class="panel-head">
+                      <div>
+                        <h4>Image to Posts (Pro)</h4>
+                        <p>Upload an image and generate multiple X variations, a LinkedIn draft, plus Instagram and Facebook captions based on what the image shows.</p>
+                      </div>
+                    </div>
+                    <div class="panel-body">
+                      <div class="auth-hint" style="margin-top: 0;">
+                        Pro feature: image-based generation uses vision models to understand your upload.
+                      </div>
+
+                      <div class="field-stack" style="margin-top: 12px;">
+                        <div class="field">
+                          <label for="visionImage">Upload image</label>
+                          <div class="control">
+                            <input id="visionImage" type="file" accept="image/*" />
+                          </div>
+                          <div class="field-hint">PNG, JPG, or WebP. Keep it under 6MB.</div>
+                        </div>
+
+                        <div class="field">
+                          <label for="visionPrompt">Optional guidance</label>
+                          <div class="control">
+                            <input id="visionPrompt" placeholder="Optional: what should the post focus on? (audience, CTA, tone...)" />
+                          </div>
+                          <div class="field-hint">If you leave this blank, OrcaFind will write based on the image alone.</div>
+                        </div>
+
+                        <div class="field">
+                          <label for="visionXStyle">X output</label>
+                          <div class="control">
+                            <select id="visionXStyle" aria-label="X output style for image-based generation">
+                              <option value="single" selected>Post variations</option>
+                              <option value="thread">Thread</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div class="field">
+                          <label for="visionFormat">Format</label>
+                          <div class="control">
+                            <select id="visionFormat" aria-label="Content format for image-based generation">
+                              <option value="professional" selected>Professional</option>
+                              <option value="casual">Casual</option>
+                              <option value="educational">Educational</option>
+                              <option value="story" data-premium="true">Story-driven (Pro)</option>
+                              <option value="launch" data-premium="true">Product launch (Pro)</option>
+                            </select>
+                          </div>
+                          <div class="field-hint">X and LinkedIn are generated as full posts. Instagram and Facebook are generated as captions.</div>
+                        </div>
+                      </div>
+
+                      <div class="side-actions">
+                        <button id="visionGenerateBtn" class="btn btn-primary" onclick="generateFromImage()">Generate From Image</button>
                       </div>
                     </div>
                   </div>
