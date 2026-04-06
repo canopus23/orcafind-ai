@@ -1,4 +1,17 @@
 (function () {
+  // Keep auth sessions stable by forcing one canonical host in production.
+  // localStorage sessions do not carry across subdomains (www vs non-www).
+  try {
+    const host = String(window.location.hostname || "");
+    const isProdHost = host === "orcafind.com" || host === "www.orcafind.com";
+    if (isProdHost && host.startsWith("www.")) {
+      const url = new URL(window.location.href);
+      url.hostname = host.replace(/^www\./, "");
+      window.location.replace(url.toString());
+      return;
+    }
+  } catch (_err) {}
+
   const isLocal =
     window.location.hostname === "localhost" ||
     window.location.hostname === "127.0.0.1";

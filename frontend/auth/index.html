@@ -7,6 +7,17 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <script>
     (function () {
+      // Canonicalize auth to the apex domain so Supabase sessions remain consistent.
+      // localStorage sessions do not carry between www and non-www hosts.
+      try {
+        var host = String(window.location.hostname || "");
+        if (host === "www.orcafind.com") {
+          var url = new URL(window.location.href);
+          url.hostname = "orcafind.com";
+          window.location.replace(url.toString());
+          return;
+        }
+      } catch (e) {}
       try {
         var saved = localStorage.getItem("orcafind_theme");
         var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
