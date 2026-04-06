@@ -64,7 +64,7 @@ function updateHeaderForUser(user) {
   setAvatar("homeSideAvatar", "OrcaFind");
 }
 
-function openHomeSidebar() {
+function openHomeSidebar(target) {
   const panel = document.getElementById("homeSidebar");
   const backdrop = document.getElementById("homeSidebarBackdrop");
   if (panel) {
@@ -72,6 +72,14 @@ function openHomeSidebar() {
     panel.setAttribute("aria-hidden", "false");
   }
   if (backdrop) backdrop.classList.add("is-open");
+
+  if (target === "account") {
+    window.setTimeout(() => {
+      const signOut = document.getElementById("homeSideSignOut");
+      const profile = document.getElementById("homeSideProfile");
+      (signOut || profile || panel)?.scrollIntoView?.({ block: "end", behavior: "smooth" });
+    }, 30);
+  }
 }
 
 function closeHomeSidebar() {
