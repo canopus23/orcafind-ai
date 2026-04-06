@@ -772,6 +772,214 @@
       font-size: 0.95rem;
     }
 
+    .snapshot-tabs-wrap {
+      display: grid;
+      gap: 14px;
+    }
+
+    .snapshot-tabs {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      overflow-x: auto;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .snapshot-tabs::-webkit-scrollbar { display: none; }
+
+    .snapshot-indicator {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      height: calc(100% - 12px);
+      width: var(--indicator-w, 120px);
+      transform: translateX(var(--indicator-x, 0px));
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
+      transition: transform 0.32s cubic-bezier(.2,.9,.2,1), width 0.32s cubic-bezier(.2,.9,.2,1);
+      pointer-events: none;
+    }
+
+    .snapshot-tab {
+      position: relative;
+      z-index: 1;
+      border: none;
+      cursor: pointer;
+      background: transparent;
+      color: rgba(228, 236, 247, 0.74);
+      font-weight: 800;
+      padding: 10px 14px;
+      border-radius: 999px;
+      white-space: nowrap;
+      letter-spacing: -0.02em;
+      transition: color 0.2s ease, transform 0.2s ease;
+    }
+
+    .snapshot-tab:hover { color: rgba(255, 255, 255, 0.92); transform: translateY(-1px); }
+    .snapshot-tab[aria-selected="true"] { color: rgba(255, 255, 255, 0.94); }
+    .snapshot-tab:focus-visible { outline: 3px solid rgba(63, 140, 255, 0.35); outline-offset: 4px; }
+
+    .snapshot-progress {
+      height: 2px;
+      width: 100%;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.10);
+    }
+
+    .snapshot-progress-bar {
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(63, 140, 255, 0.9), rgba(74, 222, 128, 0.85));
+      transform-origin: left;
+    }
+
+    .snapshot-progress-bar.is-running {
+      animation: snapshot-progress var(--snapshot-duration, 6800ms) linear forwards;
+    }
+
+    @keyframes snapshot-progress {
+      from { width: 0%; }
+      to { width: 100%; }
+    }
+
+    .snapshot-panels {
+      display: grid;
+      min-height: 300px;
+    }
+
+    .snapshot-panel {
+      grid-area: 1 / 1;
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+      transition: opacity 0.26s ease, transform 0.26s ease;
+    }
+
+    .snapshot-panel.is-active {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    .snapshot-panel.is-entering {
+      animation: panel-in 0.36s ease both;
+    }
+
+    @keyframes panel-in {
+      from { opacity: 0; transform: translateY(14px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .snapshot-panel-inner {
+      display: grid;
+      grid-template-columns: 1.08fr 0.92fr;
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    .snapshot-copy {
+      padding: 18px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .snapshot-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(228, 236, 247, 0.66);
+      margin-bottom: 12px;
+    }
+
+    .snapshot-copy h3 {
+      font-size: 1.15rem;
+      letter-spacing: -0.03em;
+      margin-bottom: 10px;
+    }
+
+    .snapshot-copy ul {
+      list-style: none;
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .snapshot-copy li {
+      display: flex;
+      gap: 10px;
+      line-height: 1.6;
+      color: rgba(245, 248, 253, 0.92);
+      font-size: 0.95rem;
+    }
+
+    .snapshot-copy li::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      margin-top: 7px;
+      flex-shrink: 0;
+      background: linear-gradient(135deg, rgba(63, 140, 255, 0.9), rgba(74, 222, 128, 0.85));
+      box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.22);
+    }
+
+    .snapshot-visual {
+      padding: 18px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      display: grid;
+      gap: 10px;
+    }
+
+    .snapshot-visual strong {
+      display: block;
+      font-size: 0.92rem;
+      letter-spacing: -0.02em;
+    }
+
+    .visual-steps {
+      display: grid;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .visual-step {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 12px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      color: rgba(228, 236, 247, 0.86);
+      font-weight: 700;
+    }
+
+    .visual-step span {
+      color: rgba(228, 236, 247, 0.68);
+      font-weight: 800;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
     .section {
       padding: 22px 0 70px;
     }
@@ -1560,6 +1768,14 @@
       .dark-band-grid {
         gap: 16px;
       }
+
+      .snapshot-panel-inner {
+        grid-template-columns: 1fr;
+      }
+
+      .snapshot-panels {
+        min-height: 0;
+      }
     }
 
     @media (max-width: 480px) {
@@ -1729,29 +1945,111 @@
 
           <div class="hero-panel">
             <div class="hero-panel-header">
-              <h2>Executive Snapshot</h2>
-              <span class="live-indicator">Real-time preview</span>
+              <h2>How OrcaFind Works</h2>
+              <span class="live-indicator">In 4 steps</span>
             </div>
 
-            <div class="hero-stats">
-              <div class="metric-card">
-                <strong id="metricPrimaryValue">11.4x</strong>
-                <span id="metricPrimaryLabel">More social output from one source draft</span>
+            <div class="snapshot-tabs-wrap">
+              <div id="snapshotTabs" class="snapshot-tabs" role="tablist" aria-label="How OrcaFind works">
+                <div id="snapshotIndicator" class="snapshot-indicator" aria-hidden="true"></div>
+                <button class="snapshot-tab" type="button" role="tab" aria-selected="true" tabindex="0" data-snapshot-tab="source">Source</button>
+                <button class="snapshot-tab" type="button" role="tab" aria-selected="false" tabindex="-1" data-snapshot-tab="posts">Posts</button>
+                <button class="snapshot-tab" type="button" role="tab" aria-selected="false" tabindex="-1" data-snapshot-tab="captions">Captions</button>
+                <button class="snapshot-tab" type="button" role="tab" aria-selected="false" tabindex="-1" data-snapshot-tab="images">Pro Images</button>
               </div>
-              <div class="metric-card">
-                <strong id="metricSecondaryValue">4 min</strong>
-                <span id="metricSecondaryLabel">Average time from idea to repurposed assets</span>
-              </div>
-            </div>
 
-            <div class="hero-feed">
-              <div class="feed-card">
-                <label id="feedOneLabel">What teams put in</label>
-                <p id="feedOneBody">Product announcements, founder notes, podcast transcripts, feature launches, customer stories.</p>
+              <div class="snapshot-progress" aria-hidden="true">
+                <div id="snapshotProgress" class="snapshot-progress-bar"></div>
               </div>
-              <div class="feed-card">
-                <label id="feedTwoLabel">What OrcaFind ships out</label>
-                <p id="feedTwoBody">Sharper hooks, more platform-native pacing, clearer CTA structure, and reusable messaging patterns.</p>
+
+              <div id="snapshotPanels" class="snapshot-panels">
+                <div class="snapshot-panel is-active" role="tabpanel" aria-hidden="false" data-snapshot-panel="source">
+                  <div class="snapshot-panel-inner">
+                    <div class="snapshot-copy">
+                      <div class="snapshot-kicker">Step 1 · Input</div>
+                      <h3>Paste one source of truth.</h3>
+                      <ul>
+                        <li>Drop an article, transcript, release note, or raw thinking into the Studio.</li>
+                        <li>Add a clear audience and one strong takeaway for tighter output.</li>
+                        <li>Use one workspace to keep everything consistent across runs.</li>
+                      </ul>
+                    </div>
+                    <div class="snapshot-visual" aria-hidden="true">
+                      <strong>What you provide</strong>
+                      <div class="visual-steps">
+                        <div class="visual-step"><div>Source content</div><span>Paste</span></div>
+                        <div class="visual-step"><div>Optional brief</div><span>Guide</span></div>
+                        <div class="visual-step"><div>Format choices</div><span>Select</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="snapshot-panel" role="tabpanel" aria-hidden="true" data-snapshot-panel="posts">
+                  <div class="snapshot-panel-inner">
+                    <div class="snapshot-copy">
+                      <div class="snapshot-kicker">Step 2 · Generate</div>
+                      <h3>Create X and LinkedIn drafts.</h3>
+                      <ul>
+                        <li>Choose X output style: post variations or thread.</li>
+                        <li>Select a format (tone + structure) for both platforms.</li>
+                        <li>Get platform-ready drafts with separate copy buttons per channel.</li>
+                      </ul>
+                    </div>
+                    <div class="snapshot-visual" aria-hidden="true">
+                      <strong>Primary outputs</strong>
+                      <div class="visual-steps">
+                        <div class="visual-step"><div>Twitter / X</div><span>Post or thread</span></div>
+                        <div class="visual-step"><div>LinkedIn</div><span>Draft</span></div>
+                        <div class="visual-step"><div>Results</div><span>Chat-style</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="snapshot-panel" role="tabpanel" aria-hidden="true" data-snapshot-panel="captions">
+                  <div class="snapshot-panel-inner">
+                    <div class="snapshot-copy">
+                      <div class="snapshot-kicker">Step 3 · Expand</div>
+                      <h3>Generate social captions in the same run.</h3>
+                      <ul>
+                        <li>Instagram caption is optimized for short hooks and scannable pacing.</li>
+                        <li>Facebook caption is tuned for community-forward language and clarity.</li>
+                        <li>Everything is returned together, so you can publish faster.</li>
+                      </ul>
+                    </div>
+                    <div class="snapshot-visual" aria-hidden="true">
+                      <strong>Secondary outputs</strong>
+                      <div class="visual-steps">
+                        <div class="visual-step"><div>Instagram</div><span>Caption</span></div>
+                        <div class="visual-step"><div>Facebook</div><span>Caption</span></div>
+                        <div class="visual-step"><div>Workflow</div><span>One run</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="snapshot-panel" role="tabpanel" aria-hidden="true" data-snapshot-panel="images">
+                  <div class="snapshot-panel-inner">
+                    <div class="snapshot-copy">
+                      <div class="snapshot-kicker">Step 4 · Pro</div>
+                      <h3>Generate post images when you need visuals.</h3>
+                      <ul>
+                        <li>Pro users can generate up to 3 image options per run.</li>
+                        <li>Use a visual brief, or let OrcaFind build one from the source content.</li>
+                        <li>Download assets directly from the results stream.</li>
+                      </ul>
+                    </div>
+                    <div class="snapshot-visual" aria-hidden="true">
+                      <strong>Visual add-ons</strong>
+                      <div class="visual-steps">
+                        <div class="visual-step"><div>AI images</div><span>Pro</span></div>
+                        <div class="visual-step"><div>Count</div><span>1–3</span></div>
+                        <div class="visual-step"><div>Download</div><span>PNG</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

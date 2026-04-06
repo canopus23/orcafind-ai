@@ -71,6 +71,7 @@ async function fetchEntitlements(accessToken) {
 }
 
 function applySignedOutUI() {
+  setText("profileHeading", "Profile");
   setText("profileName", "Workspace user");
   setText("profileEmail", "Sign in to view your account details.");
   setAvatar("OrcaFind");
@@ -94,6 +95,7 @@ function applySignedOutUI() {
 
 function applySignedInUI({ user, entitlements }) {
   const displayName = getDisplayName(user);
+  setText("profileHeading", `Hi, ${displayName}!`);
   setAvatar(displayName);
   setText("profileName", displayName);
   setText("profileEmail", user?.email || "Signed in");

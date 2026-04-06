@@ -102,6 +102,139 @@ async function homeLogout() {
   }
 }
 
+function initHowItWorksTabs() {
+  const tabs = document.getElementById("snapshotTabs");
+  const indicator = document.getElementById("snapshotIndicator");
+  const progress = document.getElementById("snapshotProgress");
+  const panelsRoot = document.getElementById("snapshotPanels");
+  if (!tabs || !indicator || !progress || !panelsRoot) return;
+
+  const buttons = Array.from(tabs.querySelectorAll("[data-snapshot-tab]"));
+  const panels = Array.from(panelsRoot.querySelectorAll("[data-snapshot-panel]"));
+  if (!buttons.length || !panels.length) return;
+
+  const order = buttons.map((btn) => btn.dataset.snapshotTab).filter(Boolean);
+  const ROTATE_MS = 7200;
+  let rotateTimer = null;
+  let current = buttons.find((b) => b.getAttribute("aria-selected") === "true")?.dataset.snapshotTab || order[0];
+  let lastInteractionAt = 0;
+
+  function updateIndicator() {
+    const active = buttons.find((b) => b.dataset.snapshotTab === current);
+    if (!active) return;
+    const a = active.getBoundingClientRect();
+    const t = tabs.getBoundingClientRect();
+    const x = Math.max(0, a.left - t.left + tabs.scrollLeft);
+    tabs.style.setProperty("--indicator-x", `${x}px`);
+    tabs.style.setProperty("--indicator-w", `${Math.max(64, a.width)}px`);
+  }
+
+  function restartProgress() {
+    progress.classList.remove("is-running");
+    // Force reflow so animation restarts.
+    void progress.offsetWidth;
+    progress.style.setProperty("--snapshot-duration", `${ROTATE_MS}ms`);
+    progress.classList.add("is-running");
+  }
+
+  function setActive(next, { focus = false, user = false } = {}) {
+    if (!next || next === current) return;
+    current = next;
+    if (user) lastInteractionAt = Date.now();
+
+    buttons.forEach((btn) => {
+      const selected = btn.dataset.snapshotTab === current;
+      btn.setAttribute("aria-selected", selected ? "true" : "false");
+      btn.tabIndex = selected ? 0 : -1;
+      if (selected && focus) btn.focus();
+    });
+
+    panels.forEach((panel) => {
+      const active = panel.dataset.snapshotPanel === current;
+      panel.classList.toggle("is-active", active);
+      panel.setAttribute("aria-hidden", active ? "false" : "true");
+      if (active) {
+        panel.classList.remove("is-entering");
+        // Restart enter animation.
+        void panel.offsetWidth;
+        panel.classList.add("is-entering");
+        window.setTimeout(() => panel.classList.remove("is-entering"), 420);
+      }
+    });
+
+    updateIndicator();
+    restartProgress();
+  }
+
+  function selectInitial() {
+    const initial = order.includes(current) ? current : order[0];
+    current = initial;
+    buttons.forEach((btn) => {
+      const selected = btn.dataset.snapshotTab === current;
+      btn.setAttribute("aria-selected", selected ? "true" : "false");
+      btn.tabIndex = selected ? 0 : -1;
+    });
+    panels.forEach((panel) => {
+      const active = panel.dataset.snapshotPanel === current;
+      panel.classList.toggle("is-active", active);
+      panel.setAttribute("aria-hidden", active ? "false" : "true");
+    });
+    updateIndicator();
+    restartProgress();
+  }
+
+  function rotate() {
+    const now = Date.now();
+    if (now - lastInteractionAt < 12000) return;
+    const idx = Math.max(0, order.indexOf(current));
+    const next = order[(idx + 1) % order.length];
+    setActive(next, { user: false });
+  }
+
+  buttons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      setActive(btn.dataset.snapshotTab, { user: true });
+    });
+    btn.addEventListener("keydown", (event) => {
+      const idx = order.indexOf(current);
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        setActive(order[(idx + 1) % order.length], { focus: true, user: true });
+      }
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        setActive(order[(idx - 1 + order.length) % order.length], { focus: true, user: true });
+      }
+      if (event.key === "Home") {
+        event.preventDefault();
+        setActive(order[0], { focus: true, user: true });
+      }
+      if (event.key === "End") {
+        event.preventDefault();
+        setActive(order[order.length - 1], { focus: true, user: true });
+      }
+    });
+  });
+
+  window.addEventListener("resize", () => updateIndicator());
+  tabs.addEventListener("scroll", () => updateIndicator(), { passive: true });
+
+  selectInitial();
+  rotateTimer = window.setInterval(rotate, ROTATE_MS);
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      if (rotateTimer) window.clearInterval(rotateTimer);
+      rotateTimer = null;
+      progress.classList.remove("is-running");
+    } else if (!rotateTimer) {
+      updateIndicator();
+      restartProgress();
+      rotateTimer = window.setInterval(rotate, ROTATE_MS);
+    }
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   supabaseClient.auth.getSession().then(({ data }) => updateHeaderForUser(data?.session?.user));
 
@@ -114,4 +247,6 @@ document.addEventListener("DOMContentLoaded", () => {
       closeHomeSidebar();
     }
   });
+
+  initHowItWorksTabs();
 });

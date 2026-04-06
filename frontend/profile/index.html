@@ -22,13 +22,17 @@
   <style>
     :root {
       --bg: #f4f7fb;
-      --surface: rgba(255, 255, 255, 0.86);
-      --surface-strong: #ffffff;
+      --surface: rgba(255, 255, 255, 0.82);
+      --surface-strong: rgba(255, 255, 255, 0.96);
+      --surface-alt: rgba(255, 255, 255, 0.62);
       --ink: #0d1b2a;
       --muted: #60708a;
       --line: rgba(103, 125, 157, 0.22);
       --brand: #1367ff;
       --brand-strong: #0f52cc;
+      --brand-soft: rgba(19, 103, 255, 0.12);
+      --success: #0e9f6e;
+      --danger: #c2415b;
       --shadow-xl: 0 24px 80px rgba(11, 26, 56, 0.12);
       --shadow-lg: 0 18px 44px rgba(15, 35, 76, 0.1);
       --radius-xl: 28px;
@@ -41,9 +45,11 @@
       --bg: #070b14;
       --surface: rgba(10, 16, 28, 0.78);
       --surface-strong: rgba(6, 10, 18, 0.86);
+      --surface-alt: rgba(6, 10, 18, 0.55);
       --ink: rgba(245, 250, 255, 0.92);
       --muted: rgba(185, 200, 221, 0.72);
       --line: rgba(255, 255, 255, 0.10);
+      --brand-soft: rgba(19, 103, 255, 0.20);
       --shadow-xl: 0 30px 90px rgba(0, 0, 0, 0.5);
       --shadow-lg: 0 22px 60px rgba(0, 0, 0, 0.45);
     }
@@ -181,13 +187,10 @@
       margin-top: 18px;
       padding: 16px;
       border-radius: var(--radius-lg);
-      border: 1px solid rgba(111, 132, 163, 0.18);
-      background: rgba(255, 255, 255, 0.62);
+      border: 1px solid rgba(111, 132, 163, 0.16);
+      background: var(--surface-alt);
     }
-    html[data-theme="dark"] .profile-row {
-      background: rgba(6, 10, 18, 0.55);
-      border-color: rgba(255, 255, 255, 0.10);
-    }
+    html[data-theme="dark"] .profile-row { border-color: rgba(255, 255, 255, 0.10); }
 
     .avatar {
       width: 52px;
@@ -215,12 +218,12 @@
       gap: 8px;
       padding: 10px 14px;
       border-radius: 999px;
-      border: 1px solid rgba(111, 132, 163, 0.16);
-      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(19, 103, 255, 0.22);
+      background: rgba(19, 103, 255, 0.10);
       font-weight: 900;
     }
     html[data-theme="dark"] .pill {
-      background: rgba(6, 10, 18, 0.46);
+      background: rgba(19, 103, 255, 0.16);
       border-color: rgba(255, 255, 255, 0.10);
     }
 
@@ -233,13 +236,10 @@
     .kv .stat {
       border-radius: var(--radius-lg);
       border: 1px solid rgba(111, 132, 163, 0.16);
-      background: rgba(255, 255, 255, 0.64);
+      background: var(--surface-alt);
       padding: 14px 14px;
     }
-    html[data-theme="dark"] .kv .stat {
-      background: rgba(6, 10, 18, 0.52);
-      border-color: rgba(255, 255, 255, 0.10);
-    }
+    html[data-theme="dark"] .kv .stat { border-color: rgba(255, 255, 255, 0.10); }
     .stat label { display: block; font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(62, 84, 112, 0.72); font-weight: 900; }
     html[data-theme="dark"] .stat label { color: rgba(185, 200, 221, 0.62); }
     .stat strong { display: block; margin-top: 8px; font-size: 1.15rem; letter-spacing: -0.03em; }
@@ -315,8 +315,8 @@
   <main class="page">
     <div class="container grid">
       <section class="card" aria-label="Profile">
-        <h1>Profile</h1>
-        <p class="sub">Manage your workspace identity, plan status, and generation access.</p>
+        <h1 id="profileHeading">Profile</h1>
+        <p class="sub">Your workspace identity, plan status, and access settings.</p>
 
         <div class="profile-row">
           <div id="profileAvatar" class="avatar">O</div>
@@ -370,7 +370,7 @@
         </div>
 
         <div class="notice" style="margin-top:14px;">
-          Billing controls will live here once subscriptions are fully enabled.
+          Billing management is coming soon. For now, use the Pricing page to review plans.
         </div>
       </aside>
     </div>
@@ -383,4 +383,3 @@
   <script src="/profile/profile.js" defer></script>
 </body>
 </html>
-
