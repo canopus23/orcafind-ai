@@ -330,6 +330,23 @@ document.addEventListener("DOMContentLoaded", () => {
     updateHeaderForUser(session?.user);
   });
 
+  // If the user is signed in on the other subdomain (www vs apex),
+  // the header will look signed out. Offer a one-time silent swap.
+  try {
+    const host = String(window.location.hostname || "");
+    const isProdHost = host === "orcafind.com" || host === "www.orcafind.com";
+    const alreadyTried = window.sessionStorage.getItem("orcafind_home_host_swap") === "1";
+    if (isProdHost && !alreadyTried) {
+      supabaseClient.auth.getSession().then(({ data }) => {
+        if (data?.session?.user) return;
+        window.sessionStorage.setItem("orcafind_home_host_swap", "1");
+        const url = new URL(window.location.href);
+        url.hostname = host.startsWith("www.") ? host.replace(/^www\./, "") : `www.${host}`;
+        window.location.replace(url.toString());
+      });
+    }
+  } catch (_err) {}
+
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       closeHomeSidebar();

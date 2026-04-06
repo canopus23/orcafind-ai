@@ -1563,6 +1563,22 @@ document.addEventListener("DOMContentLoaded", () => {
       resetUI();
     }
   });
+
+  // If signed in on the other subdomain (www vs apex), try a one-time host swap.
+  try {
+    const host = String(window.location.hostname || "");
+    const isProdHost = host === "orcafind.com" || host === "www.orcafind.com";
+    const alreadyTried = window.sessionStorage.getItem("orcafind_app_host_swap") === "1";
+    if (isProdHost && !alreadyTried) {
+      supabaseClient.auth.getSession().then(({ data }) => {
+        if (data?.session?.user) return;
+        window.sessionStorage.setItem("orcafind_app_host_swap", "1");
+        const url = new URL(window.location.href);
+        url.hostname = host.startsWith("www.") ? host.replace(/^www\./, "") : `www.${host}`;
+        window.location.replace(url.toString());
+      });
+    }
+  } catch (_err) {}
   setImageUIState({ statusText: null, isBusy: false, images: null });
 
   try {

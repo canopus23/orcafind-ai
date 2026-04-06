@@ -159,6 +159,24 @@ async function hydrate() {
     }
   }
   if (!session?.user) {
+    // If the user signed in on the other subdomain (www vs apex), their session
+    // won't be visible here. Try a one-time host swap to recover gracefully.
+    try {
+      const host = String(window.location.hostname || "");
+      const isProdHost = host === "orcafind.com" || host === "www.orcafind.com";
+      const alreadyTried = window.sessionStorage.getItem("orcafind_profile_host_swap") === "1";
+      if (isProdHost && !alreadyTried) {
+        window.sessionStorage.setItem("orcafind_profile_host_swap", "1");
+        const url = new URL(window.location.href);
+        url.hostname = host.startsWith("www.") ? host.replace(/^www\./, "") : `www.${host}`;
+        window.location.replace(url.toString());
+        return;
+      }
+    } catch (_err) {
+      // Ignore and fall through.
+    }
+  }
+  if (!session?.user) {
     applySignedOutUI();
     return;
   }
