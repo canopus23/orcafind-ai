@@ -235,6 +235,96 @@ function initHowItWorksTabs() {
   });
 }
 
+function initRevealAnimations() {
+  const nodes = Array.from(document.querySelectorAll(".reveal"));
+  if (!nodes.length) return;
+
+  // If reduced motion is preferred, show everything immediately.
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    nodes.forEach((n) => n.classList.add("is-visible"));
+    return;
+  }
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      entry.target.classList.add("is-visible");
+      observer.unobserve(entry.target);
+    });
+  }, { threshold: 0.14, rootMargin: "0px 0px -10% 0px" });
+
+  nodes.forEach((n) => observer.observe(n));
+}
+
+function initCountUpMetrics() {
+  const nodes = Array.from(document.querySelectorAll("[data-countup]"));
+  if (!nodes.length) return;
+
+  const prefersReduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (prefersReduced) return;
+
+  function animateNode(node) {
+    const raw = node.getAttribute("data-countup");
+    const suffix = node.getAttribute("data-suffix") || "";
+    const target = Number(raw);
+    if (!Number.isFinite(target)) return;
+
+    const start = 0;
+    const duration = 900;
+    const t0 = performance.now();
+    node.dataset.counted = "true";
+
+    function tick(now) {
+      const p = Math.min(1, (now - t0) / duration);
+      // Ease out.
+      const eased = 1 - Math.pow(1 - p, 3);
+      const value = Math.round(start + (target - start) * eased);
+      node.textContent = `${value}${suffix}`;
+      if (p < 1) requestAnimationFrame(tick);
+    }
+
+    requestAnimationFrame(tick);
+  }
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      const node = entry.target;
+      if (node.dataset.counted === "true") return;
+      animateNode(node);
+      observer.unobserve(node);
+    });
+  }, { threshold: 0.35 });
+
+  nodes.forEach((n) => observer.observe(n));
+}
+
+function initActiveNav() {
+  const links = Array.from(document.querySelectorAll(".nav-link"));
+  const entries = links
+    .map((link) => {
+      const href = (link.getAttribute("href") || "").trim();
+      if (!href.startsWith("#")) return null;
+      const target = document.querySelector(href);
+      if (!target) return null;
+      return { link, target };
+    })
+    .filter(Boolean);
+
+  if (!entries.length) return;
+
+  const observer = new IntersectionObserver((items) => {
+    items.forEach((item) => {
+      if (!item.isIntersecting) return;
+      entries.forEach(({ link, target }) => {
+        link.classList.toggle("is-active", target === item.target);
+      });
+    });
+  }, { threshold: 0.45, rootMargin: "-20% 0px -35% 0px" });
+
+  entries.forEach(({ target }) => observer.observe(target));
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   supabaseClient.auth.getSession().then(({ data }) => updateHeaderForUser(data?.session?.user));
 
@@ -249,4 +339,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   initHowItWorksTabs();
+  initRevealAnimations();
+  initCountUpMetrics();
+  initActiveNav();
 });
