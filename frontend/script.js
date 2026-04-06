@@ -38,9 +38,15 @@ function redirectToAuth(mode, next) {
 }
 
 async function getAccessTokenOrPromptAuth({ toastTitle, toastBody, mode } = {}) {
-  const { data: { session } } = await supabaseClient.auth.getSession();
-  const token = session?.access_token;
+  let { data: { session } } = await supabaseClient.auth.getSession();
+  let token = session?.access_token;
   if (token) return token;
+  try {
+    await supabaseClient.auth.refreshSession();
+    ({ data: { session } } = await supabaseClient.auth.getSession());
+    token = session?.access_token;
+    if (token) return token;
+  } catch (_err) {}
   if (mode) redirectToAuth(mode, buildRelativeUrl({ stripParams: ["auth"] }));
   if (!mode && (toastTitle || toastBody)) {
     showToast(toastTitle || "Authentication required", toastBody || "Sign in to continue.", "error");

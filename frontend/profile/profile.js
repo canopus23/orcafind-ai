@@ -145,8 +145,19 @@ function applySignedInUI({ user, entitlements }) {
 }
 
 async function hydrate() {
-  const { data } = await supabaseClient.auth.getSession();
-  const session = data?.session;
+  let { data } = await supabaseClient.auth.getSession();
+  let session = data?.session;
+  if (!session?.user) {
+    // In some browsers/edge cases the session may not be hydrated yet.
+    // Try a one-time refresh before rendering the signed-out state.
+    try {
+      await supabaseClient.auth.refreshSession();
+      ({ data } = await supabaseClient.auth.getSession());
+      session = data?.session;
+    } catch (_err) {
+      // Ignore and fall through.
+    }
+  }
   if (!session?.user) {
     applySignedOutUI();
     return;
