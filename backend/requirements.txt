@@ -3,6 +3,7 @@ uvicorn==0.39.0
 openai==2.29.0
 python-dotenv==1.2.1
 python-jose==3.3.0
+python-multipart==0.0.12
 boto3==1.35.99
 httpx==0.28.1
 sqlalchemy==2.0.36
