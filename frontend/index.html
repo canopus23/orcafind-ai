@@ -603,9 +603,9 @@
         animation: none;
         width: 100%;
       }
-      .how-indicator,
+      .how-highlight,
       .how-panel,
-      .how-step {
+      .how-item {
         transition: none;
         animation: none;
       }
@@ -731,45 +731,6 @@
       max-width: 72ch;
     }
 
-    .how-surface {
-      margin-top: 14px;
-      padding: 24px;
-      background:
-        radial-gradient(circle at top right, rgba(19, 103, 255, 0.18), transparent 48%),
-        radial-gradient(circle at bottom left, rgba(10, 181, 255, 0.14), transparent 52%),
-        linear-gradient(180deg, rgba(248, 251, 255, 0.92) 0%, rgba(255, 255, 255, 0.82) 100%);
-      border: 1px solid rgba(19, 103, 255, 0.16);
-      border-radius: var(--radius-xl);
-      box-shadow: var(--shadow-lg);
-      backdrop-filter: blur(18px);
-      overflow: hidden;
-      position: relative;
-    }
-
-    html[data-theme="dark"] .how-surface {
-      background:
-        radial-gradient(circle at top right, rgba(19, 103, 255, 0.20), transparent 52%),
-        radial-gradient(circle at bottom left, rgba(10, 181, 255, 0.16), transparent 52%),
-        linear-gradient(180deg, rgba(6, 10, 18, 0.82) 0%, rgba(10, 16, 28, 0.78) 100%);
-      border-color: rgba(255, 255, 255, 0.10);
-      box-shadow: 0 22px 60px rgba(0, 0, 0, 0.42);
-    }
-
-    .how-surface::before {
-      content: "";
-      position: absolute;
-      top: -70px;
-      right: -40px;
-      width: 260px;
-      height: 260px;
-      border-radius: 999px;
-      background: radial-gradient(circle, rgba(19, 103, 255, 0.26), transparent 64%);
-      opacity: 0.9;
-      pointer-events: none;
-    }
-
-    .how-surface > * { position: relative; }
-
     .hero-how-header {
       display: flex;
       justify-content: space-between;
@@ -809,118 +770,165 @@
       animation: pulse-dot 1.8s infinite;
     }
 
-    .how-wrap {
-      display: grid;
-      gap: 14px;
+    .how-showcase {
       margin-top: 16px;
+      display: grid;
+      grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
     }
 
-    .how-rail {
+    .how-nav {
       position: relative;
-      display: flex;
-      align-items: stretch;
-      gap: 8px;
-      padding: 8px;
+      padding: 10px;
       border-radius: 22px;
-      background: rgba(19, 103, 255, 0.10);
-      border: 1px solid rgba(19, 103, 255, 0.16);
-      overflow-x: auto;
-      scrollbar-width: none;
-      -webkit-overflow-scrolling: touch;
+      background: rgba(19, 103, 255, 0.08);
+      border: 1px solid rgba(19, 103, 255, 0.14);
+      display: grid;
+      gap: 8px;
     }
 
-    .how-rail::-webkit-scrollbar { display: none; }
-
-    html[data-theme="dark"] .how-rail {
+    html[data-theme="dark"] .how-nav {
       background: rgba(19, 103, 255, 0.14);
       border-color: rgba(255, 255, 255, 0.10);
     }
 
-    .how-indicator {
+    .how-highlight {
       position: absolute;
-      top: 8px;
-      left: 8px;
-      height: calc(100% - 16px);
-      width: var(--indicator-w, 140px);
-      transform: translateX(var(--indicator-x, 0px));
+      left: 10px;
+      right: 10px;
+      top: 10px;
+      height: var(--how-h, 62px);
       border-radius: 18px;
       background: rgba(255, 255, 255, 0.92);
       border: 1px solid rgba(255, 255, 255, 0.86);
-      box-shadow: 0 14px 30px rgba(15, 35, 76, 0.12);
-      transition: transform 0.32s cubic-bezier(.2,.9,.2,1), width 0.32s cubic-bezier(.2,.9,.2,1);
+      box-shadow: 0 14px 30px rgba(15, 35, 76, 0.10);
+      transition: transform 0.34s cubic-bezier(.2,.9,.2,1), height 0.34s cubic-bezier(.2,.9,.2,1);
+      transform: translateY(var(--how-y, 0px));
       pointer-events: none;
     }
 
-    html[data-theme="dark"] .how-indicator {
-      background: rgba(6, 10, 18, 0.72);
+    html[data-theme="dark"] .how-highlight {
+      background: rgba(6, 10, 18, 0.70);
       border-color: rgba(255, 255, 255, 0.10);
       box-shadow: 0 22px 60px rgba(0, 0, 0, 0.5);
     }
 
-    .how-step {
+    .how-item {
       position: relative;
       z-index: 1;
       border: none;
       cursor: pointer;
       background: transparent;
-      padding: 12px 12px;
+      padding: 14px 14px;
       border-radius: 18px;
+      border: 1px solid transparent;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
       text-align: left;
-      transition: transform 0.18s ease, color 0.18s ease;
-      color: rgba(12, 33, 52, 0.78);
-      flex: 0 0 auto;
-      min-width: 190px;
+      color: rgba(12, 33, 52, 0.88);
+      transition: transform 0.18s ease;
     }
 
-    html[data-theme="dark"] .how-step { color: rgba(235, 245, 255, 0.74); }
-    .how-step:hover { transform: translateY(-1px); color: rgba(12, 33, 52, 0.92); }
-    html[data-theme="dark"] .how-step:hover { color: rgba(255, 255, 255, 0.92); }
-    .how-step:focus-visible { outline: 3px solid rgba(19, 103, 255, 0.22); outline-offset: 4px; }
+    html[data-theme="dark"] .how-item {
+      color: rgba(235, 245, 255, 0.86);
+    }
 
-    .how-step-num {
-      width: 34px;
-      height: 34px;
-      border-radius: 14px;
+    .how-item:hover {
+      transform: translateY(-1px);
+    }
+
+    .how-item[aria-selected="true"] {
+      background: rgba(255, 255, 255, 0.72);
+      border-color: rgba(19, 103, 255, 0.16);
+    }
+
+    html[data-theme="dark"] .how-item[aria-selected="true"] {
+      background: rgba(10, 16, 28, 0.56);
+      border-color: rgba(255, 255, 255, 0.10);
+    }
+
+    .how-item:focus-visible {
+      outline: 3px solid rgba(19, 103, 255, 0.22);
+      outline-offset: 4px;
+    }
+
+    .how-badge {
+      width: 48px;
+      height: 40px;
+      border-radius: 16px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       font-weight: 900;
-      letter-spacing: -0.04em;
-      background: rgba(19, 103, 255, 0.12);
-      border: 1px solid rgba(19, 103, 255, 0.16);
+      letter-spacing: -0.02em;
       color: rgba(19, 103, 255, 0.92);
+      background: rgba(19, 103, 255, 0.10);
+      border: 1px solid rgba(19, 103, 255, 0.16);
       flex-shrink: 0;
     }
 
-    html[data-theme="dark"] .how-step-num {
+    html[data-theme="dark"] .how-badge {
       background: rgba(19, 103, 255, 0.18);
       border-color: rgba(255, 255, 255, 0.10);
-      color: rgba(235, 245, 255, 0.92);
+      color: rgba(245, 250, 255, 0.92);
     }
 
-    .how-step-copy { min-width: 0; }
-    .how-step-copy strong {
+    .how-item-copy { min-width: 0; }
+    .how-item-copy strong {
       display: block;
-      font-size: 0.92rem;
+      font-size: 0.95rem;
       letter-spacing: -0.03em;
-      color: rgba(12, 33, 52, 0.92);
       font-weight: 900;
     }
-    html[data-theme="dark"] .how-step-copy strong { color: rgba(245, 250, 255, 0.92); }
-    .how-step-copy span {
+    .how-item-copy span {
       display: block;
-      margin-top: 2px;
-      font-size: 0.78rem;
+      margin-top: 4px;
+      font-size: 0.82rem;
       color: rgba(62, 84, 112, 0.72);
       font-weight: 800;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      line-height: 1.25;
     }
-    html[data-theme="dark"] .how-step-copy span { color: rgba(185, 200, 221, 0.62); }
+    html[data-theme="dark"] .how-item-copy span { color: rgba(185, 200, 221, 0.62); }
+
+    .how-stage {
+      padding: 22px;
+      border-radius: var(--radius-xl);
+      background:
+        radial-gradient(circle at top right, rgba(19, 103, 255, 0.18), transparent 48%),
+        radial-gradient(circle at bottom left, rgba(10, 181, 255, 0.14), transparent 52%),
+        linear-gradient(180deg, rgba(248, 251, 255, 0.92) 0%, rgba(255, 255, 255, 0.82) 100%);
+      border: 1px solid rgba(19, 103, 255, 0.16);
+      box-shadow: var(--shadow-lg);
+      backdrop-filter: blur(18px);
+      overflow: hidden;
+      position: relative;
+    }
+
+    html[data-theme="dark"] .how-stage {
+      background:
+        radial-gradient(circle at top right, rgba(19, 103, 255, 0.20), transparent 52%),
+        radial-gradient(circle at bottom left, rgba(10, 181, 255, 0.16), transparent 52%),
+        linear-gradient(180deg, rgba(6, 10, 18, 0.82) 0%, rgba(10, 16, 28, 0.78) 100%);
+      border-color: rgba(255, 255, 255, 0.10);
+      box-shadow: 0 22px 60px rgba(0, 0, 0, 0.42);
+    }
+
+    .how-stage::before {
+      content: "";
+      position: absolute;
+      top: -70px;
+      right: -40px;
+      width: 260px;
+      height: 260px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(19, 103, 255, 0.26), transparent 64%);
+      opacity: 0.9;
+      pointer-events: none;
+    }
+
+    .how-stage > * { position: relative; }
 
     .how-progress {
       height: 2px;
@@ -950,7 +958,8 @@
 
     .how-panels {
       display: grid;
-      min-height: 290px;
+      min-height: 300px;
+      margin-top: 16px;
     }
 
     .how-panel {
@@ -978,18 +987,18 @@
 
     .how-panel-inner {
       display: grid;
-      grid-template-columns: 1.08fr 0.92fr;
+      grid-template-columns: 1.06fr 0.94fr;
       gap: 14px;
       align-items: stretch;
     }
 
-    .how-card {
+    .how-copy {
       padding: 18px;
       border-radius: 18px;
       background: rgba(255, 255, 255, 0.64);
       border: 1px solid rgba(111, 132, 163, 0.16);
     }
-    html[data-theme="dark"] .how-card {
+    html[data-theme="dark"] .how-copy {
       background: rgba(6, 10, 18, 0.55);
       border-color: rgba(255, 255, 255, 0.10);
     }
@@ -1007,7 +1016,7 @@
     }
     html[data-theme="dark"] .how-kicker { color: rgba(185, 200, 221, 0.62); }
 
-    .how-card h3 {
+    .how-copy h3 {
       font-size: 1.15rem;
       letter-spacing: -0.03em;
       margin-bottom: 10px;
@@ -1040,29 +1049,89 @@
       box-shadow: 0 0 0 0 rgba(19, 103, 255, 0.16);
     }
 
-    .how-preview {
-      padding: 18px;
+    .how-mock {
       border-radius: 18px;
       background: rgba(255, 255, 255, 0.54);
       border: 1px solid rgba(111, 132, 163, 0.14);
+      overflow: hidden;
       display: grid;
-      gap: 12px;
     }
-    html[data-theme="dark"] .how-preview {
+    html[data-theme="dark"] .how-mock {
       background: rgba(6, 10, 18, 0.46);
       border-color: rgba(255, 255, 255, 0.10);
     }
 
-    .how-preview strong {
-      display: block;
-      font-size: 0.92rem;
-      letter-spacing: -0.02em;
+    .how-mock-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(111, 132, 163, 0.14);
+      background: rgba(255, 255, 255, 0.70);
+    }
+    html[data-theme="dark"] .how-mock-top {
+      background: rgba(10, 16, 28, 0.54);
+      border-bottom-color: rgba(255, 255, 255, 0.10);
     }
 
-    .how-chips {
+    .how-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(19, 103, 255, 0.92), rgba(10, 181, 255, 0.88));
+      box-shadow: 0 0 0 0 rgba(19, 103, 255, 0.16);
+    }
+
+    .how-mock-title {
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      color: rgba(12, 33, 52, 0.92);
+    }
+    html[data-theme="dark"] .how-mock-title { color: rgba(245, 250, 255, 0.92); }
+
+    .how-mock-pill {
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: rgba(19, 103, 255, 0.10);
+      border: 1px solid rgba(19, 103, 255, 0.16);
+      font-weight: 900;
+      font-size: 0.78rem;
+      color: rgba(19, 103, 255, 0.92);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    html[data-theme="dark"] .how-mock-pill {
+      background: rgba(19, 103, 255, 0.16);
+      border-color: rgba(255, 255, 255, 0.10);
+      color: rgba(235, 245, 255, 0.92);
+    }
+
+    .how-mock-body {
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .how-line {
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(19, 103, 255, 0.14), rgba(10, 181, 255, 0.10));
+      border: 1px solid rgba(19, 103, 255, 0.10);
+    }
+    html[data-theme="dark"] .how-line {
+      background: linear-gradient(90deg, rgba(19, 103, 255, 0.18), rgba(10, 181, 255, 0.12));
+      border-color: rgba(255, 255, 255, 0.06);
+    }
+
+    .how-line-lg { height: 12px; }
+    .how-line-sm { width: 68%; }
+
+    .how-mock-footer {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
+      margin-top: 6px;
     }
 
     .how-chip {
@@ -1081,38 +1150,57 @@
       color: rgba(245, 250, 255, 0.90);
     }
 
-    .how-mini {
+    .how-mock-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       display: grid;
       gap: 10px;
-      margin-top: 4px;
     }
 
-    .how-mini-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 12px 12px;
+    .how-card-mini {
       border-radius: 16px;
+      padding: 12px;
       background: rgba(255, 255, 255, 0.74);
       border: 1px solid rgba(111, 132, 163, 0.14);
-      color: rgba(23, 42, 66, 0.92);
-      font-weight: 800;
+      display: grid;
+      gap: 10px;
     }
-    html[data-theme="dark"] .how-mini-row {
+    html[data-theme="dark"] .how-card-mini {
       background: rgba(10, 16, 28, 0.54);
       border-color: rgba(255, 255, 255, 0.10);
-      color: rgba(245, 250, 255, 0.90);
+    }
+    .how-card-mini strong {
+      font-size: 0.92rem;
+      letter-spacing: -0.02em;
     }
 
-    .how-mini-row span {
-      color: rgba(62, 84, 112, 0.72);
-      font-weight: 900;
-      font-size: 0.78rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
+    .how-btn-mini {
+      height: 34px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(19, 103, 255, 0.22), rgba(10, 181, 255, 0.18));
+      border: 1px solid rgba(19, 103, 255, 0.18);
+      margin-top: 2px;
     }
-    html[data-theme="dark"] .how-mini-row span { color: rgba(185, 200, 221, 0.62); }
+
+    .how-mock-images {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .how-img-mini {
+      border-radius: 16px;
+      aspect-ratio: 1 / 1;
+      background:
+        radial-gradient(circle at 30% 30%, rgba(19, 103, 255, 0.26), transparent 46%),
+        linear-gradient(135deg, rgba(19, 103, 255, 0.14), rgba(10, 181, 255, 0.10));
+      border: 1px solid rgba(19, 103, 255, 0.16);
+    }
+    html[data-theme="dark"] .how-img-mini {
+      background:
+        radial-gradient(circle at 30% 30%, rgba(19, 103, 255, 0.22), transparent 46%),
+        linear-gradient(135deg, rgba(19, 103, 255, 0.16), rgba(10, 181, 255, 0.10));
+      border-color: rgba(255, 255, 255, 0.10);
+    }
 
     .section {
       padding: 22px 0 70px;
@@ -2140,6 +2228,26 @@
         min-height: 0;
       }
 
+      .how-showcase {
+        grid-template-columns: 1fr;
+      }
+
+      .how-highlight {
+        display: none;
+      }
+
+      .how-nav {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .how-mock-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .how-mock-images {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
       .two-col {
         grid-template-columns: 1fr;
       }
@@ -2162,6 +2270,9 @@
       .nav-actions { display: none; }
       .mobile-menu-btn { display: inline-flex; }
 
+      .how-nav {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -2349,66 +2460,73 @@
               A streamlined workflow from source draft to platform-ready output, plus Pro visuals when you want post images.
             </p>
 
-            <div class="how-wrap">
-              <div id="howRail" class="how-rail" role="tablist" aria-label="How OrcaFind works steps">
-                <div id="howIndicator" class="how-indicator" aria-hidden="true"></div>
-                <button class="how-step" type="button" role="tab" aria-selected="true" tabindex="0" data-how-tab="source">
-                  <span class="how-step-num">1</span>
-                  <span class="how-step-copy">
-                    <strong>Source</strong>
-                    <span>Paste the draft</span>
+            <div class="how-showcase">
+              <div id="howSteps" class="how-nav" role="tablist" aria-label="How OrcaFind works">
+                <div id="howIndicator" class="how-highlight" aria-hidden="true"></div>
+                <button class="how-item" type="button" role="tab" aria-selected="true" tabindex="0" data-how-tab="source">
+                  <span class="how-badge">01</span>
+                  <span class="how-item-copy">
+                    <strong>Source draft</strong>
+                    <span>Paste a single source of truth</span>
                   </span>
                 </button>
-                <button class="how-step" type="button" role="tab" aria-selected="false" tabindex="-1" data-how-tab="posts">
-                  <span class="how-step-num">2</span>
-                  <span class="how-step-copy">
+                <button class="how-item" type="button" role="tab" aria-selected="false" tabindex="-1" data-how-tab="posts">
+                  <span class="how-badge">02</span>
+                  <span class="how-item-copy">
                     <strong>Posts</strong>
-                    <span>X + LinkedIn</span>
+                    <span>Generate X and LinkedIn drafts</span>
                   </span>
                 </button>
-                <button class="how-step" type="button" role="tab" aria-selected="false" tabindex="-1" data-how-tab="captions">
-                  <span class="how-step-num">3</span>
-                  <span class="how-step-copy">
+                <button class="how-item" type="button" role="tab" aria-selected="false" tabindex="-1" data-how-tab="captions">
+                  <span class="how-badge">03</span>
+                  <span class="how-item-copy">
                     <strong>Captions</strong>
-                    <span>IG + Facebook</span>
+                    <span>Instagram and Facebook captions</span>
                   </span>
                 </button>
-                <button class="how-step" type="button" role="tab" aria-selected="false" tabindex="-1" data-how-tab="images">
-                  <span class="how-step-num">4</span>
-                  <span class="how-step-copy">
-                    <strong>Pro Images</strong>
-                    <span>1–3 options</span>
+                <button class="how-item" type="button" role="tab" aria-selected="false" tabindex="-1" data-how-tab="images">
+                  <span class="how-badge">04</span>
+                  <span class="how-item-copy">
+                    <strong>Pro images</strong>
+                    <span>1–3 post-ready visuals (Pro)</span>
                   </span>
                 </button>
               </div>
 
-              <div class="how-surface">
-                <div class="how-progress" aria-hidden="true">
-                  <div id="howProgress" class="how-progress-bar"></div>
+              <div class="how-stage">
+                <div class="how-stage-top">
+                  <div class="how-progress" aria-hidden="true">
+                    <div id="howProgress" class="how-progress-bar"></div>
+                  </div>
                 </div>
 
                 <div id="howPanels" class="how-panels">
                   <div class="how-panel is-active" role="tabpanel" aria-hidden="false" data-how-panel="source">
                     <div class="how-panel-inner">
-                      <div class="how-card">
+                      <div class="how-copy">
                         <div class="how-kicker">Step 1</div>
-                        <h3>Start with one source of truth.</h3>
+                        <h3>Paste your source draft once.</h3>
                         <ul class="how-list">
-                          <li>Paste an article, transcript, release note, or raw thinking.</li>
-                          <li>Add an optional audience and takeaway for tighter results.</li>
-                          <li>Keep messaging consistent across weekly runs.</li>
+                          <li>Use an article, transcript, release note, or raw thinking.</li>
+                          <li>Add an audience and one takeaway if you want tighter pacing.</li>
+                          <li>Keep your messaging consistent across weekly runs.</li>
                         </ul>
                       </div>
-                      <div class="how-preview" aria-hidden="true">
-                        <strong>Input</strong>
-                        <div class="how-chips">
-                          <span class="how-chip">Source content</span>
-                          <span class="how-chip">Optional brief</span>
-                          <span class="how-chip">Format</span>
+                      <div class="how-mock" aria-hidden="true">
+                        <div class="how-mock-top">
+                          <span class="how-dot"></span>
+                          <span class="how-mock-title">Studio</span>
+                          <span class="how-mock-pill">Source</span>
                         </div>
-                        <div class="how-mini">
-                          <div class="how-mini-row"><span>Paste</span><strong>Long-form draft</strong></div>
-                          <div class="how-mini-row"><span>Pick</span><strong>Voice + pacing</strong></div>
+                        <div class="how-mock-body">
+                          <div class="how-line how-line-lg"></div>
+                          <div class="how-line"></div>
+                          <div class="how-line"></div>
+                          <div class="how-line how-line-sm"></div>
+                          <div class="how-mock-footer">
+                            <span class="how-chip">Format: Professional</span>
+                            <span class="how-chip">X: Variations</span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -2416,24 +2534,34 @@
 
                   <div class="how-panel" role="tabpanel" aria-hidden="true" data-how-panel="posts">
                     <div class="how-panel-inner">
-                      <div class="how-card">
+                      <div class="how-copy">
                         <div class="how-kicker">Step 2</div>
                         <h3>Generate drafts for X and LinkedIn.</h3>
                         <ul class="how-list">
-                          <li>Choose X: post variations or a thread-style output.</li>
+                          <li>Choose X output style: post variations or thread.</li>
                           <li>Select a format that applies to both platforms.</li>
                           <li>Copy each channel separately from the results stream.</li>
                         </ul>
                       </div>
-                      <div class="how-preview" aria-hidden="true">
-                        <strong>Posts</strong>
-                        <div class="how-chips">
-                          <span class="how-chip">X</span>
-                          <span class="how-chip">LinkedIn</span>
+                      <div class="how-mock" aria-hidden="true">
+                        <div class="how-mock-top">
+                          <span class="how-dot"></span>
+                          <span class="how-mock-title">Results</span>
+                          <span class="how-mock-pill">Posts</span>
                         </div>
-                        <div class="how-mini">
-                          <div class="how-mini-row"><span>X</span><strong>Variations or thread</strong></div>
-                          <div class="how-mini-row"><span>LI</span><strong>Professional draft</strong></div>
+                        <div class="how-mock-body how-mock-grid">
+                          <div class="how-card-mini">
+                            <strong>X draft</strong>
+                            <div class="how-line"></div>
+                            <div class="how-line how-line-sm"></div>
+                            <div class="how-btn-mini"></div>
+                          </div>
+                          <div class="how-card-mini">
+                            <strong>LinkedIn draft</strong>
+                            <div class="how-line"></div>
+                            <div class="how-line"></div>
+                            <div class="how-btn-mini"></div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -2441,24 +2569,34 @@
 
                   <div class="how-panel" role="tabpanel" aria-hidden="true" data-how-panel="captions">
                     <div class="how-panel-inner">
-                      <div class="how-card">
+                      <div class="how-copy">
                         <div class="how-kicker">Step 3</div>
-                        <h3>Get captions in the same run.</h3>
+                        <h3>Captions come in the same run.</h3>
                         <ul class="how-list">
                           <li>Instagram caption optimized for hooks and skimming.</li>
                           <li>Facebook caption tuned for clarity and community tone.</li>
                           <li>Everything arrives together so you publish faster.</li>
                         </ul>
                       </div>
-                      <div class="how-preview" aria-hidden="true">
-                        <strong>Captions</strong>
-                        <div class="how-chips">
-                          <span class="how-chip">Instagram</span>
-                          <span class="how-chip">Facebook</span>
+                      <div class="how-mock" aria-hidden="true">
+                        <div class="how-mock-top">
+                          <span class="how-dot"></span>
+                          <span class="how-mock-title">Results</span>
+                          <span class="how-mock-pill">Captions</span>
                         </div>
-                        <div class="how-mini">
-                          <div class="how-mini-row"><span>IG</span><strong>Hooked caption</strong></div>
-                          <div class="how-mini-row"><span>FB</span><strong>Clear caption</strong></div>
+                        <div class="how-mock-body how-mock-grid">
+                          <div class="how-card-mini">
+                            <strong>Instagram</strong>
+                            <div class="how-line"></div>
+                            <div class="how-line how-line-sm"></div>
+                            <div class="how-btn-mini"></div>
+                          </div>
+                          <div class="how-card-mini">
+                            <strong>Facebook</strong>
+                            <div class="how-line"></div>
+                            <div class="how-line how-line-sm"></div>
+                            <div class="how-btn-mini"></div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -2466,25 +2604,25 @@
 
                   <div class="how-panel" role="tabpanel" aria-hidden="true" data-how-panel="images">
                     <div class="how-panel-inner">
-                      <div class="how-card">
+                      <div class="how-copy">
                         <div class="how-kicker">Step 4</div>
-                        <h3>Add Pro images when you want visuals.</h3>
+                        <h3>Pro users can generate images too.</h3>
                         <ul class="how-list">
                           <li>AI image generation is Pro-only.</li>
-                          <li>Generate up to 3 post-ready image options per run.</li>
-                          <li>Download assets directly from the results stream.</li>
+                          <li>Generate up to 3 post-ready options per run.</li>
+                          <li>Download directly from the results stream.</li>
                         </ul>
                       </div>
-                      <div class="how-preview" aria-hidden="true">
-                        <strong>Pro visuals</strong>
-                        <div class="how-chips">
-                          <span class="how-chip">1–3 options</span>
-                          <span class="how-chip">PNG</span>
-                          <span class="how-chip">Download</span>
+                      <div class="how-mock" aria-hidden="true">
+                        <div class="how-mock-top">
+                          <span class="how-dot"></span>
+                          <span class="how-mock-title">Images</span>
+                          <span class="how-mock-pill">Pro</span>
                         </div>
-                        <div class="how-mini">
-                          <div class="how-mini-row"><span>Pro</span><strong>Images unlocked</strong></div>
-                          <div class="how-mini-row"><span>Count</span><strong>Up to 3</strong></div>
+                        <div class="how-mock-body how-mock-images">
+                          <div class="how-img-mini"></div>
+                          <div class="how-img-mini"></div>
+                          <div class="how-img-mini"></div>
                         </div>
                       </div>
                     </div>

@@ -103,7 +103,7 @@ async function homeLogout() {
 }
 
 function initHowItWorksRail() {
-  const rail = document.getElementById("howRail");
+  const rail = document.getElementById("howSteps");
   const indicator = document.getElementById("howIndicator");
   const progress = document.getElementById("howProgress");
   const panelsRoot = document.getElementById("howPanels");
@@ -122,11 +122,12 @@ function initHowItWorksRail() {
   function updateIndicator() {
     const active = buttons.find((b) => b.dataset.howTab === current);
     if (!active) return;
-    const a = active.getBoundingClientRect();
-    const r = rail.getBoundingClientRect();
-    const x = Math.max(0, a.left - r.left + rail.scrollLeft);
-    rail.style.setProperty("--indicator-x", `${x}px`);
-    rail.style.setProperty("--indicator-w", `${Math.max(120, a.width)}px`);
+    // If the highlight is hidden (mobile), skip indicator positioning.
+    if (window.getComputedStyle(indicator).display === "none") return;
+    const y = Math.max(0, active.offsetTop - 10);
+    rail.style.setProperty("--how-y", `${y}px`);
+    rail.style.setProperty("--how-h", `${Math.max(52, active.offsetHeight)}px`);
+    active.scrollIntoView({ block: "nearest" });
   }
 
   function restartProgress() {
@@ -193,11 +194,11 @@ function initHowItWorksRail() {
     btn.addEventListener("click", () => setActive(btn.dataset.howTab, { user: true }));
     btn.addEventListener("keydown", (event) => {
       const idx = order.indexOf(current);
-      if (event.key === "ArrowRight") {
+      if (event.key === "ArrowDown" || event.key === "ArrowRight") {
         event.preventDefault();
         setActive(order[(idx + 1) % order.length], { focus: true, user: true });
       }
-      if (event.key === "ArrowLeft") {
+      if (event.key === "ArrowUp" || event.key === "ArrowLeft") {
         event.preventDefault();
         setActive(order[(idx - 1 + order.length) % order.length], { focus: true, user: true });
       }
