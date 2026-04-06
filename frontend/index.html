@@ -566,7 +566,6 @@
     }
 
     .hero-copy,
-    .hero-how,
     .studio-panel,
     .account-panel,
     .section-card,
@@ -724,26 +723,39 @@
     }
 
     .hero-how {
-      padding: 28px;
       scroll-margin-top: 96px;
+    }
+
+    .hero-how-lead {
+      margin-top: 12px;
+      max-width: 72ch;
+    }
+
+    .how-surface {
+      margin-top: 14px;
+      padding: 24px;
       background:
         radial-gradient(circle at top right, rgba(19, 103, 255, 0.18), transparent 48%),
         radial-gradient(circle at bottom left, rgba(10, 181, 255, 0.14), transparent 52%),
         linear-gradient(180deg, rgba(248, 251, 255, 0.92) 0%, rgba(255, 255, 255, 0.82) 100%);
       border: 1px solid rgba(19, 103, 255, 0.16);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-lg);
+      backdrop-filter: blur(18px);
       overflow: hidden;
       position: relative;
     }
 
-    html[data-theme="dark"] .hero-how {
+    html[data-theme="dark"] .how-surface {
       background:
         radial-gradient(circle at top right, rgba(19, 103, 255, 0.20), transparent 52%),
         radial-gradient(circle at bottom left, rgba(10, 181, 255, 0.16), transparent 52%),
         linear-gradient(180deg, rgba(6, 10, 18, 0.82) 0%, rgba(10, 16, 28, 0.78) 100%);
       border-color: rgba(255, 255, 255, 0.10);
+      box-shadow: 0 22px 60px rgba(0, 0, 0, 0.42);
     }
 
-    .hero-how::before {
+    .how-surface::before {
       content: "";
       position: absolute;
       top: -70px;
@@ -752,11 +764,11 @@
       height: 260px;
       border-radius: 999px;
       background: radial-gradient(circle, rgba(19, 103, 255, 0.26), transparent 64%);
-      filter: blur(0px);
       opacity: 0.9;
+      pointer-events: none;
     }
 
-    .hero-how > * { position: relative; }
+    .how-surface > * { position: relative; }
 
     .hero-how-header {
       display: flex;
@@ -2333,7 +2345,7 @@
               <span class="live-indicator">In 4 steps</span>
             </div>
 
-            <p class="sub" style="max-width: 70ch;">
+            <p class="sub hero-how-lead">
               A streamlined workflow from source draft to platform-ready output, plus Pro visuals when you want post images.
             </p>
 
@@ -2370,108 +2382,110 @@
                 </button>
               </div>
 
-              <div class="how-progress" aria-hidden="true">
-                <div id="howProgress" class="how-progress-bar"></div>
-              </div>
+              <div class="how-surface">
+                <div class="how-progress" aria-hidden="true">
+                  <div id="howProgress" class="how-progress-bar"></div>
+                </div>
 
-              <div id="howPanels" class="how-panels">
-                <div class="how-panel is-active" role="tabpanel" aria-hidden="false" data-how-panel="source">
-                  <div class="how-panel-inner">
-                    <div class="how-card">
-                      <div class="how-kicker">Step 1</div>
-                      <h3>Start with one source of truth.</h3>
-                      <ul class="how-list">
-                        <li>Paste an article, transcript, release note, or raw thinking.</li>
-                        <li>Add an optional audience and takeaway for tighter results.</li>
-                        <li>Keep messaging consistent across weekly runs.</li>
-                      </ul>
-                    </div>
-                    <div class="how-preview" aria-hidden="true">
-                      <strong>Input</strong>
-                      <div class="how-chips">
-                        <span class="how-chip">Source content</span>
-                        <span class="how-chip">Optional brief</span>
-                        <span class="how-chip">Format</span>
+                <div id="howPanels" class="how-panels">
+                  <div class="how-panel is-active" role="tabpanel" aria-hidden="false" data-how-panel="source">
+                    <div class="how-panel-inner">
+                      <div class="how-card">
+                        <div class="how-kicker">Step 1</div>
+                        <h3>Start with one source of truth.</h3>
+                        <ul class="how-list">
+                          <li>Paste an article, transcript, release note, or raw thinking.</li>
+                          <li>Add an optional audience and takeaway for tighter results.</li>
+                          <li>Keep messaging consistent across weekly runs.</li>
+                        </ul>
                       </div>
-                      <div class="how-mini">
-                        <div class="how-mini-row"><span>Paste</span><strong>Long-form draft</strong></div>
-                        <div class="how-mini-row"><span>Pick</span><strong>Voice + pacing</strong></div>
+                      <div class="how-preview" aria-hidden="true">
+                        <strong>Input</strong>
+                        <div class="how-chips">
+                          <span class="how-chip">Source content</span>
+                          <span class="how-chip">Optional brief</span>
+                          <span class="how-chip">Format</span>
+                        </div>
+                        <div class="how-mini">
+                          <div class="how-mini-row"><span>Paste</span><strong>Long-form draft</strong></div>
+                          <div class="how-mini-row"><span>Pick</span><strong>Voice + pacing</strong></div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div class="how-panel" role="tabpanel" aria-hidden="true" data-how-panel="posts">
-                  <div class="how-panel-inner">
-                    <div class="how-card">
-                      <div class="how-kicker">Step 2</div>
-                      <h3>Generate drafts for X and LinkedIn.</h3>
-                      <ul class="how-list">
-                        <li>Choose X: post variations or a thread-style output.</li>
-                        <li>Select a format that applies to both platforms.</li>
-                        <li>Copy each channel separately from the results stream.</li>
-                      </ul>
-                    </div>
-                    <div class="how-preview" aria-hidden="true">
-                      <strong>Posts</strong>
-                      <div class="how-chips">
-                        <span class="how-chip">X</span>
-                        <span class="how-chip">LinkedIn</span>
+                  <div class="how-panel" role="tabpanel" aria-hidden="true" data-how-panel="posts">
+                    <div class="how-panel-inner">
+                      <div class="how-card">
+                        <div class="how-kicker">Step 2</div>
+                        <h3>Generate drafts for X and LinkedIn.</h3>
+                        <ul class="how-list">
+                          <li>Choose X: post variations or a thread-style output.</li>
+                          <li>Select a format that applies to both platforms.</li>
+                          <li>Copy each channel separately from the results stream.</li>
+                        </ul>
                       </div>
-                      <div class="how-mini">
-                        <div class="how-mini-row"><span>X</span><strong>Variations or thread</strong></div>
-                        <div class="how-mini-row"><span>LI</span><strong>Professional draft</strong></div>
+                      <div class="how-preview" aria-hidden="true">
+                        <strong>Posts</strong>
+                        <div class="how-chips">
+                          <span class="how-chip">X</span>
+                          <span class="how-chip">LinkedIn</span>
+                        </div>
+                        <div class="how-mini">
+                          <div class="how-mini-row"><span>X</span><strong>Variations or thread</strong></div>
+                          <div class="how-mini-row"><span>LI</span><strong>Professional draft</strong></div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div class="how-panel" role="tabpanel" aria-hidden="true" data-how-panel="captions">
-                  <div class="how-panel-inner">
-                    <div class="how-card">
-                      <div class="how-kicker">Step 3</div>
-                      <h3>Get captions in the same run.</h3>
-                      <ul class="how-list">
-                        <li>Instagram caption optimized for hooks and skimming.</li>
-                        <li>Facebook caption tuned for clarity and community tone.</li>
-                        <li>Everything arrives together so you publish faster.</li>
-                      </ul>
-                    </div>
-                    <div class="how-preview" aria-hidden="true">
-                      <strong>Captions</strong>
-                      <div class="how-chips">
-                        <span class="how-chip">Instagram</span>
-                        <span class="how-chip">Facebook</span>
+                  <div class="how-panel" role="tabpanel" aria-hidden="true" data-how-panel="captions">
+                    <div class="how-panel-inner">
+                      <div class="how-card">
+                        <div class="how-kicker">Step 3</div>
+                        <h3>Get captions in the same run.</h3>
+                        <ul class="how-list">
+                          <li>Instagram caption optimized for hooks and skimming.</li>
+                          <li>Facebook caption tuned for clarity and community tone.</li>
+                          <li>Everything arrives together so you publish faster.</li>
+                        </ul>
                       </div>
-                      <div class="how-mini">
-                        <div class="how-mini-row"><span>IG</span><strong>Hooked caption</strong></div>
-                        <div class="how-mini-row"><span>FB</span><strong>Clear caption</strong></div>
+                      <div class="how-preview" aria-hidden="true">
+                        <strong>Captions</strong>
+                        <div class="how-chips">
+                          <span class="how-chip">Instagram</span>
+                          <span class="how-chip">Facebook</span>
+                        </div>
+                        <div class="how-mini">
+                          <div class="how-mini-row"><span>IG</span><strong>Hooked caption</strong></div>
+                          <div class="how-mini-row"><span>FB</span><strong>Clear caption</strong></div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div class="how-panel" role="tabpanel" aria-hidden="true" data-how-panel="images">
-                  <div class="how-panel-inner">
-                    <div class="how-card">
-                      <div class="how-kicker">Step 4</div>
-                      <h3>Add Pro images when you want visuals.</h3>
-                      <ul class="how-list">
-                        <li>AI image generation is Pro-only.</li>
-                        <li>Generate up to 3 post-ready image options per run.</li>
-                        <li>Download assets directly from the results stream.</li>
-                      </ul>
-                    </div>
-                    <div class="how-preview" aria-hidden="true">
-                      <strong>Pro visuals</strong>
-                      <div class="how-chips">
-                        <span class="how-chip">1–3 options</span>
-                        <span class="how-chip">PNG</span>
-                        <span class="how-chip">Download</span>
+                  <div class="how-panel" role="tabpanel" aria-hidden="true" data-how-panel="images">
+                    <div class="how-panel-inner">
+                      <div class="how-card">
+                        <div class="how-kicker">Step 4</div>
+                        <h3>Add Pro images when you want visuals.</h3>
+                        <ul class="how-list">
+                          <li>AI image generation is Pro-only.</li>
+                          <li>Generate up to 3 post-ready image options per run.</li>
+                          <li>Download assets directly from the results stream.</li>
+                        </ul>
                       </div>
-                      <div class="how-mini">
-                        <div class="how-mini-row"><span>Pro</span><strong>Images unlocked</strong></div>
-                        <div class="how-mini-row"><span>Count</span><strong>Up to 3</strong></div>
+                      <div class="how-preview" aria-hidden="true">
+                        <strong>Pro visuals</strong>
+                        <div class="how-chips">
+                          <span class="how-chip">1–3 options</span>
+                          <span class="how-chip">PNG</span>
+                          <span class="how-chip">Download</span>
+                        </div>
+                        <div class="how-mini">
+                          <div class="how-mini-row"><span>Pro</span><strong>Images unlocked</strong></div>
+                          <div class="how-mini-row"><span>Count</span><strong>Up to 3</strong></div>
+                        </div>
                       </div>
                     </div>
                   </div>
