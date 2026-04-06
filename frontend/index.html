@@ -2296,7 +2296,6 @@
         </a>
 
         <nav class="topnav">
-          <a class="nav-link" href="#how">How it works</a>
           <a class="nav-link" href="#platform">Platform</a>
           <a class="nav-link" href="#results">Results</a>
           <a class="nav-link" href="#customers">Customers</a>
@@ -2360,10 +2359,6 @@
           <a class="sidebar-item" href="#platform" onclick="closeHomeSidebar()">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             <span>Platform</span>
-          </a>
-          <a class="sidebar-item" href="#how" onclick="closeHomeSidebar()">
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" stroke="currentColor" stroke-width="2"/></svg>
-            <span>How it works</span>
           </a>
           <a class="sidebar-item" href="#results" onclick="closeHomeSidebar()">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 19V5m0 14h16M8 15l3-4 3 2 4-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -2432,7 +2427,6 @@
 
             <div class="hero-actions">
               <a class="btn btn-primary" href="/studio/">Open Content Studio</a>
-              <a class="btn btn-secondary" href="#how">See how it works</a>
             </div>
 
             <div class="hero-metrics">
@@ -2457,187 +2451,7 @@
             </div>
           </div>
 
-          <div class="hero-how reveal" id="how">
-            <div class="hero-how-header">
-              <h2>How OrcaFind Works</h2>
-              <span class="live-indicator">In 4 steps</span>
-            </div>
-
-            <p class="sub hero-how-lead">
-              A streamlined workflow from source draft to platform-ready output, plus Pro visuals when you want post images.
-            </p>
-
-            <div class="how-showcase">
-              <div id="howSteps" class="how-nav" role="tablist" aria-label="How OrcaFind works">
-                <div id="howIndicator" class="how-highlight" aria-hidden="true"></div>
-                <button class="how-item" type="button" role="tab" aria-selected="true" tabindex="0" data-how-tab="source">
-                  <span class="how-badge">01</span>
-                  <span class="how-item-copy">
-                    <strong>Source draft</strong>
-                    <span>Paste a single source of truth</span>
-                  </span>
-                </button>
-                <button class="how-item" type="button" role="tab" aria-selected="false" tabindex="-1" data-how-tab="posts">
-                  <span class="how-badge">02</span>
-                  <span class="how-item-copy">
-                    <strong>Posts</strong>
-                    <span>Generate X and LinkedIn drafts</span>
-                  </span>
-                </button>
-                <button class="how-item" type="button" role="tab" aria-selected="false" tabindex="-1" data-how-tab="captions">
-                  <span class="how-badge">03</span>
-                  <span class="how-item-copy">
-                    <strong>Captions</strong>
-                    <span>Instagram and Facebook captions</span>
-                  </span>
-                </button>
-                <button class="how-item" type="button" role="tab" aria-selected="false" tabindex="-1" data-how-tab="images">
-                  <span class="how-badge">04</span>
-                  <span class="how-item-copy">
-                    <strong>Pro images</strong>
-                    <span>1–3 post-ready visuals (Pro)</span>
-                  </span>
-                </button>
-              </div>
-
-              <div class="how-stage">
-                <div class="how-stage-top">
-                  <div class="how-progress" aria-hidden="true">
-                    <div id="howProgress" class="how-progress-bar"></div>
-                  </div>
-                </div>
-
-                <div id="howPanels" class="how-panels">
-                  <div class="how-panel is-active" role="tabpanel" aria-hidden="false" data-how-panel="source">
-                    <div class="how-panel-inner">
-                      <div class="how-copy">
-                        <div class="how-kicker">Step 1</div>
-                        <h3>Paste your source draft once.</h3>
-                        <ul class="how-list">
-                          <li>Use an article, transcript, release note, or raw thinking.</li>
-                          <li>Add an audience and one takeaway if you want tighter pacing.</li>
-                          <li>Keep your messaging consistent across weekly runs.</li>
-                        </ul>
-                      </div>
-                      <div class="how-mock" aria-hidden="true">
-                        <div class="how-mock-top">
-                          <span class="how-dot"></span>
-                          <span class="how-mock-title">Studio</span>
-                          <span class="how-mock-pill">Source</span>
-                        </div>
-                        <div class="how-mock-body">
-                          <div class="how-line how-line-lg"></div>
-                          <div class="how-line"></div>
-                          <div class="how-line"></div>
-                          <div class="how-line how-line-sm"></div>
-                          <div class="how-mock-footer">
-                            <span class="how-chip">Format: Professional</span>
-                            <span class="how-chip">X: Variations</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="how-panel" role="tabpanel" aria-hidden="true" data-how-panel="posts">
-                    <div class="how-panel-inner">
-                      <div class="how-copy">
-                        <div class="how-kicker">Step 2</div>
-                        <h3>Generate drafts for X and LinkedIn.</h3>
-                        <ul class="how-list">
-                          <li>Choose X output style: post variations or thread.</li>
-                          <li>Select a format that applies to both platforms.</li>
-                          <li>Copy each channel separately from the results stream.</li>
-                        </ul>
-                      </div>
-                      <div class="how-mock" aria-hidden="true">
-                        <div class="how-mock-top">
-                          <span class="how-dot"></span>
-                          <span class="how-mock-title">Results</span>
-                          <span class="how-mock-pill">Posts</span>
-                        </div>
-                        <div class="how-mock-body how-mock-grid">
-                          <div class="how-card-mini">
-                            <strong>X draft</strong>
-                            <div class="how-line"></div>
-                            <div class="how-line how-line-sm"></div>
-                            <div class="how-btn-mini"></div>
-                          </div>
-                          <div class="how-card-mini">
-                            <strong>LinkedIn draft</strong>
-                            <div class="how-line"></div>
-                            <div class="how-line"></div>
-                            <div class="how-btn-mini"></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="how-panel" role="tabpanel" aria-hidden="true" data-how-panel="captions">
-                    <div class="how-panel-inner">
-                      <div class="how-copy">
-                        <div class="how-kicker">Step 3</div>
-                        <h3>Captions come in the same run.</h3>
-                        <ul class="how-list">
-                          <li>Instagram caption optimized for hooks and skimming.</li>
-                          <li>Facebook caption tuned for clarity and community tone.</li>
-                          <li>Everything arrives together so you publish faster.</li>
-                        </ul>
-                      </div>
-                      <div class="how-mock" aria-hidden="true">
-                        <div class="how-mock-top">
-                          <span class="how-dot"></span>
-                          <span class="how-mock-title">Results</span>
-                          <span class="how-mock-pill">Captions</span>
-                        </div>
-                        <div class="how-mock-body how-mock-grid">
-                          <div class="how-card-mini">
-                            <strong>Instagram</strong>
-                            <div class="how-line"></div>
-                            <div class="how-line how-line-sm"></div>
-                            <div class="how-btn-mini"></div>
-                          </div>
-                          <div class="how-card-mini">
-                            <strong>Facebook</strong>
-                            <div class="how-line"></div>
-                            <div class="how-line how-line-sm"></div>
-                            <div class="how-btn-mini"></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="how-panel" role="tabpanel" aria-hidden="true" data-how-panel="images">
-                    <div class="how-panel-inner">
-                      <div class="how-copy">
-                        <div class="how-kicker">Step 4</div>
-                        <h3>Pro users can generate images too.</h3>
-                        <ul class="how-list">
-                          <li>AI image generation is Pro-only.</li>
-                          <li>Generate up to 3 post-ready options per run.</li>
-                          <li>Download directly from the results stream.</li>
-                        </ul>
-                      </div>
-                      <div class="how-mock" aria-hidden="true">
-                        <div class="how-mock-top">
-                          <span class="how-dot"></span>
-                          <span class="how-mock-title">Images</span>
-                          <span class="how-mock-pill">Pro</span>
-                        </div>
-                        <div class="how-mock-body how-mock-images">
-                          <div class="how-img-mini"></div>
-                          <div class="how-img-mini"></div>
-                          <div class="how-img-mini"></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <!-- How it works section removed -->
         </div>
       </section>
 
@@ -2663,10 +2477,10 @@
 
             <article class="feature-card">
               <div class="feature-icon">02</div>
-              <h3>How it works</h3>
-              <p>See the four-step flow from source draft to posts, captions, and Pro images.</p>
+              <h3>Open the studio</h3>
+              <p>Jump into a focused workflow for generating posts and captions from one source draft.</p>
               <div style="margin-top:14px;">
-                <a class="btn btn-secondary" href="#how">View the workflow</a>
+                <a class="btn btn-secondary" href="/studio/">Go to Studio</a>
               </div>
             </article>
 
