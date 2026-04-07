@@ -180,11 +180,13 @@ function setStudioMode(mode) {
   const tabImages = document.getElementById("studioTabImages");
   const builderPanel = document.getElementById("studioBuilderPanel");
   const tabBuilder = document.getElementById("studioTabBuilder");
+  const workspaceFrame = document.getElementById("workspaceFrame");
 
   if (textPanel) textPanel.classList.toggle("is-hidden", studioMode !== "text");
   if (visionPanel) visionPanel.classList.toggle("is-hidden", studioMode !== "vision");
   if (imagesPanel) imagesPanel.classList.toggle("is-hidden", studioMode !== "images");
   if (builderPanel) builderPanel.classList.toggle("is-hidden", studioMode !== "builder");
+  if (workspaceFrame) workspaceFrame.classList.toggle("is-hidden", studioMode === "vision");
 
   if (tabText) {
     tabText.classList.toggle("is-active", studioMode === "text");
