@@ -360,12 +360,13 @@ def _parse_sections(result: str) -> dict:
     out = {"x": "", "linkedin": "", "instagram": "", "facebook": ""}
 
     # Generic header scanner.
-    pattern = r"(?im)^(X|LinkedIn|Instagram|Facebook):\\s*$"
+    # Allow optional text on the header line (models sometimes format as "LinkedIn: <text>").
+    pattern = r"(?im)^(X|LinkedIn|Instagram|Facebook):\s*"
     matches = list(re.finditer(pattern, text))
     if not matches:
         # Fallback: try to split the older 2-section format.
-        parts = re.split(r"(?i)linkedin:\\s*", text, maxsplit=1)
-        out["x"] = re.sub(r"(?is)^\\s*x:\\s*", "", parts[0] if parts else "").strip()
+        parts = re.split(r"(?i)linkedin:\s*", text, maxsplit=1)
+        out["x"] = re.sub(r"(?is)^\s*x:\s*", "", parts[0] if parts else "").strip()
         out["linkedin"] = (parts[1] if len(parts) > 1 else "").strip()
         return out
 
