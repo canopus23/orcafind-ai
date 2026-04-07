@@ -32,6 +32,8 @@ function updateHeaderForUser(user) {
   const sideProfile = document.getElementById("homeSideProfile");
   const sideProfileLink = document.getElementById("homeSideProfileLink");
   const sideSignOut = document.getElementById("homeSideSignOut");
+  const footerSignIn = document.getElementById("footerAccountSignIn");
+  const footerSignOut = document.getElementById("footerAccountSignOut");
 
   if (!headerAuth || !headerProfile) return;
 
@@ -49,6 +51,9 @@ function updateHeaderForUser(user) {
     setText("homeSideName", displayName);
     setText("homeSideEmail", user.email);
     setAvatar("homeSideAvatar", displayName);
+
+    if (footerSignIn) footerSignIn.style.display = "none";
+    if (footerSignOut) footerSignOut.style.display = "inline-flex";
     return;
   }
 
@@ -64,6 +69,9 @@ function updateHeaderForUser(user) {
   setText("homeSideName", "Workspace");
   setText("homeSideEmail", "Signed in");
   setAvatar("homeSideAvatar", "OrcaFind");
+
+  if (footerSignIn) footerSignIn.style.display = "inline-flex";
+  if (footerSignOut) footerSignOut.style.display = "none";
 }
 
 function openHomeSidebar(target) {

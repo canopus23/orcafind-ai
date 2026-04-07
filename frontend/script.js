@@ -1399,6 +1399,8 @@ function updateUIForUser(user) {
   const headerAuth = document.getElementById("headerAuth");
   const sideOut = document.getElementById("studioSideSignedOut");
   const sideIn = document.getElementById("studioSideSignedIn");
+  const footerSignIn = document.getElementById("footerAccountSignIn");
+  const footerSignOut = document.getElementById("footerAccountSignOut");
   const displayName = getDisplayName(user);
   const email = user?.email || "Signed in";
 
@@ -1440,6 +1442,8 @@ function updateUIForUser(user) {
   setText("studioSideName", displayName);
   setText("studioSideEmail", email);
   setAvatar("studioSideAvatar", displayName);
+  if (footerSignIn) footerSignIn.style.display = "none";
+  if (footerSignOut) footerSignOut.style.display = "inline-flex";
   closeAuthModal();
   closeProfileModal();
   supabaseClient.auth.getSession().then(({ data }) => fetchEntitlements(data?.session?.access_token));
@@ -1456,6 +1460,8 @@ function resetUI() {
   const headerAuth = document.getElementById("headerAuth");
   const sideOut = document.getElementById("studioSideSignedOut");
   const sideIn = document.getElementById("studioSideSignedIn");
+  const footerSignIn = document.getElementById("footerAccountSignIn");
+  const footerSignOut = document.getElementById("footerAccountSignOut");
 
   if (emailInput) {
     emailInput.value = "";
@@ -1495,6 +1501,8 @@ function resetUI() {
   setText("studioSideName", "Workspace user");
   setText("studioSideEmail", "Sign in to access the studio");
   setAvatar("studioSideAvatar", "OrcaFind");
+  if (footerSignIn) footerSignIn.style.display = "inline-flex";
+  if (footerSignOut) footerSignOut.style.display = "none";
   closeAuthModal();
   closeProfileModal();
   setResultsVisibility(false);
