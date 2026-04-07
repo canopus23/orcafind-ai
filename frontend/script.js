@@ -176,7 +176,7 @@ function setStudioMode(mode) {
     setText("studioModeHeadline", "Turn any image into social-ready drafts.");
     setText(
       "studioModeCopy",
-      "Upload an image and generate multiple X variations, a LinkedIn draft, plus Instagram and Facebook captions based on what the image shows.",
+      "Upload an image and generate multiple X variations, a LinkedIn draft, plus Instagram and Facebook captions based on what the image shows."
     );
   } else if (studioMode === "images") {
     setText("studioModeHeadline", "Generate post-ready visuals from a short brief.");
@@ -188,7 +188,7 @@ function setStudioMode(mode) {
     setText("studioModeHeadline", "Generate polished posts from one source of truth.");
     setText(
       "studioModeCopy",
-      "Paste an article, transcript, release note, or raw idea. OrcaFind will convert it into social-ready drafts designed for distribution.",
+      "Paste an article, transcript, release note, or raw idea. OrcaFind will convert it into social-ready drafts designed for distribution."
     );
   }
 
@@ -201,12 +201,14 @@ function setStudioMode(mode) {
   const builderPanel = document.getElementById("studioBuilderPanel");
   const tabBuilder = document.getElementById("studioTabBuilder");
   const workspaceFrame = document.getElementById("workspaceFrame");
+  const studioBody = document.getElementById("studioBody");
 
   if (textPanel) textPanel.classList.toggle("is-hidden", studioMode !== "text");
   if (visionPanel) visionPanel.classList.toggle("is-hidden", studioMode !== "vision");
   if (imagesPanel) imagesPanel.classList.toggle("is-hidden", studioMode !== "images");
   if (builderPanel) builderPanel.classList.toggle("is-hidden", studioMode !== "builder");
   if (workspaceFrame) workspaceFrame.classList.toggle("is-hidden", studioMode === "vision");
+  if (studioBody) studioBody.classList.toggle("is-vision", studioMode === "vision");
 
   if (tabText) {
     tabText.classList.toggle("is-active", studioMode === "text");
