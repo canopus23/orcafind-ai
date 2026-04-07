@@ -252,6 +252,115 @@ function readFileAsDataUrl(file) {
   });
 }
 
+function canvasToBlob(canvas, mimeType, quality) {
+  return new Promise((resolve) => {
+    try {
+      canvas.toBlob(
+        (blob) => resolve(blob || null),
+        mimeType,
+        typeof quality === "number" ? quality : undefined,
+      );
+    } catch (_err) {
+      resolve(null);
+    }
+  });
+}
+
+async function decodeImageFromFile(file) {
+  if (!file) return null;
+  if (window.createImageBitmap) {
+    try {
+      return await window.createImageBitmap(file);
+    } catch (_err) {}
+  }
+
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.decoding = "async";
+    img.src = url;
+    await new Promise((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("Failed to load image"));
+    });
+    return img;
+  } catch (_err) {
+    return null;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function optimizeImageForVisionUpload(file) {
+  // Vision model cost scales primarily with resolution (pixels), not original file size.
+  // Goal: downscale to a "medium" resolution and compress into a modern format.
+  const bitmapOrImg = await decodeImageFromFile(file);
+  if (!bitmapOrImg) return { file, optimized: false };
+
+  const originalWidth = bitmapOrImg.width || 0;
+  const originalHeight = bitmapOrImg.height || 0;
+  const originalMax = Math.max(originalWidth, originalHeight);
+  if (!originalWidth || !originalHeight) return { file, optimized: false };
+
+  // Default to 1024px max side ("medium"). If still heavy, we step down further.
+  const targetMaxSides = [1024, 768];
+  const mimeCandidates = ["image/webp", "image/jpeg"];
+
+  let bestFile = file;
+  let bestSize = file.size || Number.MAX_SAFE_INTEGER;
+
+  for (const maxSide of targetMaxSides) {
+    const scale = Math.min(1, maxSide / originalMax);
+    const width = Math.max(1, Math.round(originalWidth * scale));
+    const height = Math.max(1, Math.round(originalHeight * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d", { alpha: false });
+    if (!ctx) continue;
+
+    // Fill background so JPEG doesn't render black where PNG had transparency.
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, width, height);
+    try {
+      ctx.drawImage(bitmapOrImg, 0, 0, width, height);
+    } catch (_err) {
+      continue;
+    }
+
+    for (const mimeType of mimeCandidates) {
+      // Try a few quality levels to keep the upload light.
+      for (const quality of [0.82, 0.74, 0.66]) {
+        const blob = await canvasToBlob(canvas, mimeType, quality);
+        if (!blob) continue;
+
+        const sized = blob.size || 0;
+        if (sized && sized < bestSize) {
+          const ext = mimeType === "image/webp" ? "webp" : "jpg";
+          const name = (file.name || "upload").replace(/\.[a-z0-9]+$/i, `.${ext}`);
+          bestFile = new File([blob], name, { type: mimeType });
+          bestSize = sized;
+        }
+
+        // Stop early if we reached a reasonably small payload.
+        if (sized > 0 && sized <= 900 * 1024) break;
+      }
+    }
+
+    // Stop early if we already hit our target size.
+    if (bestSize <= 900 * 1024) break;
+  }
+
+  const optimized = bestFile !== file;
+  return {
+    file: bestFile,
+    optimized,
+    originalBytes: file.size || 0,
+    optimizedBytes: bestFile.size || 0,
+  };
+}
+
 async function generateFromImage() {
   const imageInput = document.getElementById("visionImage");
   const promptInput = document.getElementById("visionPrompt");
@@ -330,8 +439,26 @@ async function generateFromImage() {
   });
 
   try {
+    // Optimize the upload to reduce pixel resolution (and thus vision token cost).
+    let uploadFile = file;
+    try {
+      const optimized = await optimizeImageForVisionUpload(file);
+      if (optimized?.file) {
+        uploadFile = optimized.file;
+        if (optimized.optimized) {
+          showToast(
+            "Image optimized",
+            `Reduced upload size from ${Math.round((optimized.originalBytes || 0) / 1024)}KB to ${Math.round((optimized.optimizedBytes || 0) / 1024)}KB.`,
+            "success",
+          );
+        }
+      }
+    } catch (_err) {
+      uploadFile = file;
+    }
+
     const form = new FormData();
-    form.append("image", file);
+    form.append("image", uploadFile);
     form.append("prompt", userPrompt);
     form.append("x_style", xStyle);
     form.append("format", format);
