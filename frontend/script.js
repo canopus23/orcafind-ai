@@ -375,8 +375,9 @@ async function generateFromImage() {
   });
   if (!accessToken) return;
 
-  if (!entitlements?.is_premium && !entitlements?.is_admin) {
-    showToast("Pro feature", "Upgrade to Pro to generate posts from an image.", "error");
+  const visionRemaining = Number(entitlements?.limits?.image_to_posts_remaining ?? 0);
+  if (!entitlements?.is_admin && visionRemaining <= 0) {
+    showToast("Limit reached", "You have reached your image-to-posts limit. Upgrade to Pro for more.", "error");
     openPremiumModal();
     return;
   }
@@ -618,8 +619,8 @@ function setImageUIState({ statusText, isBusy, images } = {}) {
 
 async function startImageGeneration() {
   const remaining = Number(entitlements?.limits?.image_generations_remaining ?? 0);
-  if (!entitlements?.is_premium && remaining <= 0) {
-    showToast("Upgrade to Pro", "You have reached your image generation limit. Upgrade for more.", "error");
+  if (!entitlements?.is_admin && remaining <= 0) {
+    showToast("Limit reached", "You have reached your image generation limit. Upgrade to Pro for more.", "error");
     openPremiumModal();
     return;
   }
@@ -627,7 +628,11 @@ async function startImageGeneration() {
   const briefRaw = document.getElementById("imageBrief")?.value?.trim() || "";
   const aspect = document.getElementById("imageAspect")?.value || "square";
   const style = document.getElementById("imageStyle")?.value?.trim() || "";
-  const count = Number(document.getElementById("imageCount")?.value || 1);
+  let count = Number(document.getElementById("imageCount")?.value || 1);
+  if (!entitlements?.is_admin && !entitlements?.is_premium && count > 1) {
+    count = 1;
+    showToast("Free plan", "Free plan generates 1 image per request. Upgrade for multi-image runs.", "default");
+  }
   const sourceText = document.getElementById("inputText")?.value?.trim() || "";
   const brief = buildImageBrief({ sourceText, visualBrief: briefRaw, maxSourceChars: 900 });
 
@@ -728,8 +733,10 @@ async function startImageGeneration() {
 }
 
 async function startCompletePostGeneration() {
-  if (!entitlements?.is_premium) {
-    showToast("Pro feature", "Post Builder is available on Pro.", "error");
+  const remainingBuilder = Number(entitlements?.limits?.post_builder_remaining ?? 0);
+  const remainingImages = Number(entitlements?.limits?.image_generations_remaining ?? 0);
+  if (!entitlements?.is_admin && (remainingBuilder <= 0 || remainingImages <= 0)) {
+    showToast("Limit reached", "You have reached your Post Builder or image limit. Upgrade to Pro for more.", "error");
     openPremiumModal();
     return;
   }
@@ -1025,9 +1032,18 @@ async function fetchEntitlements(accessToken) {
         x_single_variants: 2,
         x_thread_tweets_min: 4,
         x_thread_tweets_max: 7,
-        image_generations_total: 0,
+        text_posts_total: 60,
+        text_posts_used: 0,
+        text_posts_remaining: 60,
+        image_to_posts_total: 5,
+        image_to_posts_used: 0,
+        image_to_posts_remaining: 5,
+        post_builder_total: 2,
+        post_builder_used: 0,
+        post_builder_remaining: 2,
+        image_generations_total: 8,
         image_generations_used: 0,
-        image_generations_remaining: 0,
+        image_generations_remaining: 8,
       },
     };
     applyEntitlementsToUI();
@@ -1056,9 +1072,18 @@ async function fetchEntitlements(accessToken) {
         x_single_variants: 2,
         x_thread_tweets_min: 4,
         x_thread_tweets_max: 7,
-        image_generations_total: 0,
+        text_posts_total: 60,
+        text_posts_used: 0,
+        text_posts_remaining: 60,
+        image_to_posts_total: 5,
+        image_to_posts_used: 0,
+        image_to_posts_remaining: 5,
+        post_builder_total: 2,
+        post_builder_used: 0,
+        post_builder_remaining: 2,
+        image_generations_total: 8,
         image_generations_used: 0,
-        image_generations_remaining: 0,
+        image_generations_remaining: 8,
       },
     };
   }
@@ -1092,19 +1117,25 @@ function applyEntitlementsToUI() {
 
   const hint = document.getElementById("imageLimitHint");
   if (hint) {
-    if (isPremium) {
-      hint.textContent = "Pro: higher image generation limits enabled.";
+    const remaining = Number(entitlements?.limits?.image_generations_remaining ?? 0);
+    if (isAdmin) {
+      hint.textContent = "Admin: unlimited image generation enabled.";
+    } else if (remaining > 0) {
+      hint.textContent = `${isPremium ? "Pro" : "Free"}: ${remaining} image${remaining === 1 ? "" : "s"} remaining this month.`;
     } else {
-      hint.textContent = "Pro feature: upgrade to generate AI images.";
+      hint.textContent = "Image limit reached. Upgrade to Pro for more.";
     }
   }
 
   const builderHint = document.getElementById("builderProHint");
   if (builderHint) {
-    if (isPremium) {
-      builderHint.textContent = "Pro: Generate a complete post bundle (copy + image).";
+    const remaining = Number(entitlements?.limits?.post_builder_remaining ?? 0);
+    if (isAdmin) {
+      builderHint.textContent = "Admin: unlimited Post Builder enabled.";
+    } else if (remaining > 0) {
+      builderHint.textContent = `${isPremium ? "Pro" : "Free"}: ${remaining} Post Builder run${remaining === 1 ? "" : "s"} remaining this month.`;
     } else {
-      builderHint.textContent = "Upgrade to Pro to unlock Post Builder (copy + image in one run).";
+      builderHint.textContent = "Post Builder limit reached. Upgrade to Pro for more.";
     }
   }
 }

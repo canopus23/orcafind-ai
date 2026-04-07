@@ -193,19 +193,19 @@ async def entitlements(user=Depends(verify_user)):
     premium = admin or is_premium_user(user)
     user_id = str(user.get("sub") or "user")
 
-    limits = _limits_for(premium)
+    limits = _limits_for(True) if premium else _limits_for(False)
     env = os.getenv("ENV", "development").strip().lower()
     try:
-        usage = get_usage(user_id) if not premium else {"text_used": 0, "vision_used": 0, "builder_used": 0, "image_used": 0}
-        used_text = int(usage.get("text_used", 0)) if not premium else 0
-        used_vision = int(usage.get("vision_used", 0)) if not premium else 0
-        used_builder = int(usage.get("builder_used", 0)) if not premium else 0
-        used_images = int(usage.get("image_used", 0)) if not premium else 0
+        usage = get_usage(user_id)
+        used_text = int(usage.get("text_used", 0))
+        used_vision = int(usage.get("vision_used", 0))
+        used_builder = int(usage.get("builder_used", 0))
+        used_images = int(usage.get("image_used", 0))
 
-        remaining_text = _remaining(int(limits["text_posts"]), used_text) if not premium else 10_000
-        remaining_vision = _remaining(int(limits["image_to_posts"]), used_vision) if not premium else 10_000
-        remaining_builder = _remaining(int(limits["post_builder"]), used_builder) if not premium else 10_000
-        remaining_images = _remaining(int(limits["image_generations"]), used_images) if not premium else 10_000
+        remaining_text = _remaining(int(limits["text_posts"]), used_text) if not admin else 100_000
+        remaining_vision = _remaining(int(limits["image_to_posts"]), used_vision) if not admin else 100_000
+        remaining_builder = _remaining(int(limits["post_builder"]), used_builder) if not admin else 100_000
+        remaining_images = _remaining(int(limits["image_generations"]), used_images) if not admin else 100_000
     except Exception:
         # Fail closed in production if usage DB is misconfigured/unreachable.
         if (not premium) and env in {"prod", "production"}:
@@ -222,10 +222,10 @@ async def entitlements(user=Depends(verify_user)):
             used_vision = 0
             used_builder = 0
             used_images = 0
-            remaining_text = int(limits["text_posts"]) if not premium else 10_000
-            remaining_vision = int(limits["image_to_posts"]) if not premium else 10_000
-            remaining_builder = int(limits["post_builder"]) if not premium else 10_000
-            remaining_images = int(limits["image_generations"]) if not premium else 10_000
+            remaining_text = int(limits["text_posts"])
+            remaining_vision = int(limits["image_to_posts"])
+            remaining_builder = int(limits["post_builder"])
+            remaining_images = int(limits["image_generations"])
     return {
         "plan": "admin" if admin else ("pro" if premium else "free"),
         "is_admin": admin,
@@ -234,16 +234,16 @@ async def entitlements(user=Depends(verify_user)):
             "x_single_variants": int(limits["x_single_variants"]),
             "x_thread_tweets_min": int(limits["x_thread_tweets_min"]),
             "x_thread_tweets_max": int(limits["x_thread_tweets_max"]),
-            "text_posts_total": int(limits["text_posts"]) if not premium else 10_000,
+            "text_posts_total": int(limits["text_posts"]) if not admin else 100_000,
             "text_posts_used": int(used_text),
             "text_posts_remaining": int(remaining_text),
-            "image_to_posts_total": int(limits["image_to_posts"]) if not premium else 10_000,
+            "image_to_posts_total": int(limits["image_to_posts"]) if not admin else 100_000,
             "image_to_posts_used": int(used_vision),
             "image_to_posts_remaining": int(remaining_vision),
-            "post_builder_total": int(limits["post_builder"]) if not premium else 10_000,
+            "post_builder_total": int(limits["post_builder"]) if not admin else 100_000,
             "post_builder_used": int(used_builder),
             "post_builder_remaining": int(remaining_builder),
-            "image_generations_total": int(limits["image_generations"]) if not premium else 10_000,
+            "image_generations_total": int(limits["image_generations"]) if not admin else 100_000,
             "image_generations_used": used_images,
             "image_generations_remaining": remaining_images,
         },
@@ -261,12 +261,12 @@ async def generate_images(
     user_id = str(user.get("sub") or "user")
 
     limits = _limits_for(premium)
-    if not premium:
+    if not admin:
         if not is_usage_db_configured() and os.getenv("ENV", "development").strip().lower() in {"prod", "production"}:
             raise HTTPException(status_code=503, detail="Usage tracking is not configured")
         usage = get_usage(user_id)
         used = int(usage.get("image_used", 0))
-        inc = 1
+        inc = 1 if not premium else max(1, int(req.count or 1))
         if used + inc > int(limits["image_generations"]):
             raise _usage_error(feature="image_generations", limit=int(limits["image_generations"]), used=used)
 
@@ -295,11 +295,8 @@ async def generate_images(
         )
 
     # Usage accounting (monthly).
-    if not premium:
-        record_image_usage(user_id, n=1)
-    else:
-        # Still record for Pro so the UI can show usage/remaining if desired later.
-        record_image_usage(user_id, n=int(req.count or 1))
+    if not admin:
+        record_image_usage(user_id, n=1 if not premium else int(req.count or 1))
     return {"images": images}
 
 
@@ -356,7 +353,7 @@ async def complete_post(
     premium = admin or is_premium_user(user)
     user_id = str(user.get("sub") or "user")
     limits = _limits_for(premium)
-    if not premium:
+    if not admin:
         usage = get_usage(user_id)
         used_builder = int(usage.get("builder_used", 0))
         used_images = int(usage.get("image_used", 0))
@@ -405,7 +402,7 @@ async def complete_post(
             count=1,
         )
 
-    if not premium:
+    if not admin:
         record_usage(user_id, "builder_used", n=1)
         record_image_usage(user_id, n=1)
 
@@ -499,14 +496,14 @@ async def repurpose_content(
         premium = is_admin_user(user) or is_premium_user(user)
         limits = _limits_for(premium)
         user_id = str(user.get("sub") or "user")
-        if not premium:
+        if not is_admin_user(user):
             usage = get_usage(user_id)
             used = int(usage.get("text_used", 0))
             if used >= int(limits["text_posts"]):
                 raise _usage_error(feature="text_posts", limit=int(limits["text_posts"]), used=used)
         result = generate_social_content(req.text, x_style=req.x_style, content_format=req.format, is_premium=premium)
         sections = _parse_sections(result)
-        if not premium:
+        if not is_admin_user(user):
             record_usage(user_id, "text_used", n=1)
         return {"result": result, "sections": sections}
     except RuntimeError as e:
@@ -553,7 +550,7 @@ async def repurpose_from_image(
     premium = is_admin_user(user) or is_premium_user(user)
     limits = _limits_for(premium)
     user_id = str(user.get("sub") or "user")
-    if not premium:
+    if not is_admin_user(user):
         usage = get_usage(user_id)
         used = int(usage.get("vision_used", 0))
         if used >= int(limits["image_to_posts"]):
@@ -583,7 +580,7 @@ async def repurpose_from_image(
             is_premium=premium,
         )
         sections = _parse_sections(result)
-        if not premium:
+        if not is_admin_user(user):
             record_usage(user_id, "vision_used", n=1)
         return {"result": result, "sections": sections}
     except HTTPException:
