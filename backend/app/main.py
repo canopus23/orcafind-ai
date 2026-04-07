@@ -17,7 +17,7 @@ from app.schemas.billing import RazorpayCreateOrderRequest, RazorpayVerifyReques
 from app.schemas.request import ContentRequest
 from app.schemas.images import ImageGenerateRequest
 from app.schemas.complete_post import CompletePostRequest
-from app.services.ai_service import generate_social_content, generate_social_content_from_image
+from app.services.ai_service import generate_social_content, generate_social_content_from_image, generate_linkedin_post
 from app.services.image_service import generate_openai_images, generate_placeholder_images
 from app.services.razorpay_service import create_order as razorpay_create_order, get_razorpay_key_id, verify_signature
 from app.services.subscriptions import (
@@ -422,6 +422,10 @@ async def complete_post(
     linkedin_text = sections.get("linkedin", "").strip()
     instagram_text = sections.get("instagram", "").strip()
     facebook_text = sections.get("facebook", "").strip()
+    if not linkedin_text:
+        # Fallback: occasionally the model output doesn't conform to the 4-section format.
+        # Generate LinkedIn alone to avoid failing the whole Post Builder request.
+        linkedin_text = (generate_linkedin_post(req.text, content_format=req.format, is_premium=premium) or "").strip()
     if not linkedin_text:
         raise HTTPException(status_code=502, detail="LinkedIn output missing from generation result")
 

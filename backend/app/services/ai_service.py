@@ -3,6 +3,53 @@ import base64
 from typing import Optional
 from openai import OpenAI
 
+# Helper for Post Builder fallback when the 4-section output is malformed.
+def generate_linkedin_post(
+    text: str,
+    content_format: str = "professional",
+    is_premium: bool = False,
+):
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY is not configured")
+
+    text_model = os.getenv("OPENAI_TEXT_MODEL", "").strip() or "gpt-4o-mini"
+    client = OpenAI(api_key=api_key)
+
+    format_normalized = (content_format or "professional").strip().lower()
+    premium_only_formats = {"launch", "story"}
+    if (not is_premium) and (format_normalized in premium_only_formats):
+        format_normalized = "professional"
+
+    prompt = f"""
+You are a content strategist for SaaS founders and product marketers.
+
+Style/format preference: {format_normalized}
+
+Write ONE LinkedIn post based on the source content.
+
+Rules:
+- No headings.
+- No code fences.
+- Use short paragraphs with intentional line breaks.
+- If you use bullets, use hyphens with one point per line.
+- End with a clear CTA question.
+
+Source content:
+{text}
+""".strip()
+
+    response = client.chat.completions.create(
+        model=text_model,
+        messages=[
+            {"role": "system", "content": "You are a concise, high-signal social content expert."},
+            {"role": "user", "content": prompt},
+        ],
+        max_tokens=450,
+    )
+    return response.choices[0].message.content
+
+
 # Renamed from generate_content to generate_social_content
 def generate_social_content(
     text: str,
