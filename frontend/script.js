@@ -172,6 +172,26 @@ function setStudioMode(mode) {
     window.localStorage.setItem("orcafind_studio_mode", studioMode);
   } catch (_err) {}
 
+  if (studioMode === "vision") {
+    setText("studioModeHeadline", "Turn any image into social-ready drafts.");
+    setText(
+      "studioModeCopy",
+      "Upload an image and generate multiple X variations, a LinkedIn draft, plus Instagram and Facebook captions based on what the image shows.",
+    );
+  } else if (studioMode === "images") {
+    setText("studioModeHeadline", "Generate post-ready visuals from a short brief.");
+    setText("studioModeCopy", "Create post-ready images from a short visual brief plus your source content.");
+  } else if (studioMode === "builder") {
+    setText("studioModeHeadline", "Generate a complete post bundle.");
+    setText("studioModeCopy", "Generate a complete post bundle: platform copy plus a matching image.");
+  } else {
+    setText("studioModeHeadline", "Generate polished posts from one source of truth.");
+    setText(
+      "studioModeCopy",
+      "Paste an article, transcript, release note, or raw idea. OrcaFind will convert it into social-ready drafts designed for distribution.",
+    );
+  }
+
   const textPanel = document.getElementById("studioTextPanel");
   const visionPanel = document.getElementById("studioVisionPanel");
   const imagesPanel = document.getElementById("studioImagesPanel");

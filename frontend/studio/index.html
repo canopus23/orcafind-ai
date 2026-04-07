@@ -1142,16 +1142,16 @@
       <section class="section" id="studio">
         <div class="container studio-wrap">
           <div class="studio-panel">
-            <div class="studio-topbar">
-              <div class="studio-topbar-copy">
-                <span>Content Studio</span>
-                <h3>Generate polished posts from one source of truth.</h3>
-                <p>Paste an article, transcript, release note, or raw idea. OrcaFind will convert it into social-ready drafts designed for distribution.</p>
-              </div>
-              <div class="studio-segment" role="tablist" aria-label="Studio mode">
-                <button id="studioTabText" class="studio-tab is-active" role="tab" aria-selected="true" onclick="setStudioMode('text')">Text Posts</button>
-                <button id="studioTabVision" class="studio-tab" role="tab" aria-selected="false" onclick="setStudioMode('vision')">From Image</button>
-                <button id="studioTabImages" class="studio-tab" role="tab" aria-selected="false" onclick="setStudioMode('images')">AI Images</button>
+	            <div class="studio-topbar">
+	              <div class="studio-topbar-copy">
+	                <span>Content Studio</span>
+	                <h3 id="studioModeHeadline">Generate polished posts from one source of truth.</h3>
+	                <p id="studioModeCopy">Paste an article, transcript, release note, or raw idea. OrcaFind will convert it into social-ready drafts designed for distribution.</p>
+	              </div>
+	              <div class="studio-segment" role="tablist" aria-label="Studio mode">
+	                <button id="studioTabText" class="studio-tab is-active" role="tab" aria-selected="true" onclick="setStudioMode('text')">Text Posts</button>
+	                <button id="studioTabVision" class="studio-tab" role="tab" aria-selected="false" onclick="setStudioMode('vision')">From Image</button>
+	                <button id="studioTabImages" class="studio-tab" role="tab" aria-selected="false" onclick="setStudioMode('images')">AI Images</button>
                 <button id="studioTabBuilder" class="studio-tab" role="tab" aria-selected="false" onclick="setStudioMode('builder')">Post Builder</button>
               </div>
             </div>
