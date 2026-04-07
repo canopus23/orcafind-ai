@@ -27,11 +27,54 @@ from app.services.subscriptions import (
     get_user_for_order,
     get_image_usage,
     record_image_usage,
+    get_usage,
+    record_usage,
     init_schema,
     is_usage_db_configured,
 )
 
 logger = logging.getLogger("orcafind.api")
+
+FREE_LIMITS = {
+    "text_posts": 60,          # /repurpose/ runs per month
+    "image_to_posts": 5,       # /repurpose/image runs per month
+    "post_builder": 2,         # /posts/complete runs per month
+    "image_generations": 8,    # total images per month (includes Post Builder images)
+    "x_single_variants": 2,
+    "x_thread_tweets_min": 4,
+    "x_thread_tweets_max": 7,
+}
+
+PRO_LIMITS = {
+    "text_posts": 2000,
+    "image_to_posts": 200,
+    "post_builder": 100,
+    "image_generations": 200,
+    "x_single_variants": 4,
+    "x_thread_tweets_min": 4,
+    "x_thread_tweets_max": 10,
+}
+
+
+def _limits_for(premium: bool) -> dict:
+    return PRO_LIMITS if premium else FREE_LIMITS
+
+
+def _remaining(limit: int, used: int) -> int:
+    return max(0, int(limit) - int(used))
+
+
+def _usage_error(*, feature: str, limit: int, used: int) -> HTTPException:
+    return HTTPException(
+        status_code=402,
+        detail={
+            "message": f"Limit reached for {feature}. Upgrade to Pro for more.",
+            "feature": feature,
+            "limit": int(limit),
+            "used": int(used),
+            "remaining": _remaining(limit, used),
+        },
+    )
 
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO").upper(),
@@ -150,29 +193,57 @@ async def entitlements(user=Depends(verify_user)):
     premium = admin or is_premium_user(user)
     user_id = str(user.get("sub") or "user")
 
-    # AI images are Pro-only.
-    free_image_limit = 0
+    limits = _limits_for(premium)
     env = os.getenv("ENV", "development").strip().lower()
     try:
-        used_images = get_image_usage(user_id) if not premium else 0
-        remaining_images = max(0, free_image_limit - used_images) if not premium else 10_000
+        usage = get_usage(user_id) if not premium else {"text_used": 0, "vision_used": 0, "builder_used": 0, "image_used": 0}
+        used_text = int(usage.get("text_used", 0)) if not premium else 0
+        used_vision = int(usage.get("vision_used", 0)) if not premium else 0
+        used_builder = int(usage.get("builder_used", 0)) if not premium else 0
+        used_images = int(usage.get("image_used", 0)) if not premium else 0
+
+        remaining_text = _remaining(int(limits["text_posts"]), used_text) if not premium else 10_000
+        remaining_vision = _remaining(int(limits["image_to_posts"]), used_vision) if not premium else 10_000
+        remaining_builder = _remaining(int(limits["post_builder"]), used_builder) if not premium else 10_000
+        remaining_images = _remaining(int(limits["image_generations"]), used_images) if not premium else 10_000
     except Exception:
         # Fail closed in production if usage DB is misconfigured/unreachable.
         if (not premium) and env in {"prod", "production"}:
-            used_images = free_image_limit
+            used_text = int(limits["text_posts"])
+            used_vision = int(limits["image_to_posts"])
+            used_builder = int(limits["post_builder"])
+            used_images = int(limits["image_generations"])
+            remaining_text = 0
+            remaining_vision = 0
+            remaining_builder = 0
             remaining_images = 0
         else:
+            used_text = 0
+            used_vision = 0
+            used_builder = 0
             used_images = 0
-            remaining_images = free_image_limit if not premium else 10_000
+            remaining_text = int(limits["text_posts"]) if not premium else 10_000
+            remaining_vision = int(limits["image_to_posts"]) if not premium else 10_000
+            remaining_builder = int(limits["post_builder"]) if not premium else 10_000
+            remaining_images = int(limits["image_generations"]) if not premium else 10_000
     return {
         "plan": "admin" if admin else ("pro" if premium else "free"),
         "is_admin": admin,
         "is_premium": premium,
         "limits": {
-            "x_single_variants": 4 if premium else 2,
-            "x_thread_tweets_min": 4,
-            "x_thread_tweets_max": 10 if premium else 7,
-            "image_generations_total": 10_000 if premium else 0,
+            "x_single_variants": int(limits["x_single_variants"]),
+            "x_thread_tweets_min": int(limits["x_thread_tweets_min"]),
+            "x_thread_tweets_max": int(limits["x_thread_tweets_max"]),
+            "text_posts_total": int(limits["text_posts"]) if not premium else 10_000,
+            "text_posts_used": int(used_text),
+            "text_posts_remaining": int(remaining_text),
+            "image_to_posts_total": int(limits["image_to_posts"]) if not premium else 10_000,
+            "image_to_posts_used": int(used_vision),
+            "image_to_posts_remaining": int(remaining_vision),
+            "post_builder_total": int(limits["post_builder"]) if not premium else 10_000,
+            "post_builder_used": int(used_builder),
+            "post_builder_remaining": int(remaining_builder),
+            "image_generations_total": int(limits["image_generations"]) if not premium else 10_000,
             "image_generations_used": used_images,
             "image_generations_remaining": remaining_images,
         },
@@ -189,18 +260,29 @@ async def generate_images(
     premium = admin or is_premium_user(user)
     user_id = str(user.get("sub") or "user")
 
+    limits = _limits_for(premium)
     if not premium:
-        raise HTTPException(status_code=402, detail="Upgrade to Pro to generate AI images")
+        if not is_usage_db_configured() and os.getenv("ENV", "development").strip().lower() in {"prod", "production"}:
+            raise HTTPException(status_code=503, detail="Usage tracking is not configured")
+        usage = get_usage(user_id)
+        used = int(usage.get("image_used", 0))
+        inc = 1
+        if used + inc > int(limits["image_generations"]):
+            raise _usage_error(feature="image_generations", limit=int(limits["image_generations"]), used=used)
 
     # Prefer OpenAI if configured; fall back to placeholder images for local/dev.
     images = None
     if os.getenv("OPENAI_API_KEY"):
-        quality = "high" if premium else "low"
+        quality = "medium" if premium else "low"
+        count = int(req.count)
+        # Free plan: keep it to 1 image per request to control costs.
+        if not premium:
+            count = 1
         images = generate_openai_images(
             brief=req.brief,
             style=req.style,
             aspect=req.aspect,
-            count=req.count,
+            count=count,
             quality=quality,
             user_id=user_id,
         )
@@ -209,9 +291,15 @@ async def generate_images(
             brief=req.brief,
             style=req.style,
             aspect=req.aspect,
-            count=req.count,
+            count=1 if not premium else req.count,
         )
-    # Pro/Admin: usage accounting can be added later if desired.
+
+    # Usage accounting (monthly).
+    if not premium:
+        record_image_usage(user_id, n=1)
+    else:
+        # Still record for Pro so the UI can show usage/remaining if desired later.
+        record_image_usage(user_id, n=int(req.count or 1))
     return {"images": images}
 
 
@@ -266,16 +354,22 @@ async def complete_post(
 ):
     admin = is_admin_user(user)
     premium = admin or is_premium_user(user)
-    if not premium:
-        raise HTTPException(status_code=402, detail="Upgrade to Pro to use Post Builder")
-
     user_id = str(user.get("sub") or "user")
+    limits = _limits_for(premium)
+    if not premium:
+        usage = get_usage(user_id)
+        used_builder = int(usage.get("builder_used", 0))
+        used_images = int(usage.get("image_used", 0))
+        if used_builder >= int(limits["post_builder"]):
+            raise _usage_error(feature="post_builder", limit=int(limits["post_builder"]), used=used_builder)
+        if used_images + 1 > int(limits["image_generations"]):
+            raise _usage_error(feature="image_generations", limit=int(limits["image_generations"]), used=used_images)
 
     result = generate_social_content(
         req.text,
         x_style=req.x_style,
         content_format=req.format,
-        is_premium=True,
+        is_premium=premium,
     )
     sections = _parse_sections(result)
     x_text = sections.get("x", "").strip()
@@ -300,7 +394,7 @@ async def complete_post(
             style=(req.image_style or "").strip() or "saas_minimal",
             aspect=req.image_aspect,
             count=1,
-            quality="high",
+            quality="medium" if premium else "low",
             user_id=user_id,
         )
     else:
@@ -310,6 +404,10 @@ async def complete_post(
             aspect=req.image_aspect,
             count=1,
         )
+
+    if not premium:
+        record_usage(user_id, "builder_used", n=1)
+        record_image_usage(user_id, n=1)
 
     return {
         "x": x_text,
@@ -330,15 +428,15 @@ async def razorpay_create(req: RazorpayCreateOrderRequest, user=Depends(verify_u
     if billing not in {"monthly", "yearly"}:
         raise HTTPException(status_code=400, detail="Unsupported billing period")
 
-    # Amounts are in paise (INR).
-    amount_paise = 149900 if billing == "yearly" else 149900 // 10  # 1499 INR monthly, 14990 INR yearly
-    currency = "INR"
+    # Amounts are in the currency's minor unit (cents for USD).
+    amount_minor = 29000 if billing == "yearly" else 2900  # $29/mo, $290/yr
+    currency = "USD"
 
     user_id = str(user.get("sub") or "user")
     email = _get_user_email(user) or req.email or ""
 
     order = await razorpay_create_order(
-        amount_paise=amount_paise,
+        amount_paise=amount_minor,
         currency=currency,
         receipt=f"orcafind_{plan}_{billing}_{user_id}",
         notes={
@@ -399,8 +497,17 @@ async def repurpose_content(
 
     try:
         premium = is_admin_user(user) or is_premium_user(user)
+        limits = _limits_for(premium)
+        user_id = str(user.get("sub") or "user")
+        if not premium:
+            usage = get_usage(user_id)
+            used = int(usage.get("text_used", 0))
+            if used >= int(limits["text_posts"]):
+                raise _usage_error(feature="text_posts", limit=int(limits["text_posts"]), used=used)
         result = generate_social_content(req.text, x_style=req.x_style, content_format=req.format, is_premium=premium)
         sections = _parse_sections(result)
+        if not premium:
+            record_usage(user_id, "text_used", n=1)
         return {"result": result, "sections": sections}
     except RuntimeError as e:
         msg = str(e or "")
@@ -440,11 +547,17 @@ async def repurpose_from_image(
     _rl=Depends(rate_limit(RateLimitConfig(limit=12, window_seconds=60, key_prefix="repurpose_image"))),
 ):
     """
-    Pro-only endpoint. Accepts an image upload and generates X/LinkedIn posts plus IG/FB captions.
+    Accepts an image upload and generates X/LinkedIn posts plus IG/FB captions.
+    Free users get a limited monthly quota; Pro users get higher limits.
     """
     premium = is_admin_user(user) or is_premium_user(user)
+    limits = _limits_for(premium)
+    user_id = str(user.get("sub") or "user")
     if not premium:
-        raise HTTPException(status_code=402, detail="Upgrade to Pro to generate posts from an image")
+        usage = get_usage(user_id)
+        used = int(usage.get("vision_used", 0))
+        if used >= int(limits["image_to_posts"]):
+            raise _usage_error(feature="image_to_posts", limit=int(limits["image_to_posts"]), used=used)
 
     if not image:
         raise HTTPException(status_code=400, detail="Image file is required")
@@ -467,9 +580,11 @@ async def repurpose_from_image(
             user_prompt=prompt,
             x_style=x_style,
             content_format=format,
-            is_premium=True,
+            is_premium=premium,
         )
         sections = _parse_sections(result)
+        if not premium:
+            record_usage(user_id, "vision_used", n=1)
         return {"result": result, "sections": sections}
     except HTTPException:
         raise

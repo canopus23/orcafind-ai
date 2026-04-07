@@ -37,9 +37,9 @@ function selectPlan(plan) {
 
 function getProPrice() {
   if (billing === "yearly") {
-    return { amount: 190, label: "$190 / yr" };
+    return { amount: 290, label: "$290 / yr" };
   }
-  return { amount: 19, label: "$19 / mo" };
+  return { amount: 29, label: "$29 / mo" };
 }
 
 function syncSummary() {
@@ -52,7 +52,7 @@ function syncSummary() {
 
   const price = getProPrice();
   if (proPrice && proPer) {
-    proPrice.textContent = billing === "yearly" ? "$190" : "$19";
+    proPrice.textContent = billing === "yearly" ? "$290" : "$29";
     proPer.textContent = billing === "yearly" ? "per year" : "per month";
   }
 

@@ -495,21 +495,85 @@
     <div class="container hero-grid">
       <div class="card left">
         <span class="kicker">Pricing</span>
-        <h1>Coming soon.</h1>
+        <h1>Start free. Upgrade when you ship.</h1>
         <p class="subtitle">
-          Pricing is launching soon. For now, you can keep using the Studio while we finalize plans.
+          Use OrcaFind for free to generate platform-ready posts from text and try image workflows with monthly limits.
+          Upgrade to Pro for higher limits, premium formats, and faster iteration.
         </p>
 
-        <div class="features" style="margin-top: 18px;">
-          <div class="feature"><span class="dot"></span><span>Pro will unlock Post Builder (copy + image in one run)</span></div>
-          <div class="feature"><span class="dot"></span><span>Higher limits for image generation and premium writing formats</span></div>
-          <div class="feature"><span class="dot"></span><span>Early access customers will receive priority onboarding</span></div>
+        <div class="toggle" role="group" aria-label="Billing period">
+          <button id="monthlyBtn" class="is-active" type="button" onclick="setBilling('monthly')">Monthly</button>
+          <button id="yearlyBtn" type="button" onclick="setBilling('yearly')">Yearly</button>
+          <span id="planPill" class="kicker" style="margin: 0; padding: 8px 12px;">Pro selected</span>
         </div>
 
-        <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px;">
-          <a class="btn btn-primary" href="/studio/">Go to Studio</a>
-          <a class="btn btn-ghost" href="mailto:hello@orcafind.com">Contact</a>
+        <div class="plans" role="list">
+          <div id="freePlan" class="plan" role="listitem" tabindex="0" onclick="selectPlan('free')">
+            <div class="plan-top">
+              <div>
+                <h3>Free</h3>
+                <div class="per">Best for trying OrcaFind</div>
+              </div>
+              <div style="text-align:right;">
+                <div class="price">$0</div>
+                <div class="per">forever</div>
+              </div>
+            </div>
+            <div class="features">
+              <div class="feature"><span class="dot gray"></span><span>Text → posts: 60 runs / month</span></div>
+              <div class="feature"><span class="dot gray"></span><span>Image → posts: 5 runs / month</span></div>
+              <div class="feature"><span class="dot gray"></span><span>AI images: 8 images / month (low quality)</span></div>
+              <div class="feature"><span class="dot gray"></span><span>Post Builder: 2 bundles / month</span></div>
+            </div>
+          </div>
+
+          <div id="proPlan" class="plan is-selected" role="listitem" tabindex="0" onclick="selectPlan('pro')">
+            <div class="plan-top">
+              <div>
+                <h3>Pro</h3>
+                <div class="per">For consistent weekly distribution</div>
+              </div>
+              <div style="text-align:right;">
+                <div id="proPrice" class="price">$29</div>
+                <div id="proPer" class="per">per month</div>
+              </div>
+            </div>
+            <div class="features">
+              <div class="feature"><span class="dot"></span><span>Text → posts: 2,000 runs / month</span></div>
+              <div class="feature"><span class="dot"></span><span>Image → posts: 200 runs / month</span></div>
+              <div class="feature"><span class="dot"></span><span>AI images: 200 images / month (medium quality)</span></div>
+              <div class="feature"><span class="dot"></span><span>Post Builder: 100 bundles / month</span></div>
+              <div class="feature"><span class="dot"></span><span>Premium formats: Story-driven + Product launch</span></div>
+            </div>
+          </div>
         </div>
+      </div>
+
+      <div class="card right">
+        <div class="summary-head">
+          <h2>Checkout</h2>
+          <span class="kicker" style="margin: 0;">Secure payment</span>
+        </div>
+
+        <div class="field" style="display:grid; gap: 8px; margin-bottom: 12px;">
+          <label for="checkoutEmail" style="font-weight: 900; color: #27415f;">Email</label>
+          <input id="checkoutEmail" placeholder="you@company.com" style="padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(111, 132, 163, 0.18); background: rgba(255,255,255,0.92);" />
+        </div>
+
+        <div class="summary">
+          <div class="row"><span>Plan</span><strong id="summaryPlan">Pro</strong></div>
+          <div class="row"><span>Billing</span><strong id="summaryBilling">Monthly</strong></div>
+          <div class="row total"><span>Total</span><strong id="summaryTotal">$29 / mo</strong></div>
+        </div>
+
+        <div style="display:grid; gap: 10px; margin-top: 14px;">
+          <button class="btn btn-primary" type="button" onclick="proceedToPayment()">Continue</button>
+          <a class="btn btn-ghost" href="/studio/">Back to Studio</a>
+        </div>
+
+        <p class="subtitle" style="margin-top: 12px; margin-bottom: 0; font-size: 0.92rem;">
+          You must be signed in to upgrade. After payment, Pro unlocks immediately.
+        </p>
       </div>
     </div>
   </section>
@@ -569,7 +633,13 @@
     </div>
   </footer>
 
+  <div id="toastStack" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <script src="/config.js" defer></script>
   <script src="/theme.js" defer></script>
+  <script src="/checkout.js" defer></script>
   <script>
     (function () {
       var node = document.getElementById("footerYear");
