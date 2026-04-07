@@ -1118,10 +1118,13 @@ function applyEntitlementsToUI() {
   const hint = document.getElementById("imageLimitHint");
   if (hint) {
     const remaining = Number(entitlements?.limits?.image_generations_remaining ?? 0);
+    const planLabel = String(entitlements?.plan || (isPremium ? "pro" : "free"))
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
     if (isAdmin) {
       hint.textContent = "Admin: unlimited image generation enabled.";
     } else if (remaining > 0) {
-      hint.textContent = `${isPremium ? "Pro" : "Free"}: ${remaining} image${remaining === 1 ? "" : "s"} remaining this month.`;
+      hint.textContent = `${planLabel}: ${remaining} image${remaining === 1 ? "" : "s"} remaining this month.`;
     } else {
       hint.textContent = "Image limit reached. Upgrade to Pro for more.";
     }
@@ -1130,10 +1133,13 @@ function applyEntitlementsToUI() {
   const builderHint = document.getElementById("builderProHint");
   if (builderHint) {
     const remaining = Number(entitlements?.limits?.post_builder_remaining ?? 0);
+    const planLabel = String(entitlements?.plan || (isPremium ? "pro" : "free"))
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
     if (isAdmin) {
       builderHint.textContent = "Admin: unlimited Post Builder enabled.";
     } else if (remaining > 0) {
-      builderHint.textContent = `${isPremium ? "Pro" : "Free"}: ${remaining} Post Builder run${remaining === 1 ? "" : "s"} remaining this month.`;
+      builderHint.textContent = `${planLabel}: ${remaining} Post Builder run${remaining === 1 ? "" : "s"} remaining this month.`;
     } else {
       builderHint.textContent = "Post Builder limit reached. Upgrade to Pro for more.";
     }

@@ -57,11 +57,13 @@ def init_schema() -> None:
                     """
                     CREATE TABLE IF NOT EXISTS order_links (
                       order_id TEXT PRIMARY KEY,
-                      user_id TEXT NOT NULL
+                      user_id TEXT NOT NULL,
+                      plan TEXT
                     );
                     """
                 )
             )
+            conn.execute(text("ALTER TABLE order_links ADD COLUMN IF NOT EXISTS plan TEXT;"))
             conn.execute(
                 text(
                     """
@@ -208,7 +210,7 @@ def record_usage(user_id: str, field: str, n: int = 1) -> int:
         return int(get_usage(user_id).get(field, 0))
 
 
-def link_order_to_user(order_id: str, user_id: str):
+def link_order_to_user(order_id: str, user_id: str, *, plan: Optional[str] = None):
     engine = _engine()
     if not engine:
         return
@@ -217,12 +219,14 @@ def link_order_to_user(order_id: str, user_id: str):
             conn.execute(
                 text(
                     """
-                    INSERT INTO order_links (order_id, user_id)
-                    VALUES (:order_id, :user_id)
-                    ON CONFLICT (order_id) DO UPDATE SET user_id = EXCLUDED.user_id;
+                    INSERT INTO order_links (order_id, user_id, plan)
+                    VALUES (:order_id, :user_id, :plan)
+                    ON CONFLICT (order_id) DO UPDATE SET
+                      user_id = EXCLUDED.user_id,
+                      plan = COALESCE(EXCLUDED.plan, order_links.plan);
                     """
                 ),
-                {"order_id": order_id, "user_id": user_id},
+                {"order_id": order_id, "user_id": user_id, "plan": (plan or None)},
             )
     except Exception:
         logger.exception("link_order_to_user failed")
@@ -244,6 +248,23 @@ def get_user_for_order(order_id: str) -> Optional[str]:
         return None
 
 
+def get_plan_for_order(order_id: str) -> Optional[str]:
+    engine = _engine()
+    if not engine:
+        return None
+    try:
+        with engine.begin() as conn:
+            row = conn.execute(
+                text("SELECT plan FROM order_links WHERE order_id = :order_id"),
+                {"order_id": order_id},
+            ).fetchone()
+            plan = str(row[0]).strip().lower() if row and row[0] else ""
+            return plan or None
+    except Exception:
+        logger.exception("get_plan_for_order failed")
+        return None
+
+
 def grant_pro(*, user_id: str, order_id: str, payment_id: str):
     engine = _engine()
     if not engine:
@@ -255,7 +276,7 @@ def grant_pro(*, user_id: str, order_id: str, payment_id: str):
                 text(
                     """
                     INSERT INTO subscriptions (user_id, plan, source, order_id, payment_id, created_at)
-                    VALUES (:user_id, 'pro', 'razorpay', :order_id, :payment_id, :created_at)
+                    VALUES (:user_id, :plan, 'razorpay', :order_id, :payment_id, :created_at)
                     ON CONFLICT (user_id) DO UPDATE SET
                       plan = EXCLUDED.plan,
                       source = EXCLUDED.source,
@@ -266,6 +287,7 @@ def grant_pro(*, user_id: str, order_id: str, payment_id: str):
                 ),
                 {
                     "user_id": user_id,
+                    "plan": "pro",
                     "order_id": order_id,
                     "payment_id": payment_id,
                     "created_at": created_at,
@@ -275,20 +297,65 @@ def grant_pro(*, user_id: str, order_id: str, payment_id: str):
         logger.exception("grant_pro failed")
 
 
-def is_pro(user_id: str) -> bool:
+def grant_plan(*, user_id: str, plan: str, order_id: str, payment_id: str):
+    plan_norm = (plan or "pro").strip().lower()
+    if plan_norm not in {"starter", "pro", "business"}:
+        plan_norm = "pro"
     engine = _engine()
     if not engine:
-        return False
+        return
+    created_at = int(time.time())
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO subscriptions (user_id, plan, source, order_id, payment_id, created_at)
+                    VALUES (:user_id, :plan, 'razorpay', :order_id, :payment_id, :created_at)
+                    ON CONFLICT (user_id) DO UPDATE SET
+                      plan = EXCLUDED.plan,
+                      source = EXCLUDED.source,
+                      order_id = EXCLUDED.order_id,
+                      payment_id = EXCLUDED.payment_id,
+                      created_at = EXCLUDED.created_at;
+                    """
+                ),
+                {
+                    "user_id": user_id,
+                    "plan": plan_norm,
+                    "order_id": order_id,
+                    "payment_id": payment_id,
+                    "created_at": created_at,
+                },
+            )
+    except Exception:
+        logger.exception("grant_plan failed")
+
+
+def get_plan(user_id: str) -> Optional[str]:
+    engine = _engine()
+    if not engine:
+        return None
     try:
         with engine.begin() as conn:
             row = conn.execute(
                 text("SELECT plan FROM subscriptions WHERE user_id = :user_id"),
                 {"user_id": user_id},
             ).fetchone()
-            return bool(row and str(row[0]).lower() == "pro")
+            plan = str(row[0]).lower().strip() if row and row[0] else ""
+            return plan or None
     except Exception:
-        logger.exception("is_pro failed")
-        return False
+        logger.exception("get_plan failed")
+        return None
+
+
+def has_paid_plan(user_id: str) -> bool:
+    plan = (get_plan(user_id) or "").strip().lower()
+    return plan in {"starter", "pro", "business"}
+
+
+def is_pro(user_id: str) -> bool:
+    return (get_plan(user_id) or "").strip().lower() == "pro"
 
 
 def get_image_usage(user_id: str) -> int:

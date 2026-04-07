@@ -1,11 +1,17 @@
-let selectedPlan = "pro";
-let billing = "monthly";
+let selectedPlan = "starter";
 
 const ORCAFIND_CONFIG = window.__ORCAFIND_CONFIG || {};
 const SUPABASE_URL = ORCAFIND_CONFIG.supabaseUrl || window.__ORCAFIND_SUPABASE_URL || "https://rcfehmuiovcesucsvfsr.supabase.co";
 const SUPABASE_ANON_KEY = ORCAFIND_CONFIG.supabaseAnonKey || window.__ORCAFIND_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjZmVobXVpb3ZjZXN1Y3N2ZnNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1MzE3MzAsImV4cCI6MjA5MDEwNzczMH0.8J4k5tlyA5G3gr70JT8aDbY36cidBc4s08hlwE-z9tY";
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const API_BASE_URL = ORCAFIND_CONFIG.apiBaseUrl || window.__ORCAFIND_API_BASE_URL || "https://api.orcafind.com";
+
+const PLAN_CATALOG = {
+  free: { label: "Free", priceLabel: "$0", checkoutLabel: "$0" },
+  starter: { label: "Starter", priceLabel: "$4.99", checkoutLabel: "$4.99 / mo" },
+  pro: { label: "Pro", priceLabel: "$14.99", checkoutLabel: "$14.99 / mo" },
+  business: { label: "Business", priceLabel: "$29.99", checkoutLabel: "$29.99 / mo" },
+};
 
 function showToast(title, message, type = "default") {
   const stack = document.getElementById("toastStack");
@@ -21,47 +27,31 @@ function showToast(title, message, type = "default") {
   }, 3200);
 }
 
-function setBilling(next) {
-  billing = next === "yearly" ? "yearly" : "monthly";
-  document.getElementById("monthlyBtn")?.classList.toggle("is-active", billing === "monthly");
-  document.getElementById("yearlyBtn")?.classList.toggle("is-active", billing === "yearly");
-  syncSummary();
-}
-
 function selectPlan(plan) {
-  selectedPlan = plan === "free" ? "free" : "pro";
-  document.getElementById("freePlan")?.classList.toggle("is-selected", selectedPlan === "free");
-  document.getElementById("proPlan")?.classList.toggle("is-selected", selectedPlan === "pro");
+  const next = String(plan || "").trim().toLowerCase();
+  selectedPlan = PLAN_CATALOG[next] ? next : "starter";
+  ["free", "starter", "pro", "business"].forEach((key) => {
+    document.getElementById(`${key}Plan`)?.classList.toggle("is-selected", selectedPlan === key);
+  });
   syncSummary();
-}
-
-function getProPrice() {
-  if (billing === "yearly") {
-    return { amount: 49, label: "$49 / yr" };
-  }
-  return { amount: 4.99, label: "$4.99 / mo" };
 }
 
 function syncSummary() {
   const planPill = document.getElementById("planPill");
   const summaryPlan = document.getElementById("summaryPlan");
-  const summaryBilling = document.getElementById("summaryBilling");
   const summaryTotal = document.getElementById("summaryTotal");
-  const proPrice = document.getElementById("proPrice");
-  const proPer = document.getElementById("proPer");
+  const priceNode = document.getElementById("starterPrice");
+  if (priceNode) priceNode.textContent = PLAN_CATALOG.starter.priceLabel;
+  const proPriceNode = document.getElementById("proPrice");
+  if (proPriceNode) proPriceNode.textContent = PLAN_CATALOG.pro.priceLabel;
+  const businessPriceNode = document.getElementById("businessPrice");
+  if (businessPriceNode) businessPriceNode.textContent = PLAN_CATALOG.business.priceLabel;
 
-  const price = getProPrice();
-  if (proPrice && proPer) {
-    proPrice.textContent = billing === "yearly" ? "$49" : "$4.99";
-    proPer.textContent = billing === "yearly" ? "per year" : "per month";
-  }
-
-  if (planPill) planPill.textContent = `${selectedPlan === "free" ? "Free" : "Pro"} selected`;
-  if (summaryPlan) summaryPlan.textContent = selectedPlan === "free" ? "Free" : "Pro";
-  if (summaryBilling) summaryBilling.textContent = billing === "yearly" ? "Yearly" : "Monthly";
+  if (planPill) planPill.textContent = `${PLAN_CATALOG[selectedPlan]?.label || "Starter"} selected`;
+  if (summaryPlan) summaryPlan.textContent = PLAN_CATALOG[selectedPlan]?.label || "Starter";
 
   if (summaryTotal) {
-    summaryTotal.textContent = selectedPlan === "free" ? "$0" : price.label;
+    summaryTotal.textContent = PLAN_CATALOG[selectedPlan]?.checkoutLabel || "$4.99 / mo";
   }
 }
 
@@ -100,8 +90,8 @@ async function startRazorpayCheckout(email) {
       "Authorization": `Bearer ${session.access_token}`,
     },
     body: JSON.stringify({
-      plan: "pro",
-      billing,
+      plan: selectedPlan,
+      billing: "monthly",
       email,
     }),
   });
@@ -159,13 +149,13 @@ async function startRazorpayCheckout(email) {
 
 document.addEventListener("DOMContentLoaded", () => {
   // Keyboard access for plan cards.
-  ["freePlan", "proPlan"].forEach((id) => {
+  ["freePlan", "starterPlan", "proPlan", "businessPlan"].forEach((id) => {
     const node = document.getElementById(id);
     if (!node) return;
     node.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        selectPlan(id === "freePlan" ? "free" : "pro");
+        selectPlan(id.replace("Plan", ""));
       }
     });
   });

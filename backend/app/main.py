@@ -21,11 +21,12 @@ from app.services.ai_service import generate_social_content, generate_social_con
 from app.services.image_service import generate_openai_images, generate_placeholder_images
 from app.services.razorpay_service import create_order as razorpay_create_order, get_razorpay_key_id, verify_signature
 from app.services.subscriptions import (
-    grant_pro,
-    is_pro,
+    grant_plan,
+    get_plan,
+    has_paid_plan,
     link_order_to_user,
     get_user_for_order,
-    get_image_usage,
+    get_plan_for_order,
     record_image_usage,
     get_usage,
     record_usage,
@@ -35,30 +36,55 @@ from app.services.subscriptions import (
 
 logger = logging.getLogger("orcafind.api")
 
-FREE_LIMITS = {
-    "text_posts": 60,          # /repurpose/ runs per month
-    "image_to_posts": 5,       # /repurpose/image runs per month
-    "post_builder": 2,         # /posts/complete runs per month
-    "image_generations": 8,    # total images per month (includes Post Builder images)
-    "x_single_variants": 2,
-    "x_thread_tweets_min": 4,
-    "x_thread_tweets_max": 7,
+PLAN_LIMITS = {
+    "free": {
+        "text_posts": 60,          # /repurpose/ runs per month
+        "image_to_posts": 5,       # /repurpose/image runs per month
+        "post_builder": 2,         # /posts/complete runs per month
+        "image_generations": 8,    # total images per month (includes Post Builder images)
+        "x_single_variants": 2,
+        "x_thread_tweets_min": 4,
+        "x_thread_tweets_max": 7,
+    },
+    # Paid plans (monthly).
+    "starter": {
+        "text_posts": 300,
+        "image_to_posts": 25,
+        "post_builder": 10,
+        "image_generations": 25,
+        "x_single_variants": 4,
+        "x_thread_tweets_min": 4,
+        "x_thread_tweets_max": 10,
+    },
+    "pro": {
+        "text_posts": 1200,
+        "image_to_posts": 120,
+        "post_builder": 50,
+        "image_generations": 120,
+        "x_single_variants": 4,
+        "x_thread_tweets_min": 4,
+        "x_thread_tweets_max": 10,
+    },
+    "business": {
+        "text_posts": 4000,
+        "image_to_posts": 400,
+        "post_builder": 200,
+        "image_generations": 400,
+        "x_single_variants": 4,
+        "x_thread_tweets_min": 4,
+        "x_thread_tweets_max": 10,
+    },
 }
 
-PRO_LIMITS = {
-    # $4.99 plan (starter) - conservative limits to protect margin.
-    "text_posts": 300,
-    "image_to_posts": 25,
-    "post_builder": 10,
-    "image_generations": 25,
-    "x_single_variants": 4,
-    "x_thread_tweets_min": 4,
-    "x_thread_tweets_max": 10,
+PLAN_PRICES_USD_CENTS = {
+    "starter": 499,
+    "pro": 1499,
+    "business": 2999,
 }
 
 
-def _limits_for(premium: bool) -> dict:
-    return PRO_LIMITS if premium else FREE_LIMITS
+def _limits_for_plan(plan: str) -> dict:
+    return PLAN_LIMITS.get((plan or "free").strip().lower(), PLAN_LIMITS["free"])
 
 
 def _remaining(limit: int, used: int) -> int:
@@ -139,10 +165,28 @@ def _get_user_email(payload: dict) -> Optional[str]:
 def is_premium_user(payload: dict) -> bool:
     allowlist = _parse_csv_set(os.getenv("PREMIUM_EMAIL_ALLOWLIST"), lowercase=True)
     user_id = str(payload.get("sub") or "user")
-    if is_pro(user_id):
+    if has_paid_plan(user_id):
         return True
     email = _get_user_email(payload)
     return bool(email and email.strip().lower() in allowlist)
+
+
+def get_effective_plan(payload: dict) -> str:
+    if is_admin_user(payload):
+        return "admin"
+
+    user_id = str(payload.get("sub") or "user")
+    plan = (get_plan(user_id) or "").strip().lower()
+    if plan in {"starter", "pro", "business"}:
+        return plan
+
+    # Allowlisted users behave like "pro" for now.
+    allowlist = _parse_csv_set(os.getenv("PREMIUM_EMAIL_ALLOWLIST"), lowercase=True)
+    email = _get_user_email(payload)
+    if email and email.strip().lower() in allowlist:
+        return "pro"
+
+    return "free"
 
 
 def is_admin_user(payload: dict) -> bool:
@@ -190,11 +234,12 @@ async def root():
 
 @app.get("/entitlements")
 async def entitlements(user=Depends(verify_user)):
-    admin = is_admin_user(user)
-    premium = admin or is_premium_user(user)
+    plan = get_effective_plan(user)
+    admin = plan == "admin"
+    premium = plan in {"starter", "pro", "business", "admin"}
     user_id = str(user.get("sub") or "user")
 
-    limits = _limits_for(True) if premium else _limits_for(False)
+    limits = _limits_for_plan("business" if admin else plan)
     env = os.getenv("ENV", "development").strip().lower()
     try:
         usage = get_usage(user_id)
@@ -228,7 +273,7 @@ async def entitlements(user=Depends(verify_user)):
             remaining_builder = int(limits["post_builder"])
             remaining_images = int(limits["image_generations"])
     return {
-        "plan": "admin" if admin else ("pro" if premium else "free"),
+        "plan": plan,
         "is_admin": admin,
         "is_premium": premium,
         "limits": {
@@ -257,11 +302,12 @@ async def generate_images(
     user=Depends(verify_user),
     _rl=Depends(rate_limit(RateLimitConfig(limit=20, window_seconds=60, key_prefix="images"))),
 ):
-    admin = is_admin_user(user)
-    premium = admin or is_premium_user(user)
+    plan = get_effective_plan(user)
+    admin = plan == "admin"
+    premium = plan in {"starter", "pro", "business", "admin"}
     user_id = str(user.get("sub") or "user")
 
-    limits = _limits_for(premium)
+    limits = _limits_for_plan("business" if admin else plan)
     if not admin:
         if not is_usage_db_configured() and os.getenv("ENV", "development").strip().lower() in {"prod", "production"}:
             raise HTTPException(status_code=503, detail="Usage tracking is not configured")
@@ -350,10 +396,11 @@ async def complete_post(
     user=Depends(verify_user),
     _rl=Depends(rate_limit(RateLimitConfig(limit=10, window_seconds=60, key_prefix="complete"))),
 ):
-    admin = is_admin_user(user)
-    premium = admin or is_premium_user(user)
+    plan = get_effective_plan(user)
+    admin = plan == "admin"
+    premium = plan in {"starter", "pro", "business", "admin"}
     user_id = str(user.get("sub") or "user")
-    limits = _limits_for(premium)
+    limits = _limits_for_plan("business" if admin else plan)
     if not admin:
         usage = get_usage(user_id)
         used_builder = int(usage.get("builder_used", 0))
@@ -417,17 +464,15 @@ async def complete_post(
 
 @app.post("/billing/razorpay/order")
 async def razorpay_create(req: RazorpayCreateOrderRequest, user=Depends(verify_user)):
-    # Only Pro is currently billable.
-    plan = (req.plan or "pro").strip().lower()
-    if plan != "pro":
+    plan = (req.plan or "starter").strip().lower()
+    if plan not in PLAN_PRICES_USD_CENTS:
         raise HTTPException(status_code=400, detail="Unsupported plan")
 
-    billing = (req.billing or "monthly").strip().lower()
-    if billing not in {"monthly", "yearly"}:
-        raise HTTPException(status_code=400, detail="Unsupported billing period")
+    # For now we only offer monthly billing.
+    billing = "monthly"
 
     # Amounts are in the currency's minor unit (cents for USD).
-    amount_minor = 4900 if billing == "yearly" else 499  # $4.99/mo, $49/yr
+    amount_minor = int(PLAN_PRICES_USD_CENTS[plan])
     currency = "USD"
 
     user_id = str(user.get("sub") or "user")
@@ -446,7 +491,7 @@ async def razorpay_create(req: RazorpayCreateOrderRequest, user=Depends(verify_u
     )
 
     if order.get("id"):
-        link_order_to_user(order.get("id"), user_id)
+        link_order_to_user(order.get("id"), user_id, plan=plan)
 
     return {
         "key_id": get_razorpay_key_id(),
@@ -476,8 +521,9 @@ async def razorpay_verify(req: RazorpayVerifyRequest, user=Depends(verify_user))
     ):
         raise HTTPException(status_code=400, detail="Invalid payment signature")
 
-    grant_pro(user_id=user_id, order_id=req.razorpay_order_id, payment_id=req.razorpay_payment_id)
-    return {"status": "ok", "plan": "pro"}
+    plan = get_plan_for_order(req.razorpay_order_id) or "pro"
+    grant_plan(user_id=user_id, plan=plan, order_id=req.razorpay_order_id, payment_id=req.razorpay_payment_id)
+    return {"status": "ok", "plan": plan}
 
 @app.post("/repurpose/")
 async def repurpose_content(
@@ -494,17 +540,19 @@ async def repurpose_content(
         raise HTTPException(status_code=400, detail="Input text cannot be empty")
 
     try:
-        premium = is_admin_user(user) or is_premium_user(user)
-        limits = _limits_for(premium)
+        plan = get_effective_plan(user)
+        admin = plan == "admin"
+        premium = plan in {"starter", "pro", "business", "admin"}
+        limits = _limits_for_plan("business" if admin else plan)
         user_id = str(user.get("sub") or "user")
-        if not is_admin_user(user):
+        if not admin:
             usage = get_usage(user_id)
             used = int(usage.get("text_used", 0))
             if used >= int(limits["text_posts"]):
                 raise _usage_error(feature="text_posts", limit=int(limits["text_posts"]), used=used)
         result = generate_social_content(req.text, x_style=req.x_style, content_format=req.format, is_premium=premium)
         sections = _parse_sections(result)
-        if not is_admin_user(user):
+        if not admin:
             record_usage(user_id, "text_used", n=1)
         return {"result": result, "sections": sections}
     except RuntimeError as e:
@@ -548,10 +596,12 @@ async def repurpose_from_image(
     Accepts an image upload and generates X/LinkedIn posts plus IG/FB captions.
     Free users get a limited monthly quota; Pro users get higher limits.
     """
-    premium = is_admin_user(user) or is_premium_user(user)
-    limits = _limits_for(premium)
+    plan = get_effective_plan(user)
+    admin = plan == "admin"
+    premium = plan in {"starter", "pro", "business", "admin"}
+    limits = _limits_for_plan("business" if admin else plan)
     user_id = str(user.get("sub") or "user")
-    if not is_admin_user(user):
+    if not admin:
         usage = get_usage(user_id)
         used = int(usage.get("vision_used", 0))
         if used >= int(limits["image_to_posts"]):
@@ -581,7 +631,7 @@ async def repurpose_from_image(
             is_premium=premium,
         )
         sections = _parse_sections(result)
-        if not is_admin_user(user):
+        if not admin:
             record_usage(user_id, "vision_used", n=1)
         return {"result": result, "sections": sections}
     except HTTPException:
