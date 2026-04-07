@@ -46,10 +46,11 @@ FREE_LIMITS = {
 }
 
 PRO_LIMITS = {
-    "text_posts": 2000,
-    "image_to_posts": 200,
-    "post_builder": 100,
-    "image_generations": 200,
+    # $4.99 plan (starter) - conservative limits to protect margin.
+    "text_posts": 300,
+    "image_to_posts": 25,
+    "post_builder": 10,
+    "image_generations": 25,
     "x_single_variants": 4,
     "x_thread_tweets_min": 4,
     "x_thread_tweets_max": 10,
@@ -426,7 +427,7 @@ async def razorpay_create(req: RazorpayCreateOrderRequest, user=Depends(verify_u
         raise HTTPException(status_code=400, detail="Unsupported billing period")
 
     # Amounts are in the currency's minor unit (cents for USD).
-    amount_minor = 29000 if billing == "yearly" else 2900  # $29/mo, $290/yr
+    amount_minor = 4900 if billing == "yearly" else 499  # $4.99/mo, $49/yr
     currency = "USD"
 
     user_id = str(user.get("sub") or "user")
