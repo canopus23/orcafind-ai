@@ -6,11 +6,20 @@ const SUPABASE_ANON_KEY = ORCAFIND_CONFIG.supabaseAnonKey || window.__ORCAFIND_S
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const API_BASE_URL = ORCAFIND_CONFIG.apiBaseUrl || window.__ORCAFIND_API_BASE_URL || "https://api.orcafind.com";
 
+function formatINR(amount) {
+  const value = Number(amount || 0);
+  try {
+    return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(value);
+  } catch (_err) {
+    return String(Math.round(value));
+  }
+}
+
 const PLAN_CATALOG = {
-  free: { label: "Free", priceLabel: "$0", checkoutLabel: "$0" },
-  starter: { label: "Starter", priceLabel: "$4.99", checkoutLabel: "$4.99 / mo" },
-  pro: { label: "Pro", priceLabel: "$14.99", checkoutLabel: "$14.99 / mo" },
-  business: { label: "Business", priceLabel: "$29.99", checkoutLabel: "$29.99 / mo" },
+  free: { label: "Free", amountInr: 0, priceLabel: "₹0", checkoutLabel: "₹0" },
+  starter: { label: "Starter", amountInr: 499, priceLabel: `₹${formatINR(499)}`, checkoutLabel: `₹${formatINR(499)} / mo` },
+  pro: { label: "Pro", amountInr: 1499, priceLabel: `₹${formatINR(1499)}`, checkoutLabel: `₹${formatINR(1499)} / mo` },
+  business: { label: "Business", amountInr: 2999, priceLabel: `₹${formatINR(2999)}`, checkoutLabel: `₹${formatINR(2999)} / mo` },
 };
 
 function showToast(title, message, type = "default") {
@@ -51,7 +60,7 @@ function syncSummary() {
   if (summaryPlan) summaryPlan.textContent = PLAN_CATALOG[selectedPlan]?.label || "Starter";
 
   if (summaryTotal) {
-    summaryTotal.textContent = PLAN_CATALOG[selectedPlan]?.checkoutLabel || "$4.99 / mo";
+    summaryTotal.textContent = PLAN_CATALOG[selectedPlan]?.checkoutLabel || `₹${formatINR(499)} / mo`;
   }
 }
 
@@ -79,7 +88,7 @@ function contactSales() {
 async function startRazorpayCheckout(email) {
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (!session) {
-    showToast("Sign in required", "Please sign in first, then return to checkout.", "error");
+    window.location.href = `/auth/?mode=signin&next=${encodeURIComponent("/checkout/")}`;
     return;
   }
 

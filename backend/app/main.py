@@ -76,10 +76,10 @@ PLAN_LIMITS = {
     },
 }
 
-PLAN_PRICES_USD_CENTS = {
-    "starter": 499,
-    "pro": 1499,
-    "business": 2999,
+PLAN_PRICES_INR_PAISE = {
+    "starter": 49900,
+    "pro": 149900,
+    "business": 299900,
 }
 
 
@@ -470,15 +470,15 @@ async def complete_post(
 @app.post("/billing/razorpay/order")
 async def razorpay_create(req: RazorpayCreateOrderRequest, user=Depends(verify_user)):
     plan = (req.plan or "starter").strip().lower()
-    if plan not in PLAN_PRICES_USD_CENTS:
+    if plan not in PLAN_PRICES_INR_PAISE:
         raise HTTPException(status_code=400, detail="Unsupported plan")
 
     # For now we only offer monthly billing.
     billing = "monthly"
 
-    # Amounts are in the currency's minor unit (cents for USD).
-    amount_minor = int(PLAN_PRICES_USD_CENTS[plan])
-    currency = "USD"
+    # Amounts are in the currency's minor unit (paise for INR).
+    amount_minor = int(PLAN_PRICES_INR_PAISE[plan])
+    currency = "INR"
 
     user_id = str(user.get("sub") or "user")
     email = _get_user_email(user) or req.email or ""
