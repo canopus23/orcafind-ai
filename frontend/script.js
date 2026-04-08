@@ -828,16 +828,16 @@ async function startCompletePostGeneration() {
     removeChatMessage(typingId);
     const image = (data.images || [])[0] || null;
     const imageUrl = image?.url || image?.data_url || null;
-    addChatMessage({
-      role: "assistant",
-      title: "Post Builder",
-      pill: "Bundle",
-      text: "Generated a complete bundle: copy plus image.",
-      actionsHTML: imageUrl
-        ? `<a class="btn btn-secondary btn-mini" href="${imageUrl}" download="orcafind-post-image.png">Download</a>`
-        : "",
-      imageDataUrl: imageUrl,
-    });
+    if (imageUrl) {
+      addChatMessage({
+        role: "assistant",
+        title: "Post Image",
+        pill: "Pro",
+        text: "Generated a post-ready image for this bundle.",
+        actionsHTML: `<a class="btn btn-secondary btn-mini" href="${imageUrl}" download="orcafind-post-image.png">Download</a>`,
+        imageDataUrl: imageUrl,
+      });
+    }
 
     const sections = {
       x: data.x || "",
@@ -851,7 +851,7 @@ async function startCompletePostGeneration() {
       addChatMessage({
         role: "assistant",
         title: "Twitter / X",
-        pill: "Copy",
+        pill: xStyle === "single" ? "Variations" : "Thread",
         text: sections.x,
         actionsHTML: `<button class="btn btn-ghost btn-mini" onclick="copyFromStore('${id}', 'X')">Copy</button>`,
       });
@@ -861,7 +861,7 @@ async function startCompletePostGeneration() {
       addChatMessage({
         role: "assistant",
         title: "LinkedIn",
-        pill: "Copy",
+        pill: "Post",
         text: sections.linkedin,
         actionsHTML: `<button class="btn btn-ghost btn-mini" onclick="copyFromStore('${id}', 'LinkedIn')">Copy</button>`,
       });
