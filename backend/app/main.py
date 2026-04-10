@@ -518,7 +518,11 @@ async def complete_post(
     }
 
 @app.post("/billing/razorpay/order")
-async def razorpay_create(req: RazorpayCreateOrderRequest, user=Depends(verify_user)):
+async def razorpay_create(
+    request: Request,
+    req: RazorpayCreateOrderRequest,
+    user=Depends(verify_user),
+):
     plan = (req.plan or "starter").strip().lower()
     if plan not in PLAN_PRICES_INR_PAISE:
         raise HTTPException(status_code=400, detail="Unsupported plan")
@@ -533,17 +537,33 @@ async def razorpay_create(req: RazorpayCreateOrderRequest, user=Depends(verify_u
     user_id = str(user.get("sub") or "user")
     email = _get_user_email(user) or req.email or ""
 
-    order = await razorpay_create_order(
-        amount_paise=amount_minor,
-        currency=currency,
-        receipt=f"orcafind_{plan}_{billing}_{user_id}",
-        notes={
-            "user_id": user_id,
-            "plan": plan,
-            "billing": billing,
-            "email": email,
-        },
-    )
+    try:
+        order = await razorpay_create_order(
+            amount_paise=amount_minor,
+            currency=currency,
+            receipt=f"orcafind_{plan}_{billing}_{user_id}",
+            notes={
+                "user_id": user_id,
+                "plan": plan,
+                "billing": billing,
+                "email": email,
+            },
+        )
+    except RuntimeError as e:
+        # Most commonly: missing RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET.
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message": "Billing is not configured on the server.",
+                "request_id": request.state.request_id,
+            },
+        ) from e
+    except Exception as e:
+        # Fail with a safe upstream error. CORS + request_id header come from middleware.
+        raise HTTPException(
+            status_code=502,
+            detail={"message": f"Razorpay error: {type(e).__name__}"},
+        ) from e
 
     if order.get("id"):
         link_order_to_user(order.get("id"), user_id, plan=plan)
