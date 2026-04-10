@@ -2,12 +2,17 @@ import logging
 import os
 import re
 
-import sentry_sdk
 import uvicorn
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sentry_sdk.integrations.fastapi import FastApiIntegration
+
+try:
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+except Exception:  # pragma: no cover - optional dependency
+    sentry_sdk = None  # type: ignore[assignment]
+    FastApiIntegration = None  # type: ignore[assignment]
 
 from app.dependencies.auth import verify_user
 from app.dependencies.rate_limit import RateLimitConfig, rate_limit
@@ -118,13 +123,16 @@ logging.basicConfig(
 )
 
 if os.getenv("SENTRY_DSN"):
-    sentry_sdk.init(
-        dsn=os.getenv("SENTRY_DSN"),
-        integrations=[FastApiIntegration()],
-        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.0")),
-        environment=os.getenv("ENV", "development"),
-        release=os.getenv("RELEASE", None),
-    )
+    if sentry_sdk and FastApiIntegration:
+        sentry_sdk.init(
+            dsn=os.getenv("SENTRY_DSN"),
+            integrations=[FastApiIntegration()],
+            traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.0")),
+            environment=os.getenv("ENV", "development"),
+            release=os.getenv("RELEASE", None),
+        )
+    else:
+        logger.warning("SENTRY_DSN set but sentry-sdk is not installed; skipping Sentry init.")
 
 app = FastAPI(title="OrcaFind AI API")
 app.add_middleware(RequestContextMiddleware)
@@ -607,14 +615,40 @@ async def razorpay_verify(
 
     order_user = get_user_for_order(req.razorpay_order_id)
     if order_user and order_user != user_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "message": "Forbidden: order is linked to a different user.",
+                "request_id": getattr(request.state, "request_id", None),
+            },
+        )
 
-    if not verify_signature(
-        order_id=req.razorpay_order_id,
-        payment_id=req.razorpay_payment_id,
-        signature=req.razorpay_signature,
-    ):
-        raise HTTPException(status_code=400, detail="Invalid payment signature")
+    try:
+        ok = verify_signature(
+            order_id=req.razorpay_order_id,
+            payment_id=req.razorpay_payment_id,
+            signature=req.razorpay_signature,
+        )
+    except RuntimeError as e:
+        msg = str(e or "").strip()
+        if msg.startswith("Missing required env var:"):
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "message": "Billing is not configured on the server.",
+                    "request_id": getattr(request.state, "request_id", None),
+                },
+            ) from e
+        raise
+
+    if not ok:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": "Invalid payment signature.",
+                "request_id": getattr(request.state, "request_id", None),
+            },
+        )
 
     plan = get_plan_for_order(req.razorpay_order_id) or "pro"
     grant_plan(
@@ -632,7 +666,8 @@ async def razorpay_verify(
             detail={
                 "message": (
                     "Subscription verified but could not be saved. "
-                    "Check DATABASE_URL / DB connectivity."
+                    "Check DATABASE_URL / DB connectivity "
+                    "(and set DB_FORCE_IPV4=true for Supabase if needed)."
                 ),
                 "request_id": getattr(request.state, "request_id", None),
             },

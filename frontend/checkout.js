@@ -107,7 +107,11 @@ async function startRazorpayCheckout(email) {
 
   const orderData = await orderRes.json();
   if (!orderRes.ok) {
-    throw new Error(orderData?.detail || "Failed to create order");
+    const detail = orderData?.detail;
+    const msg = typeof detail === "string"
+      ? detail
+      : (detail?.message || orderData?.message || "Failed to create order");
+    throw new Error(msg);
   }
 
   const options = {
@@ -123,11 +127,19 @@ async function startRazorpayCheckout(email) {
     theme: { color: "#1367ff" },
     handler: async function (response) {
       try {
+        // The checkout flow can take time. Refresh the Supabase session so we don't
+        // verify with an expired/stale access token.
+        const { data: { session: latestSession } } = await supabaseClient.auth.getSession();
+        if (!latestSession) {
+          window.location.href = `/auth/?mode=signin&next=${encodeURIComponent("/checkout/")}`;
+          return;
+        }
+
         const verifyRes = await fetch(`${API_BASE_URL}/billing/razorpay/verify`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${session.access_token}`,
+            "Authorization": `Bearer ${latestSession.access_token}`,
           },
           body: JSON.stringify({
             razorpay_order_id: response.razorpay_order_id,
@@ -136,16 +148,26 @@ async function startRazorpayCheckout(email) {
           }),
         });
 
-        const verifyData = await verifyRes.json();
+        let verifyData = null;
+        try {
+          verifyData = await verifyRes.json();
+        } catch (_err) {
+          verifyData = null;
+        }
         if (!verifyRes.ok) {
-          throw new Error(verifyData?.detail || "Payment verification failed");
+          const detail = verifyData?.detail;
+          const msg = typeof detail === "string"
+            ? detail
+            : (detail?.message || verifyData?.message || "Payment verification failed");
+          const reqId = detail?.request_id;
+          throw new Error(reqId ? `${msg} (request_id: ${reqId})` : msg);
         }
 
         // Immediately refresh entitlements so the UI shows the new plan.
         try {
           const entRes = await fetch(`${API_BASE_URL}/entitlements`, {
             method: "GET",
-            headers: { "Authorization": `Bearer ${session.access_token}` },
+            headers: { "Authorization": `Bearer ${latestSession.access_token}` },
           });
           if (entRes.ok) {
             const ent = await entRes.json();

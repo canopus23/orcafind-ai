@@ -1025,10 +1025,14 @@ function handlePremiumBackdrop(event) {
 async function fetchEntitlements(accessToken) {
   // Best-effort cache so the UI doesn't fall back to "free" after a successful payment
   // due to transient network errors.
+  const dirtyAt = Number(window.localStorage.getItem("orcafind_entitlements_dirty") || "0");
   try {
     const cached = JSON.parse(window.localStorage.getItem("orcafind_entitlements_cache") || "null");
     if (cached?.entitlements && typeof cached?.at === "number") {
-      if (Date.now() - cached.at < 7 * 24 * 60 * 60 * 1000) {
+      const cacheFresh = Date.now() - cached.at < 7 * 24 * 60 * 60 * 1000;
+      // If checkout marked entitlements as dirty, don't trust older cache.
+      const cacheNotStaleForDirty = !dirtyAt || cached.at >= dirtyAt;
+      if (cacheFresh && cacheNotStaleForDirty) {
         entitlements = cached.entitlements;
         applyEntitlementsToUI();
       }
@@ -1080,6 +1084,9 @@ async function fetchEntitlements(accessToken) {
         "orcafind_entitlements_cache",
         JSON.stringify({ at: Date.now(), entitlements })
       );
+      if (dirtyAt) {
+        window.localStorage.removeItem("orcafind_entitlements_dirty");
+      }
     } catch (_err) {}
   } catch (err) {
     // Keep the last known entitlements if we have them; otherwise fall back to free.
