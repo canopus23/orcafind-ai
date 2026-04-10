@@ -215,36 +215,9 @@ default_origins = {
 }
 origins = set(_parse_csv_set(os.getenv("CORS_ALLOW_ORIGINS"), lowercase=False)) | default_origins
 
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-# FastAPI/Starlette executes middleware in the order they are added (first = outermost).
-# Add CORS first so preflight OPTIONS and even error responses always include CORS headers.
-=======
-# CORSMiddleware must be added first to handle preflight OPTIONS requests
->>>>>>> theirs
-=======
-# CORSMiddleware must be added first to handle preflight OPTIONS requests
->>>>>>> theirs
-=======
-# NOTE: Starlette inserts middleware in a way that the *last* add_middleware call becomes the
-# outermost wrapper. We add CORS last so even error responses still include CORS headers.
->>>>>>> theirs
-=======
-# NOTE: Starlette inserts middleware in a way that the *last* add_middleware call becomes the
-# outermost wrapper. We add CORS last so even error responses still include CORS headers.
->>>>>>> theirs
-=======
-# NOTE: Starlette inserts middleware in a way that the *last* add_middleware call becomes the
-# outermost wrapper. We add CORS last so even error responses still include CORS headers.
->>>>>>> theirs
-=======
-# NOTE: Starlette inserts middleware in a way that the *last* add_middleware call becomes the
-# outermost wrapper. We add CORS last so even error responses still include CORS headers.
->>>>>>> theirs
+# CORS: keep this middleware as the outermost wrapper so preflight OPTIONS and error responses
+# always include the required Access-Control-* headers. In Starlette/FastAPI, add_middleware()
+# inserts at the beginning of the list, so the *last* add_middleware call becomes the outermost.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(origins),
