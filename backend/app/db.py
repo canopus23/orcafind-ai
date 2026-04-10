@@ -160,12 +160,22 @@ def _maybe_db_hostaddr(url: str) -> str | None:
 
     port = parsed.port or 5432
     try:
-        infos = socket.getaddrinfo(hostname, port, family=socket.AF_INET, type=socket.SOCK_STREAM)
-        if not infos:
-            return None
-        return infos[0][4][0]
+        # Some runtimes return no results when `type` is specified; keep this broad.
+        infos = socket.getaddrinfo(hostname, port, family=socket.AF_INET)
+        if infos:
+            return infos[0][4][0]
+    except Exception:
+        infos = []
+
+    # Fallback: direct IPv4 lookup.
+    try:
+        ipv4 = socket.gethostbyname(hostname)
+        if ipv4 and all(ch.isdigit() or ch == "." for ch in ipv4):
+            return ipv4
     except Exception:
         return None
+
+    return None
 
 
 def get_db_diagnostics() -> dict[str, object]:
