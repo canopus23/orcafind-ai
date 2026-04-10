@@ -223,14 +223,22 @@ default_origins = {
     "http://127.0.0.1:3000",
 }
 origins = set(_parse_csv_set(os.getenv("CORS_ALLOW_ORIGINS"), lowercase=False)) | default_origins
+cors_allow_all = (os.getenv("CORS_ALLOW_ALL") or "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 # CORS: keep this middleware as the outermost wrapper so preflight OPTIONS and error responses
 # always include the required Access-Control-* headers. In Starlette/FastAPI, add_middleware()
 # inserts at the beginning of the list, so the *last* add_middleware call becomes the outermost.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=list(origins),
-    allow_origin_regex=os.getenv("CORS_ALLOW_ORIGIN_REGEX"),
+    # For bearer-token APIs (no cookies), it's safe to allow all origins.
+    # This avoids a common production failure mode: missing/stripped CORS headers on edge errors.
+    allow_origins=["*"] if cors_allow_all else list(origins),
+    allow_origin_regex=None if cors_allow_all else os.getenv("CORS_ALLOW_ORIGIN_REGEX"),
     # We use Bearer tokens (Authorization header), not cookies.
     # Keeping credentials disabled avoids wildcard/CORS edge-cases.
     allow_credentials=False,
