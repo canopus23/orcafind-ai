@@ -5,7 +5,6 @@ from dataclasses import dataclass
 
 from fastapi import HTTPException, Request
 
-
 try:
     import redis
 except Exception:  # pragma: no cover

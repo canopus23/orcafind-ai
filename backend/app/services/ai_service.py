@@ -3,6 +3,7 @@ import os
 
 from openai import OpenAI
 
+
 # Helper for Post Builder fallback when the 4-section output is malformed.
 def generate_linkedin_post(
     text: str,

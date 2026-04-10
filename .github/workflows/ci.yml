@@ -33,4 +33,4 @@ jobs:
           # Ensure OpenAI calls are not executed in tests.
           OPENAI_API_KEY: ""
         run: |
-          pytest -q
+          python -m pytest -q

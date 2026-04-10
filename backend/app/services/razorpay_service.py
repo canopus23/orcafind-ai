@@ -58,6 +58,6 @@ async def create_order(
 
 def verify_signature(*, order_id: str, payment_id: str, signature: str) -> bool:
     key_secret = get_razorpay_key_secret()
-    message = f"{order_id}|{payment_id}".encode("utf-8")
+    message = f"{order_id}|{payment_id}".encode()
     digest = hmac.new(key_secret.encode("utf-8"), message, hashlib.sha256).hexdigest()
     return hmac.compare_digest(digest, signature or "")

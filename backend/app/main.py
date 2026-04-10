@@ -2,12 +2,12 @@ import logging
 import os
 import re
 
+import sentry_sdk
+import uvicorn
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
-import uvicorn
 
 from app.dependencies.auth import verify_user
 from app.dependencies.rate_limit import RateLimitConfig, rate_limit
@@ -24,6 +24,8 @@ from app.services.ai_service import (
 from app.services.image_service import generate_openai_images, generate_placeholder_images
 from app.services.razorpay_service import (
     create_order as razorpay_create_order,
+)
+from app.services.razorpay_service import (
     get_razorpay_key_id,
     verify_signature,
 )
@@ -619,7 +621,7 @@ async def repurpose_content(
                     "message": "AI provider is not configured (missing OPENAI_API_KEY).",
                     "request_id": request.state.request_id,
                 },
-            )
+            ) from e
         logger.exception("Runtime error in /repurpose/ (request_id=%s)", request.state.request_id)
         raise HTTPException(
             status_code=500,
@@ -627,7 +629,7 @@ async def repurpose_content(
                 "message": "Internal Server Error during content generation.",
                 "request_id": request.state.request_id,
             },
-        )
+        ) from e
     except Exception as e:
         # Provide a safe, compact upstream error so production debugging doesn't require log access.
         raw = str(e or "").strip().replace("\n", " ")
@@ -640,7 +642,7 @@ async def repurpose_content(
         raise HTTPException(
             status_code=502,
             detail={"message": upstream_msg, "request_id": request.state.request_id},
-        )
+        ) from e
 
 
 @app.post("/repurpose/image")
@@ -718,7 +720,7 @@ async def repurpose_from_image(
                     "message": "AI provider is not configured (missing OPENAI_API_KEY).",
                     "request_id": request.state.request_id,
                 },
-            )
+            ) from e
         logger.exception(
             "Runtime error in /repurpose/image (request_id=%s)",
             request.state.request_id,
@@ -729,7 +731,7 @@ async def repurpose_from_image(
                 "message": "Internal Server Error during image-based generation.",
                 "request_id": request.state.request_id,
             },
-        )
+        ) from e
     except Exception as e:
         raw_msg = str(e or "").strip().replace("\n", " ")
         if len(raw_msg) > 220:
@@ -741,7 +743,7 @@ async def repurpose_from_image(
         raise HTTPException(
             status_code=502,
             detail={"message": upstream_msg, "request_id": request.state.request_id},
-        )
+        ) from e
 
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
