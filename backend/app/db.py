@@ -146,6 +146,28 @@ def _maybe_db_hostaddr(url: str) -> str | None:
         return None
 
 
+def get_db_diagnostics() -> dict[str, object]:
+    """
+    Returns safe DB connection diagnostics (no credentials).
+    Useful for debugging IPv6 egress issues on some platforms (e.g. Railway).
+    """
+    raw_url = os.getenv("DATABASE_URL", "") or ""
+    url = _normalize_database_url(raw_url)
+    if not url:
+        return {"configured": False}
+    parsed = urllib.parse.urlsplit(url)
+    hostaddr = _maybe_db_hostaddr(url) or ""
+    return {
+        "configured": True,
+        "scheme": parsed.scheme,
+        "hostname": parsed.hostname or "",
+        "port": int(parsed.port or 5432),
+        "hostaddr": hostaddr,
+        "db_force_ipv4": (os.getenv("DB_FORCE_IPV4") or "").strip(),
+        "db_hostaddr_env_set": bool((os.getenv("DB_HOSTADDR") or "").strip()),
+    }
+
+
 @lru_cache(maxsize=8)
 def _engine_for_url(
     url: str,

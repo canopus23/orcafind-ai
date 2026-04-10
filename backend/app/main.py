@@ -6,6 +6,7 @@ import uvicorn
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 
 try:
     import sentry_sdk
@@ -14,6 +15,7 @@ except Exception:  # pragma: no cover - optional dependency
     sentry_sdk = None  # type: ignore[assignment]
     FastApiIntegration = None  # type: ignore[assignment]
 
+from app.db import get_db_diagnostics, get_engine
 from app.dependencies.auth import verify_user
 from app.dependencies.rate_limit import RateLimitConfig, rate_limit
 from app.middleware.request_context import RequestContextMiddleware
@@ -146,6 +148,25 @@ async def _unhandled_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={"detail": "Internal Server Error", "request_id": request_id},
     )
+
+
+@app.get("/internal/db")
+async def internal_db(user=Depends(verify_user)):
+    if not is_admin_user(user):
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    info = get_db_diagnostics()
+    ok = False
+    err = ""
+    try:
+        engine = get_engine()
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        ok = True
+    except Exception as e:
+        err = str(e or "").strip().replace("\n", " ")[:240]
+
+    return {"ok": ok, "db": info, "error": err}
 
 @app.on_event("startup")
 def _startup():
