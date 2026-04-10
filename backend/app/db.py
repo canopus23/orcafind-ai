@@ -40,11 +40,21 @@ def _maybe_force_ipv4(url: str) -> str:
     force_raw = (os.getenv("DB_FORCE_IPV4") or "").strip().lower()
     env = (os.getenv("ENV") or "").strip().lower()
     looks_like_supabase = "supabase" in hostname.lower()
+    on_railway = any(
+        (os.getenv(k) or "").strip()
+        for k in (
+            "RAILWAY_PROJECT_ID",
+            "RAILWAY_SERVICE_ID",
+            "RAILWAY_ENVIRONMENT",
+            "RAILWAY_STATIC_URL",
+        )
+    )
     force = (
         force_raw in {"1", "true", "yes", "on"}
         or ((not force_raw) and (env in {"prod", "production"}))
-        # Railway deployments sometimes have no IPv6 egress; Supabase commonly resolves IPv6 first.
         or ((not force_raw) and looks_like_supabase)
+        # Railway often lacks IPv6 egress; prefer IPv4 unless explicitly disabled.
+        or ((not force_raw) and on_railway)
     )
     if not force:
         return url
@@ -61,12 +71,28 @@ def _maybe_force_ipv4(url: str) -> str:
     except Exception:
         return url
 
-    # Replace only the hostname occurrence inside netloc.
+    # Rebuild netloc safely: [userinfo@]host[:port]
     netloc = parsed.netloc
-    if hostname in netloc:
-        netloc = netloc.replace(hostname, ipv4, 1)
+    if "@" in netloc:
+        userinfo, hostport = netloc.rsplit("@", 1)
+        userinfo = f"{userinfo}@"
+    else:
+        userinfo, hostport = "", netloc
+
+    rest = ""
+    if hostport.startswith("["):
+        # IPv6 literal in brackets. Keep the port suffix if present.
+        end = hostport.find("]")
+        rest = hostport[end + 1 :] if end != -1 else ""
+    else:
+        # hostname[:port]
+        if ":" in hostport:
+            _, rest_part = hostport.split(":", 1)
+            rest = f":{rest_part}"
+
+    new_netloc = f"{userinfo}{ipv4}{rest}"
     return urllib.parse.urlunsplit(
-        (parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment)
+        (parsed.scheme, new_netloc, parsed.path, parsed.query, parsed.fragment)
     )
 
 
