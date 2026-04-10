@@ -251,6 +251,38 @@ if (!window.supabase?.createClient) {
   window.profileSignOut = profileSignOut;
 
   document.addEventListener("DOMContentLoaded", () => {
+    const debugEnabled = new URLSearchParams(window.location.search).get("debug") === "1";
+    if (debugEnabled) {
+      const panel = document.createElement("pre");
+      panel.style.cssText = "white-space:pre-wrap; word-break:break-word; padding:14px; border-radius:16px; border:1px solid rgba(111,132,163,.18); background:rgba(255,255,255,.85); margin:16px auto; max-width:1120px; width:calc(100% - 32px);";
+      if (document.documentElement.dataset.theme === "dark") {
+        panel.style.background = "rgba(6,10,18,.78)";
+        panel.style.borderColor = "rgba(255,255,255,.10)";
+      }
+      panel.textContent = "Profile debug enabled…";
+      document.body.appendChild(panel);
+
+      (async () => {
+        const ref = _getSupabaseProjectRef();
+        const keys = Object.keys(window.localStorage || {}).filter((k) => k.startsWith("sb-") && k.endsWith("-auth-token"));
+        const tokens = _readStoredSessionTokens();
+        let session = null;
+        try {
+          const { data } = await supabaseClient.auth.getSession();
+          session = data?.session || null;
+        } catch (_err) {}
+
+        panel.textContent = [
+          `host: ${window.location.host}`,
+          `path: ${window.location.pathname}`,
+          `supabase_ref: ${ref || "(unknown)"}`,
+          `storage_keys: ${keys.length ? keys.join(", ") : "(none)"}`,
+          `tokens_found: ${tokens ? "yes" : "no"}`,
+          `getSession_user: ${session?.user?.email || "(none)"}`,
+        ].join("\n");
+      })();
+    }
+
     hydrate();
     supabaseClient.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
@@ -273,4 +305,3 @@ if (!window.supabase?.createClient) {
     });
   });
 }
-
