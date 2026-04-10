@@ -250,13 +250,25 @@
       </div>
 
       <div id="authModeCopy" class="auth-mode-copy">
-        Continue with Google or X. OrcaFind will create an account automatically on first sign-in.
+        Sign in with email/password, or continue with Google or X. OrcaFind will create an account automatically on first sign-in.
       </div>
 
-      <div class="auth-actions" style="margin-top: 6px;">
-        <button class="btn btn-primary" type="button" onclick="loginWithGoogle()">Continue with Google</button>
-        <button class="btn btn-ghost" type="button" onclick="loginWithX()">Continue with X</button>
-      </div>
+      <form class="auth-form" onsubmit="event.preventDefault(); handleLogin();">
+        <div class="field-group">
+          <label for="email">Email</label>
+          <input id="email" type="email" placeholder="you@company.com" autocomplete="email" required>
+        </div>
+        <div class="field-group">
+          <label for="password">Password</label>
+          <input id="password" type="password" placeholder="Enter your password" autocomplete="current-password" required>
+        </div>
+
+        <div class="auth-actions">
+          <button id="primaryAuthAction" class="btn btn-primary" type="submit">Sign In</button>
+          <button class="btn btn-ghost" type="button" onclick="loginWithGoogle()">Continue with Google</button>
+          <button class="btn btn-ghost" type="button" onclick="loginWithX()">Continue with X</button>
+        </div>
+      </form>
 
       <div class="muted-row">
         <span id="authNextHint">After sign-in, we’ll return you to your workspace.</span>
