@@ -144,22 +144,37 @@ function applySignedInUI({ user, entitlements }) {
   if (signedInActions) signedInActions.style.display = "grid";
 }
 
-async function hydrate() {
-  let { data } = await supabaseClient.auth.getSession();
-  let session = data?.session;
-  if (!session?.user) {
-    // In some browsers/edge cases the session may not be hydrated yet.
-    // Try a one-time refresh before rendering the signed-out state.
+async function hydrate({ allowSignedOut = true } = {}) {
+  // Supabase sometimes emits INITIAL_SESSION with a null user before storage is hydrated.
+  // We retry briefly to avoid showing a stuck "signed out" UI for already-authenticated users.
+  const MAX_ATTEMPTS = 6;
+  let attempt = 0;
+  let session = null;
+
+  while (attempt < MAX_ATTEMPTS) {
+    attempt += 1;
     try {
-      await supabaseClient.auth.refreshSession();
-      ({ data } = await supabaseClient.auth.getSession());
-      session = data?.session;
+      const { data } = await supabaseClient.auth.getSession();
+      session = data?.session || null;
     } catch (_err) {
-      // Ignore and fall through.
+      session = null;
     }
+
+    if (session?.user) break;
+
+    if (attempt === 2) {
+      // One refresh attempt to recover in edge cases (expired access token + valid refresh token).
+      try {
+        await supabaseClient.auth.refreshSession();
+      } catch (_err) {}
+    }
+
+    // Backoff a bit (total wait ~ 1.6s).
+    await new Promise((r) => window.setTimeout(r, 220 + attempt * 120));
   }
+
   if (!session?.user) {
-    applySignedOutUI();
+    if (allowSignedOut) applySignedOutUI();
     return;
   }
 
@@ -182,11 +197,25 @@ window.profileSignOut = profileSignOut;
 
 document.addEventListener("DOMContentLoaded", () => {
   hydrate();
-  supabaseClient.auth.onAuthStateChange((_event, session) => {
-    if (session?.user) {
-      fetchEntitlements(session.access_token).then((ent) => applySignedInUI({ user: session.user, entitlements: ent }));
-    } else {
+  supabaseClient.auth.onAuthStateChange((event, session) => {
+    if (event === "SIGNED_OUT") {
       applySignedOutUI();
+      return;
+    }
+
+    if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session?.user) {
+      fetchEntitlements(session.access_token).then((ent) => applySignedInUI({ user: session.user, entitlements: ent }));
+      return;
+    }
+
+    // Ignore null INITIAL_SESSION and retry hydration once; avoid a false "signed out" UI.
+    if (event === "INITIAL_SESSION" && !session?.user) {
+      hydrate({ allowSignedOut: false }).then(() => {
+        // If still no session after retries, then show signed out.
+        supabaseClient.auth.getSession().then(({ data }) => {
+          if (!data?.session?.user) applySignedOutUI();
+        }).catch(() => applySignedOutUI());
+      });
     }
   });
 });
