@@ -598,7 +598,11 @@ async def razorpay_create(
 
 
 @app.post("/billing/razorpay/verify")
-async def razorpay_verify(req: RazorpayVerifyRequest, user=Depends(verify_user)):
+async def razorpay_verify(
+    request: Request,
+    req: RazorpayVerifyRequest,
+    user=Depends(verify_user),
+):
     user_id = str(user.get("sub") or "user")
 
     order_user = get_user_for_order(req.razorpay_order_id)
@@ -619,7 +623,21 @@ async def razorpay_verify(req: RazorpayVerifyRequest, user=Depends(verify_user))
         order_id=req.razorpay_order_id,
         payment_id=req.razorpay_payment_id,
     )
-    return {"status": "ok", "plan": plan}
+    # Ensure the subscription is actually persisted. If the DB is misconfigured/unreachable,
+    # grant_plan() fails open (returns) and the UI would keep showing "free".
+    persisted = (get_plan(user_id) or "").strip().lower()
+    if persisted != plan:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message": (
+                    "Subscription verified but could not be saved. "
+                    "Check DATABASE_URL / DB connectivity."
+                ),
+                "request_id": getattr(request.state, "request_id", None),
+            },
+        )
+    return {"status": "ok", "plan": plan, "effective_plan": get_effective_plan(user)}
 
 @app.post("/repurpose/")
 async def repurpose_content(

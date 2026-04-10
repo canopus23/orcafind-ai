@@ -141,7 +141,27 @@ async function startRazorpayCheckout(email) {
           throw new Error(verifyData?.detail || "Payment verification failed");
         }
 
-        showToast("Payment successful", "Pro is now enabled for your account.", "success");
+        // Immediately refresh entitlements so the UI shows the new plan.
+        try {
+          const entRes = await fetch(`${API_BASE_URL}/entitlements`, {
+            method: "GET",
+            headers: { "Authorization": `Bearer ${session.access_token}` },
+          });
+          if (entRes.ok) {
+            const ent = await entRes.json();
+            window.localStorage.setItem("orcafind_entitlements_cache", JSON.stringify({
+              at: Date.now(),
+              entitlements: ent,
+            }));
+          }
+        } catch (_err) {}
+
+        const planLabel = String(verifyData?.effective_plan || verifyData?.plan || "pro").toUpperCase();
+        showToast("Payment successful", `${planLabel} is now enabled for your account.`, "success");
+        // Force a fresh entitlements fetch on next page load.
+        try {
+          window.localStorage.setItem("orcafind_entitlements_dirty", String(Date.now()));
+        } catch (_err) {}
         window.setTimeout(() => {
         window.location.href = "/studio/#studio";
       }, 900);

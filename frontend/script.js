@@ -1023,6 +1023,18 @@ function handlePremiumBackdrop(event) {
 }
 
 async function fetchEntitlements(accessToken) {
+  // Best-effort cache so the UI doesn't fall back to "free" after a successful payment
+  // due to transient network errors.
+  try {
+    const cached = JSON.parse(window.localStorage.getItem("orcafind_entitlements_cache") || "null");
+    if (cached?.entitlements && typeof cached?.at === "number") {
+      if (Date.now() - cached.at < 7 * 24 * 60 * 60 * 1000) {
+        entitlements = cached.entitlements;
+        applyEntitlementsToUI();
+      }
+    }
+  } catch (_err) {}
+
   if (!accessToken) {
     entitlements = {
       plan: "free",
@@ -1038,12 +1050,12 @@ async function fetchEntitlements(accessToken) {
         image_to_posts_total: 5,
         image_to_posts_used: 0,
         image_to_posts_remaining: 5,
-        post_builder_total: 2,
+        post_builder_total: 0,
         post_builder_used: 0,
-        post_builder_remaining: 2,
-        image_generations_total: 8,
+        post_builder_remaining: 0,
+        image_generations_total: 0,
         image_generations_used: 0,
-        image_generations_remaining: 8,
+        image_generations_remaining: 0,
       },
     };
     applyEntitlementsToUI();
@@ -1063,29 +1075,38 @@ async function fetchEntitlements(accessToken) {
     }
 
     entitlements = await response.json();
+    try {
+      window.localStorage.setItem(
+        "orcafind_entitlements_cache",
+        JSON.stringify({ at: Date.now(), entitlements })
+      );
+    } catch (_err) {}
   } catch (err) {
-    entitlements = {
-      plan: "free",
-      is_admin: false,
-      is_premium: false,
-      limits: {
-        x_single_variants: 2,
-        x_thread_tweets_min: 4,
-        x_thread_tweets_max: 7,
-        text_posts_total: 60,
-        text_posts_used: 0,
-        text_posts_remaining: 60,
-        image_to_posts_total: 5,
-        image_to_posts_used: 0,
-        image_to_posts_remaining: 5,
-        post_builder_total: 2,
-        post_builder_used: 0,
-        post_builder_remaining: 2,
-        image_generations_total: 8,
-        image_generations_used: 0,
-        image_generations_remaining: 8,
-      },
-    };
+    // Keep the last known entitlements if we have them; otherwise fall back to free.
+    if (!entitlements?.plan) {
+      entitlements = {
+        plan: "free",
+        is_admin: false,
+        is_premium: false,
+        limits: {
+          x_single_variants: 2,
+          x_thread_tweets_min: 4,
+          x_thread_tweets_max: 7,
+          text_posts_total: 60,
+          text_posts_used: 0,
+          text_posts_remaining: 60,
+          image_to_posts_total: 5,
+          image_to_posts_used: 0,
+          image_to_posts_remaining: 5,
+          post_builder_total: 0,
+          post_builder_used: 0,
+          post_builder_remaining: 0,
+          image_generations_total: 0,
+          image_generations_used: 0,
+          image_generations_remaining: 0,
+        },
+      };
+    }
   }
 
   applyEntitlementsToUI();
