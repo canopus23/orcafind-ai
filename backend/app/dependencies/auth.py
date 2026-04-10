@@ -1,6 +1,6 @@
 import json
-import os
 import logging
+import os
 from functools import lru_cache
 from urllib.error import URLError
 from urllib.request import urlopen

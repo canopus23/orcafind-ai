@@ -1,37 +1,44 @@
+import logging
 import os
 import re
-import logging
-from typing import Optional, Set
-from fastapi import FastAPI, Depends, HTTPException, Request, UploadFile, File, Form
+
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import uvicorn
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
+import uvicorn
 
-# Ensure these imports match the actual file paths and function names
 from app.dependencies.auth import verify_user
 from app.dependencies.rate_limit import RateLimitConfig, rate_limit
 from app.middleware.request_context import RequestContextMiddleware
 from app.schemas.billing import RazorpayCreateOrderRequest, RazorpayVerifyRequest
-from app.schemas.request import ContentRequest
-from app.schemas.images import ImageGenerateRequest
 from app.schemas.complete_post import CompletePostRequest
-from app.services.ai_service import generate_social_content, generate_social_content_from_image, generate_linkedin_post
+from app.schemas.images import ImageGenerateRequest
+from app.schemas.request import ContentRequest
+from app.services.ai_service import (
+    generate_linkedin_post,
+    generate_social_content,
+    generate_social_content_from_image,
+)
 from app.services.image_service import generate_openai_images, generate_placeholder_images
-from app.services.razorpay_service import create_order as razorpay_create_order, get_razorpay_key_id, verify_signature
+from app.services.razorpay_service import (
+    create_order as razorpay_create_order,
+    get_razorpay_key_id,
+    verify_signature,
+)
 from app.services.subscriptions import (
-    grant_plan,
     get_plan,
-    has_paid_plan,
-    link_order_to_user,
-    get_user_for_order,
     get_plan_for_order,
-    record_image_usage,
     get_usage,
-    record_usage,
+    get_user_for_order,
+    grant_plan,
+    has_paid_plan,
     init_schema,
     is_usage_db_configured,
+    link_order_to_user,
+    record_image_usage,
+    record_usage,
 )
 
 logger = logging.getLogger("orcafind.api")
@@ -40,8 +47,8 @@ PLAN_LIMITS = {
     "free": {
         "text_posts": 60,          # /repurpose/ runs per month
         "image_to_posts": 5,       # /repurpose/image runs per month
-        "post_builder": 2,         # /posts/complete runs per month
-        "image_generations": 8,    # total images per month (includes Post Builder images)
+        "post_builder": 0,         # /posts/complete (includes images) is Pro-only
+        "image_generations": 0,    # /images/generate is Pro-only
         "x_single_variants": 2,
         "x_thread_tweets_min": 4,
         "x_thread_tweets_max": 7,
@@ -138,7 +145,7 @@ def _startup():
         # Never crash the API on startup due to transient DB connectivity.
         logger.exception("Startup: init_schema failed (DB unreachable).")
 
-def _parse_csv_set(value: Optional[str], *, lowercase: bool = True) -> Set[str]:
+def _parse_csv_set(value: str | None, *, lowercase: bool = True) -> set[str]:
     if not value:
         return set()
     items = []
@@ -150,7 +157,7 @@ def _parse_csv_set(value: Optional[str], *, lowercase: bool = True) -> Set[str]:
     return set(items)
 
 
-def _get_user_email(payload: dict) -> Optional[str]:
+def _get_user_email(payload: dict) -> str | None:
     email = payload.get("email")
     if isinstance(email, str) and email:
         return email
@@ -250,10 +257,16 @@ async def entitlements(user=Depends(verify_user)):
         used_builder = int(usage.get("builder_used", 0))
         used_images = int(usage.get("image_used", 0))
 
-        remaining_text = _remaining(int(limits["text_posts"]), used_text) if not admin else 100_000
-        remaining_vision = _remaining(int(limits["image_to_posts"]), used_vision) if not admin else 100_000
-        remaining_builder = _remaining(int(limits["post_builder"]), used_builder) if not admin else 100_000
-        remaining_images = _remaining(int(limits["image_generations"]), used_images) if not admin else 100_000
+        remaining_text = 100_000 if admin else _remaining(int(limits["text_posts"]), used_text)
+        remaining_vision = (
+            100_000 if admin else _remaining(int(limits["image_to_posts"]), used_vision)
+        )
+        remaining_builder = (
+            100_000 if admin else _remaining(int(limits["post_builder"]), used_builder)
+        )
+        remaining_images = (
+            100_000 if admin else _remaining(int(limits["image_generations"]), used_images)
+        )
     except Exception:
         # Fail closed in production if usage DB is misconfigured/unreachable.
         if (not premium) and env in {"prod", "production"}:
@@ -309,24 +322,36 @@ async def generate_images(
     premium = plan in {"starter", "pro", "business", "admin"}
     user_id = str(user.get("sub") or "user")
 
+    # Product rule: AI image generation is Pro-only (and admin for testing).
+    if (not admin) and (not premium):
+        raise HTTPException(
+            status_code=402,
+            detail={
+                "message": "AI image generation is available on Pro plans. Upgrade to unlock.",
+                "feature": "image_generations",
+            },
+        )
+
     limits = _limits_for_plan("business" if admin else plan)
     if not admin:
-        if not is_usage_db_configured() and os.getenv("ENV", "development").strip().lower() in {"prod", "production"}:
+        env = os.getenv("ENV", "development").strip().lower()
+        if (not is_usage_db_configured()) and (env in {"prod", "production"}):
             raise HTTPException(status_code=503, detail="Usage tracking is not configured")
         usage = get_usage(user_id)
         used = int(usage.get("image_used", 0))
-        inc = 1 if not premium else max(1, int(req.count or 1))
+        inc = min(3, max(1, int(req.count or 1)))
         if used + inc > int(limits["image_generations"]):
-            raise _usage_error(feature="image_generations", limit=int(limits["image_generations"]), used=used)
+            raise _usage_error(
+                feature="image_generations",
+                limit=int(limits["image_generations"]),
+                used=used,
+            )
 
     # Prefer OpenAI if configured; fall back to placeholder images for local/dev.
     images = None
     if os.getenv("OPENAI_API_KEY"):
-        quality = "medium" if premium else "low"
-        count = int(req.count)
-        # Free plan: keep it to 1 image per request to control costs.
-        if not premium:
-            count = 1
+        quality = "medium"
+        count = min(3, max(1, int(req.count or 1)))
         images = generate_openai_images(
             brief=req.brief,
             style=req.style,
@@ -340,12 +365,12 @@ async def generate_images(
             brief=req.brief,
             style=req.style,
             aspect=req.aspect,
-            count=1 if not premium else req.count,
+            count=min(3, max(1, int(req.count or 1))),
         )
 
     # Usage accounting (monthly).
     if not admin:
-        record_image_usage(user_id, n=1 if not premium else int(req.count or 1))
+        record_image_usage(user_id, n=min(3, max(1, int(req.count or 1))))
     return {"images": images}
 
 
@@ -409,9 +434,17 @@ async def complete_post(
         used_builder = int(usage.get("builder_used", 0))
         used_images = int(usage.get("image_used", 0))
         if used_builder >= int(limits["post_builder"]):
-            raise _usage_error(feature="post_builder", limit=int(limits["post_builder"]), used=used_builder)
+            raise _usage_error(
+                feature="post_builder",
+                limit=int(limits["post_builder"]),
+                used=used_builder,
+            )
         if used_images + 1 > int(limits["image_generations"]):
-            raise _usage_error(feature="image_generations", limit=int(limits["image_generations"]), used=used_images)
+            raise _usage_error(
+                feature="image_generations",
+                limit=int(limits["image_generations"]),
+                used=used_images,
+            )
 
     result = generate_social_content(
         req.text,
@@ -427,9 +460,14 @@ async def complete_post(
     if not linkedin_text:
         # Fallback: occasionally the model output doesn't conform to the 4-section format.
         # Generate LinkedIn alone to avoid failing the whole Post Builder request.
-        linkedin_text = (generate_linkedin_post(req.text, content_format=req.format, is_premium=premium) or "").strip()
+        linkedin_text = (
+            generate_linkedin_post(req.text, content_format=req.format, is_premium=premium) or ""
+        ).strip()
     if not linkedin_text:
-        raise HTTPException(status_code=502, detail="LinkedIn output missing from generation result")
+        raise HTTPException(
+            status_code=502,
+            detail="LinkedIn output missing from generation result",
+        )
 
     # Build a concise image brief if the user didn't provide one.
     image_brief = (req.image_brief or "").strip()
@@ -529,7 +567,12 @@ async def razorpay_verify(req: RazorpayVerifyRequest, user=Depends(verify_user))
         raise HTTPException(status_code=400, detail="Invalid payment signature")
 
     plan = get_plan_for_order(req.razorpay_order_id) or "pro"
-    grant_plan(user_id=user_id, plan=plan, order_id=req.razorpay_order_id, payment_id=req.razorpay_payment_id)
+    grant_plan(
+        user_id=user_id,
+        plan=plan,
+        order_id=req.razorpay_order_id,
+        payment_id=req.razorpay_payment_id,
+    )
     return {"status": "ok", "plan": plan}
 
 @app.post("/repurpose/")
@@ -557,7 +600,12 @@ async def repurpose_content(
             used = int(usage.get("text_used", 0))
             if used >= int(limits["text_posts"]):
                 raise _usage_error(feature="text_posts", limit=int(limits["text_posts"]), used=used)
-        result = generate_social_content(req.text, x_style=req.x_style, content_format=req.format, is_premium=premium)
+        result = generate_social_content(
+            req.text,
+            x_style=req.x_style,
+            content_format=req.format,
+            is_premium=premium,
+        )
         sections = _parse_sections(result)
         if not admin:
             record_usage(user_id, "text_used", n=1)
@@ -567,12 +615,18 @@ async def repurpose_content(
         if "OPENAI_API_KEY" in msg:
             raise HTTPException(
                 status_code=503,
-                detail={"message": "AI provider is not configured (missing OPENAI_API_KEY).", "request_id": request.state.request_id},
+                detail={
+                    "message": "AI provider is not configured (missing OPENAI_API_KEY).",
+                    "request_id": request.state.request_id,
+                },
             )
         logger.exception("Runtime error in /repurpose/ (request_id=%s)", request.state.request_id)
         raise HTTPException(
             status_code=500,
-            detail={"message": "Internal Server Error during content generation.", "request_id": request.state.request_id},
+            detail={
+                "message": "Internal Server Error during content generation.",
+                "request_id": request.state.request_id,
+            },
         )
     except Exception as e:
         # Provide a safe, compact upstream error so production debugging doesn't require log access.
@@ -580,12 +634,12 @@ async def repurpose_content(
         if len(raw) > 220:
             raw = raw[:217] + "..."
         logger.exception("Error in /repurpose/ (request_id=%s)", request.state.request_id)
+        upstream_msg = f"Upstream AI error: {type(e).__name__}"
+        if raw:
+            upstream_msg = f"{upstream_msg}: {raw}"
         raise HTTPException(
             status_code=502,
-            detail={
-                "message": f"Upstream AI error: {type(e).__name__}: {raw}" if raw else f"Upstream AI error: {type(e).__name__}",
-                "request_id": request.state.request_id,
-            },
+            detail={"message": upstream_msg, "request_id": request.state.request_id},
         )
 
 
@@ -597,7 +651,9 @@ async def repurpose_from_image(
     x_style: str = Form("single"),
     format: str = Form("professional"),
     user=Depends(verify_user),
-    _rl=Depends(rate_limit(RateLimitConfig(limit=12, window_seconds=60, key_prefix="repurpose_image"))),
+    _rl=Depends(
+        rate_limit(RateLimitConfig(limit=12, window_seconds=60, key_prefix="repurpose_image"))
+    ),
 ):
     """
     Accepts an image upload and generates X/LinkedIn posts plus IG/FB captions.
@@ -612,14 +668,21 @@ async def repurpose_from_image(
         usage = get_usage(user_id)
         used = int(usage.get("vision_used", 0))
         if used >= int(limits["image_to_posts"]):
-            raise _usage_error(feature="image_to_posts", limit=int(limits["image_to_posts"]), used=used)
+            raise _usage_error(
+                feature="image_to_posts",
+                limit=int(limits["image_to_posts"]),
+                used=used,
+            )
 
     if not image:
         raise HTTPException(status_code=400, detail="Image file is required")
 
     content_type = (image.content_type or "").strip().lower()
     if content_type and not content_type.startswith("image/"):
-        raise HTTPException(status_code=415, detail="Unsupported file type. Upload a PNG, JPEG, or WebP image.")
+        raise HTTPException(
+            status_code=415,
+            detail="Unsupported file type. Upload a PNG, JPEG, or WebP image.",
+        )
 
     try:
         raw = await image.read()
@@ -627,7 +690,10 @@ async def repurpose_from_image(
             raise HTTPException(status_code=400, detail="Uploaded image is empty")
         # 6MB guardrail to avoid huge payloads.
         if len(raw) > 6 * 1024 * 1024:
-            raise HTTPException(status_code=413, detail="Image is too large. Please upload a smaller file (max 6MB).")
+            raise HTTPException(
+                status_code=413,
+                detail="Image is too large. Please upload a smaller file (max 6MB).",
+            )
 
         result = generate_social_content_from_image(
             image_bytes=raw,
@@ -648,24 +714,33 @@ async def repurpose_from_image(
         if "OPENAI_API_KEY" in msg:
             raise HTTPException(
                 status_code=503,
-                detail={"message": "AI provider is not configured (missing OPENAI_API_KEY).", "request_id": request.state.request_id},
+                detail={
+                    "message": "AI provider is not configured (missing OPENAI_API_KEY).",
+                    "request_id": request.state.request_id,
+                },
             )
-        logger.exception("Runtime error in /repurpose/image (request_id=%s)", request.state.request_id)
+        logger.exception(
+            "Runtime error in /repurpose/image (request_id=%s)",
+            request.state.request_id,
+        )
         raise HTTPException(
             status_code=500,
-            detail={"message": "Internal Server Error during image-based generation.", "request_id": request.state.request_id},
+            detail={
+                "message": "Internal Server Error during image-based generation.",
+                "request_id": request.state.request_id,
+            },
         )
     except Exception as e:
         raw_msg = str(e or "").strip().replace("\n", " ")
         if len(raw_msg) > 220:
             raw_msg = raw_msg[:217] + "..."
         logger.exception("Error in /repurpose/image (request_id=%s)", request.state.request_id)
+        upstream_msg = f"Upstream AI error: {type(e).__name__}"
+        if raw_msg:
+            upstream_msg = f"{upstream_msg}: {raw_msg}"
         raise HTTPException(
             status_code=502,
-            detail={
-                "message": f"Upstream AI error: {type(e).__name__}: {raw_msg}" if raw_msg else f"Upstream AI error: {type(e).__name__}",
-                "request_id": request.state.request_id,
-            },
+            detail={"message": upstream_msg, "request_id": request.state.request_id},
         )
 
 if __name__ == "__main__":

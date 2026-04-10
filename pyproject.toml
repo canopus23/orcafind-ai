@@ -5,7 +5,10 @@ exclude = ["backend/venv", "backend/.venv", ".venv"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
+ignore = [
+  # FastAPI uses Depends(...) and other callables in default arguments by design.
+  "B008",
+]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
-

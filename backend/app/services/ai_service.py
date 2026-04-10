@@ -1,6 +1,6 @@
-import os
 import base64
-from typing import Optional
+import os
+
 from openai import OpenAI
 
 # Helper for Post Builder fallback when the 4-section output is malformed.
@@ -166,7 +166,11 @@ def generate_social_content_from_image(
         raise RuntimeError("OPENAI_API_KEY is not configured")
 
     # Vision-capable, low-cost default. Override with OPENAI_VISION_MODEL if desired.
-    model = os.getenv("OPENAI_VISION_MODEL", "").strip() or os.getenv("OPENAI_TEXT_MODEL", "").strip() or "gpt-4o-mini"
+    model = (
+        os.getenv("OPENAI_VISION_MODEL", "").strip()
+        or os.getenv("OPENAI_TEXT_MODEL", "").strip()
+        or "gpt-4o-mini"
+    )
     client = OpenAI(api_key=api_key)
 
     x_style_normalized = (x_style or "single").strip().lower()
@@ -208,7 +212,8 @@ def generate_social_content_from_image(
     prompt = f"""
 You are a content strategist for SaaS founders and product marketers.
 
-You will be given an IMAGE. First, infer what the image is about (objects, scene, text if present, mood, and key takeaway).
+You will be given an IMAGE. First, infer what the image is about
+(objects, scene, text if present, mood, and key takeaway).
 Then write platform-ready social copy based on the image.
 
 Style/format preference: {format_normalized}

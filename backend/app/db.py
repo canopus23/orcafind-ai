@@ -34,7 +34,9 @@ def _maybe_force_ipv4(url: str) -> str:
     """
     force_raw = (os.getenv("DB_FORCE_IPV4") or "").strip().lower()
     env = (os.getenv("ENV") or "").strip().lower()
-    force = force_raw in {"1", "true", "yes", "on"} or (not force_raw and env in {"prod", "production"})
+    force = force_raw in {"1", "true", "yes", "on"} or (
+        (not force_raw) and (env in {"prod", "production"})
+    )
     if not force:
         return url
 
@@ -59,7 +61,9 @@ def _maybe_force_ipv4(url: str) -> str:
     netloc = parsed.netloc
     if hostname in netloc:
         netloc = netloc.replace(hostname, ipv4, 1)
-    return urllib.parse.urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment))
+    return urllib.parse.urlunsplit(
+        (parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment)
+    )
 
 
 @lru_cache(maxsize=1)

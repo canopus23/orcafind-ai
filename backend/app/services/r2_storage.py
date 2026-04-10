@@ -1,5 +1,4 @@
 import os
-from typing import Optional
 
 import boto3
 
@@ -67,7 +66,7 @@ def get_key_prefix() -> str:
     return os.getenv("R2_KEY_PREFIX", "shorts").strip("/") or "shorts"
 
 
-def build_object_key(*parts: str, extension: Optional[str] = None) -> str:
+def build_object_key(*parts: str, extension: str | None = None) -> str:
     cleaned = [p.strip("/").strip() for p in parts if p and p.strip("/").strip()]
     key = "/".join(cleaned)
     if extension:
@@ -75,4 +74,3 @@ def build_object_key(*parts: str, extension: Optional[str] = None) -> str:
         if not key.endswith(ext):
             key = f"{key}{ext}"
     return key
-

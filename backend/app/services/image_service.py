@@ -2,14 +2,20 @@ import base64
 import datetime as _dt
 import os
 import uuid
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from openai import OpenAI
 
-from app.services.r2_storage import build_object_key, get_bucket_name, get_download_url, get_key_prefix, upload_bytes
+from app.services.r2_storage import (
+    build_object_key,
+    get_bucket_name,
+    get_download_url,
+    get_key_prefix,
+    upload_bytes,
+)
 
 
-def _aspect_dimensions(aspect: str) -> Tuple[int, int]:
+def _aspect_dimensions(aspect: str) -> tuple[int, int]:
     aspect = (aspect or "square").strip().lower()
     if aspect == "portrait":
         return 1024, 1280
@@ -31,8 +37,8 @@ def _style_prompt(style: str) -> str:
     style = (style or "saas_minimal").strip().lower()
     if style == "realistic":
         return (
-            "Photorealistic, natural lighting, shallow depth of field, premium product photography vibe, "
-            "clean composition, no text."
+            "Photorealistic, natural lighting, shallow depth of field, "
+            "premium product photography vibe, clean composition, no text."
         )
     if style == "abstract_gradient":
         return "Abstract gradient background, soft lighting, modern SaaS brand feel, no text."
@@ -41,7 +47,10 @@ def _style_prompt(style: str) -> str:
     if style == "illustration":
         return "Clean vector illustration, modern SaaS aesthetic, simple shapes, no text."
     # default: saas_minimal
-    return "Minimal SaaS cover art, geometric shapes, light background, brand accent #1367ff, no text."
+    return (
+        "Minimal SaaS cover art, geometric shapes, light background, "
+        "brand accent #1367ff, no text."
+    )
 
 
 def generate_openai_images(
@@ -52,7 +61,7 @@ def generate_openai_images(
     count: int,
     quality: str,
     user_id: str,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Generate real images via OpenAI Image API.
     Requires OPENAI_API_KEY set in environment.
@@ -71,7 +80,8 @@ def generate_openai_images(
         "Create a post-ready social image.\n"
         f"Brief: {brief.strip()}\n"
         f"Style: {_style_prompt(style)}\n"
-        "Constraints: no logos of other brands, no watermarks, no text unless explicitly requested.\n"
+        "Constraints: no logos of other brands, no watermarks, "
+        "no text unless explicitly requested.\n"
     )
 
     client = OpenAI(api_key=api_key)
@@ -85,9 +95,11 @@ def generate_openai_images(
         user=str(user_id)[:128],
     )
 
-    images: List[Dict[str, Any]] = []
+    images: list[dict[str, Any]] = []
     for idx, item in enumerate(result.data or []):
-        b64 = getattr(item, "b64_json", None) or (item.get("b64_json") if isinstance(item, dict) else None)
+        b64 = getattr(item, "b64_json", None) or (
+            item.get("b64_json") if isinstance(item, dict) else None
+        )
         if not b64:
             continue
         # Prefer storing to R2 if configured. Fall back to data URLs.
@@ -97,13 +109,15 @@ def generate_openai_images(
             png_bytes = base64.b64decode(b64)
             bucket = get_bucket_name()
             prefix = get_key_prefix()
-            object_key = build_object_key(prefix, "images", user_id, uuid.uuid4().hex, extension="png")
+            object_key = build_object_key(
+                prefix, "images", user_id, uuid.uuid4().hex, extension="png"
+            )
             upload_bytes(bucket=bucket, key=object_key, content=png_bytes, content_type="image/png")
             url = get_download_url(bucket=bucket, key=object_key)
         except Exception:
             url = ""
 
-        payload: Dict[str, Any] = {"label": f"Option {idx+1}"}
+        payload: dict[str, Any] = {"label": f"Option {idx + 1}"}
         if url:
             payload["url"] = url
         else:
@@ -125,7 +139,9 @@ def _escape_xml(text: str) -> str:
     )
 
 
-def generate_placeholder_images(*, brief: str, style: str, aspect: str, count: int) -> List[Dict[str, Any]]:
+def generate_placeholder_images(
+    *, brief: str, style: str, aspect: str, count: int
+) -> list[dict[str, Any]]:
     """
     Provider-agnostic fallback so the UI works without external image APIs.
     Returns PNG-like data URLs (actually SVG embedded as data URL for crisp rendering).
@@ -139,35 +155,60 @@ def generate_placeholder_images(*, brief: str, style: str, aspect: str, count: i
 
     style_label = (style or "saas_minimal").replace("_", " ").title()
 
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
     for i in range(int(count)):
         hue_a = (210 + i * 18) % 360
         hue_b = (165 + i * 22) % 360
-        svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">
-  <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="hsl({hue_a} 88% 56%)" stop-opacity="0.95"/>
-      <stop offset="1" stop-color="hsl({hue_b} 82% 50%)" stop-opacity="0.92"/>
-    </linearGradient>
-    <filter id="blur" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="40"/>
-    </filter>
-  </defs>
-  <rect width="100%" height="100%" fill="hsl(215 45% 96%)"/>
-  <circle cx="{int(width*0.18)}" cy="{int(height*0.22)}" r="{int(min(width,height)*0.22)}" fill="url(#g)" filter="url(#blur)" opacity="0.9"/>
-  <circle cx="{int(width*0.84)}" cy="{int(height*0.3)}" r="{int(min(width,height)*0.18)}" fill="hsl({hue_b} 90% 60%)" filter="url(#blur)" opacity="0.7"/>
-  <circle cx="{int(width*0.66)}" cy="{int(height*0.86)}" r="{int(min(width,height)*0.24)}" fill="hsl({hue_a} 90% 56%)" filter="url(#blur)" opacity="0.55"/>
-  <rect x="{int(width*0.07)}" y="{int(height*0.1)}" width="{int(width*0.86)}" height="{int(height*0.8)}" rx="44" fill="rgba(255,255,255,0.72)" stroke="rgba(15,35,76,0.10)"/>
-  <text x="{int(width*0.12)}" y="{int(height*0.2)}" font-family="ui-sans-serif, system-ui" font-size="44" font-weight="800" fill="rgba(13,27,42,0.9)">OrcaFind AI</text>
-  <text x="{int(width*0.12)}" y="{int(height*0.26)}" font-family="ui-sans-serif, system-ui" font-size="26" font-weight="700" fill="rgba(19,103,255,0.95)">{_escape_xml(style_label)}</text>
-  <text x="{int(width*0.12)}" y="{int(height*0.36)}" font-family="ui-sans-serif, system-ui" font-size="30" font-weight="700" fill="rgba(13,27,42,0.78)">{_escape_xml(brief_line)}</text>
-  <text x="{int(width*0.12)}" y="{int(height*0.80)}" font-family="ui-sans-serif, system-ui" font-size="22" font-weight="700" fill="rgba(96,112,138,0.88)">Option {i+1} · {seed}</text>
-</svg>"""
+        min_dim = min(width, height)
+        c1x, c1y, r1 = int(width * 0.18), int(height * 0.22), int(min_dim * 0.22)
+        c2x, c2y, r2 = int(width * 0.84), int(height * 0.30), int(min_dim * 0.18)
+        c3x, c3y, r3 = int(width * 0.66), int(height * 0.86), int(min_dim * 0.24)
+        card_x, card_y = int(width * 0.07), int(height * 0.10)
+        card_w, card_h = int(width * 0.86), int(height * 0.80)
+        t1x, t1y = int(width * 0.12), int(height * 0.20)
+        t2y, t3y, t4y = int(height * 0.26), int(height * 0.36), int(height * 0.80)
 
-        # Use SVG data URLs; browser will download as .png via the `download` attr name, but content is SVG.
+        svg_lines = [
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}"',
+            f'  viewBox="0 0 {width} {height}">',
+            "  <defs>",
+            '    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">',
+            f'      <stop offset="0" stop-color="hsl({hue_a} 88% 56%)" stop-opacity="0.95"/>',
+            f'      <stop offset="1" stop-color="hsl({hue_b} 82% 50%)" stop-opacity="0.92"/>',
+            "    </linearGradient>",
+            '    <filter id="blur" x="-20%" y="-20%" width="140%" height="140%">',
+            '      <feGaussianBlur stdDeviation="40"/>',
+            "    </filter>",
+            "  </defs>",
+            '  <rect width="100%" height="100%" fill="hsl(215 45% 96%)"/>',
+            f'  <circle cx="{c1x}" cy="{c1y}" r="{r1}"',
+            '    fill="url(#g)" filter="url(#blur)" opacity="0.9"/>',
+            f'  <circle cx="{c2x}" cy="{c2y}" r="{r2}"',
+            f'    fill="hsl({hue_b} 90% 60%)" filter="url(#blur)" opacity="0.7"/>',
+            f'  <circle cx="{c3x}" cy="{c3y}" r="{r3}"',
+            f'    fill="hsl({hue_a} 90% 56%)" filter="url(#blur)" opacity="0.55"/>',
+            f'  <rect x="{card_x}" y="{card_y}" width="{card_w}" height="{card_h}" rx="44"',
+            '    fill="rgba(255,255,255,0.72)" stroke="rgba(15,35,76,0.10)"/>',
+            f'  <text x="{t1x}" y="{t1y}" font-family="ui-sans-serif, system-ui"',
+            '    font-size="44" font-weight="800" fill="rgba(13,27,42,0.9)">OrcaFind AI</text>',
+            f'  <text x="{t1x}" y="{t2y}" font-family="ui-sans-serif, system-ui"',
+            '    font-size="26" font-weight="700" fill="rgba(19,103,255,0.95)">'
+            f"{_escape_xml(style_label)}</text>",
+            f'  <text x="{t1x}" y="{t3y}" font-family="ui-sans-serif, system-ui"',
+            '    font-size="30" font-weight="700" fill="rgba(13,27,42,0.78)">'
+            f"{_escape_xml(brief_line)}</text>",
+            f'  <text x="{t1x}" y="{t4y}" font-family="ui-sans-serif, system-ui"',
+            '    font-size="22" font-weight="700" fill="rgba(96,112,138,0.88)">'
+            f"Option {i + 1} · {seed}</text>",
+            "</svg>",
+        ]
+        svg = "\n".join(svg_lines)
+
+        # Use SVG data URLs; browser will download as .png via the `download` attr name,
+        # but the content is SVG.
         # This is acceptable as a placeholder; when you wire a provider, you'll get true PNGs.
         b64 = base64.b64encode(svg.encode("utf-8")).decode("ascii")
         data_url = f"data:image/svg+xml;base64,{b64}"
-        results.append({"label": f"Option {i+1}", "data_url": data_url})
+        results.append({"label": f"Option {i + 1}", "data_url": data_url})
 
     return results

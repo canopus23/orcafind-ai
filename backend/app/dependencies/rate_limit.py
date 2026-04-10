@@ -1,9 +1,10 @@
+import logging
 import os
 import time
 from dataclasses import dataclass
 
 from fastapi import HTTPException, Request
-import logging
+
 
 try:
     import redis
@@ -45,7 +46,9 @@ def rate_limit(config: RateLimitConfig):
             return
 
         xff = (request.headers.get("X-Forwarded-For") or "").strip()
-        identity = (xff.split(",")[0].strip() if xff else "") or (request.client.host if request.client else "unknown")
+        identity = (xff.split(",")[0].strip() if xff else "") or (
+            request.client.host if request.client else "unknown"
+        )
         key = _key_for(request, config.key_prefix, identity, config.window_seconds)
 
         try:

@@ -2,7 +2,7 @@ import hashlib
 import hmac
 import os
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any
 
 import httpx
 
@@ -30,14 +30,14 @@ async def create_order(
     *,
     amount_paise: int,
     currency: str,
-    receipt: Optional[str],
-    notes: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    receipt: str | None,
+    notes: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     key_id = get_razorpay_key_id()
     key_secret = get_razorpay_key_secret()
     base_url = get_razorpay_api_base_url()
 
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "amount": int(amount_paise),
         "currency": currency,
         "receipt": receipt or f"rcpt_{uuid.uuid4().hex}",
@@ -61,4 +61,3 @@ def verify_signature(*, order_id: str, payment_id: str, signature: str) -> bool:
     message = f"{order_id}|{payment_id}".encode("utf-8")
     digest = hmac.new(key_secret.encode("utf-8"), message, hashlib.sha256).hexdigest()
     return hmac.compare_digest(digest, signature or "")
-

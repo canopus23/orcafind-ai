@@ -1,7 +1,6 @@
+import logging
 import os
 import time
-import logging
-from typing import Optional
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
@@ -17,7 +16,7 @@ def is_usage_db_configured() -> bool:
     return bool((os.getenv("DATABASE_URL") or "").strip())
 
 
-def _engine() -> Optional[Engine]:
+def _engine() -> Engine | None:
     # Never crash the whole service on DB trouble; callers can decide how to fail.
     if not is_usage_db_configured():
         return None
@@ -81,17 +80,42 @@ def init_schema() -> None:
             )
 
             # Backward-compatible column adds (for older deployments).
-            conn.execute(text("ALTER TABLE usage_counters ADD COLUMN IF NOT EXISTS period_key INTEGER NOT NULL DEFAULT 0;"))
-            conn.execute(text("ALTER TABLE usage_counters ADD COLUMN IF NOT EXISTS text_used INTEGER NOT NULL DEFAULT 0;"))
-            conn.execute(text("ALTER TABLE usage_counters ADD COLUMN IF NOT EXISTS vision_used INTEGER NOT NULL DEFAULT 0;"))
-            conn.execute(text("ALTER TABLE usage_counters ADD COLUMN IF NOT EXISTS builder_used INTEGER NOT NULL DEFAULT 0;"))
-            conn.execute(text("ALTER TABLE usage_counters ADD COLUMN IF NOT EXISTS image_used INTEGER NOT NULL DEFAULT 0;"))
+            conn.execute(
+                text(
+                    "ALTER TABLE usage_counters "
+                    "ADD COLUMN IF NOT EXISTS period_key INTEGER NOT NULL DEFAULT 0;"
+                )
+            )
+            conn.execute(
+                text(
+                    "ALTER TABLE usage_counters "
+                    "ADD COLUMN IF NOT EXISTS text_used INTEGER NOT NULL DEFAULT 0;"
+                )
+            )
+            conn.execute(
+                text(
+                    "ALTER TABLE usage_counters "
+                    "ADD COLUMN IF NOT EXISTS vision_used INTEGER NOT NULL DEFAULT 0;"
+                )
+            )
+            conn.execute(
+                text(
+                    "ALTER TABLE usage_counters "
+                    "ADD COLUMN IF NOT EXISTS builder_used INTEGER NOT NULL DEFAULT 0;"
+                )
+            )
+            conn.execute(
+                text(
+                    "ALTER TABLE usage_counters "
+                    "ADD COLUMN IF NOT EXISTS image_used INTEGER NOT NULL DEFAULT 0;"
+                )
+            )
     except Exception:
         logger.exception("init_schema failed (DB unreachable). Continuing without schema init.")
         return
 
 
-def _period_key(now: Optional[int] = None) -> int:
+def _period_key(now: int | None = None) -> int:
     ts = int(now or time.time())
     # Use UTC so billing/usage periods are stable regardless of server locale.
     return int(time.strftime("%Y%m", time.gmtime(ts)))
@@ -107,7 +131,15 @@ def _ensure_usage_row(conn, *, user_id: str, period_key: int, now: int) -> None:
         conn.execute(
             text(
                 """
-                INSERT INTO usage_counters (user_id, period_key, text_used, vision_used, builder_used, image_used, updated_at)
+                INSERT INTO usage_counters (
+                  user_id,
+                  period_key,
+                  text_used,
+                  vision_used,
+                  builder_used,
+                  image_used,
+                  updated_at
+                )
                 VALUES (:user_id, :period_key, 0, 0, 0, 0, :now)
                 ON CONFLICT (user_id) DO NOTHING;
                 """
@@ -142,7 +174,13 @@ def get_usage(user_id: str) -> dict:
     """
     engine = _engine()
     if not engine:
-        return {"period_key": _period_key(), "text_used": 0, "vision_used": 0, "builder_used": 0, "image_used": 0}
+        return {
+            "period_key": _period_key(),
+            "text_used": 0,
+            "vision_used": 0,
+            "builder_used": 0,
+            "image_used": 0,
+        }
 
     now = int(time.time())
     period = _period_key(now)
@@ -160,7 +198,13 @@ def get_usage(user_id: str) -> dict:
                 {"user_id": user_id},
             ).fetchone()
             if not row:
-                return {"period_key": period, "text_used": 0, "vision_used": 0, "builder_used": 0, "image_used": 0}
+                return {
+                    "period_key": period,
+                    "text_used": 0,
+                    "vision_used": 0,
+                    "builder_used": 0,
+                    "image_used": 0,
+                }
             return {
                 "period_key": int(row[0] or period),
                 "text_used": int(row[1] or 0),
@@ -170,7 +214,13 @@ def get_usage(user_id: str) -> dict:
             }
     except Exception:
         logger.exception("get_usage failed")
-        return {"period_key": period, "text_used": 0, "vision_used": 0, "builder_used": 0, "image_used": 0}
+        return {
+            "period_key": period,
+            "text_used": 0,
+            "vision_used": 0,
+            "builder_used": 0,
+            "image_used": 0,
+        }
 
 
 def record_usage(user_id: str, field: str, n: int = 1) -> int:
@@ -210,7 +260,7 @@ def record_usage(user_id: str, field: str, n: int = 1) -> int:
         return int(get_usage(user_id).get(field, 0))
 
 
-def link_order_to_user(order_id: str, user_id: str, *, plan: Optional[str] = None):
+def link_order_to_user(order_id: str, user_id: str, *, plan: str | None = None):
     engine = _engine()
     if not engine:
         return
@@ -232,7 +282,7 @@ def link_order_to_user(order_id: str, user_id: str, *, plan: Optional[str] = Non
         logger.exception("link_order_to_user failed")
 
 
-def get_user_for_order(order_id: str) -> Optional[str]:
+def get_user_for_order(order_id: str) -> str | None:
     engine = _engine()
     if not engine:
         return None
@@ -248,7 +298,7 @@ def get_user_for_order(order_id: str) -> Optional[str]:
         return None
 
 
-def get_plan_for_order(order_id: str) -> Optional[str]:
+def get_plan_for_order(order_id: str) -> str | None:
     engine = _engine()
     if not engine:
         return None
@@ -275,7 +325,14 @@ def grant_pro(*, user_id: str, order_id: str, payment_id: str):
             conn.execute(
                 text(
                     """
-                    INSERT INTO subscriptions (user_id, plan, source, order_id, payment_id, created_at)
+                    INSERT INTO subscriptions (
+                      user_id,
+                      plan,
+                      source,
+                      order_id,
+                      payment_id,
+                      created_at
+                    )
                     VALUES (:user_id, :plan, 'razorpay', :order_id, :payment_id, :created_at)
                     ON CONFLICT (user_id) DO UPDATE SET
                       plan = EXCLUDED.plan,
@@ -310,7 +367,14 @@ def grant_plan(*, user_id: str, plan: str, order_id: str, payment_id: str):
             conn.execute(
                 text(
                     """
-                    INSERT INTO subscriptions (user_id, plan, source, order_id, payment_id, created_at)
+                    INSERT INTO subscriptions (
+                      user_id,
+                      plan,
+                      source,
+                      order_id,
+                      payment_id,
+                      created_at
+                    )
                     VALUES (:user_id, :plan, 'razorpay', :order_id, :payment_id, :created_at)
                     ON CONFLICT (user_id) DO UPDATE SET
                       plan = EXCLUDED.plan,
@@ -332,7 +396,7 @@ def grant_plan(*, user_id: str, plan: str, order_id: str, payment_id: str):
         logger.exception("grant_plan failed")
 
 
-def get_plan(user_id: str) -> Optional[str]:
+def get_plan(user_id: str) -> str | None:
     engine = _engine()
     if not engine:
         return None
