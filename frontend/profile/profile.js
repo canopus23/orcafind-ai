@@ -7,7 +7,13 @@ const API_BASE_URL = ORCAFIND_CONFIG.apiBaseUrl || window.__ORCAFIND_API_BASE_UR
     ? "http://127.0.0.1:8000"
     : "https://api.orcafind.com");
 
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
+});
 
 function setText(id, value) {
   const el = document.getElementById(id);
@@ -69,6 +75,42 @@ async function fetchEntitlements(accessToken) {
   } catch (_err) {
     return null;
   }
+}
+
+function _getSupabaseProjectRef() {
+  try {
+    const url = new URL(SUPABASE_URL);
+    const host = url.hostname || "";
+    return host.split(".")[0] || "";
+  } catch (_err) {
+    return "";
+  }
+}
+
+function _readStoredSessionTokens() {
+  try {
+    const ref = _getSupabaseProjectRef();
+    const preferredKey = ref ? `sb-${ref}-auth-token` : "";
+    const keys = Object.keys(window.localStorage || {});
+    const ordered = [];
+    if (preferredKey && keys.includes(preferredKey)) ordered.push(preferredKey);
+    keys.forEach((k) => {
+      if (k === preferredKey) return;
+      if (k.startsWith("sb-") && k.endsWith("-auth-token")) ordered.push(k);
+    });
+
+    for (const key of ordered) {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw);
+      const access_token = parsed?.access_token;
+      const refresh_token = parsed?.refresh_token;
+      if (typeof access_token === "string" && typeof refresh_token === "string") {
+        return { access_token, refresh_token };
+      }
+    }
+  } catch (_err) {}
+  return null;
 }
 
 function applySignedOutUI() {
@@ -145,32 +187,42 @@ function applySignedInUI({ user, entitlements }) {
 }
 
 async function hydrate({ allowSignedOut = true } = {}) {
-  // Supabase sometimes emits INITIAL_SESSION with a null user before storage is hydrated.
-  // We retry briefly to avoid showing a stuck "signed out" UI for already-authenticated users.
-  const MAX_ATTEMPTS = 6;
-  let attempt = 0;
-  let session = null;
-
-  while (attempt < MAX_ATTEMPTS) {
-    attempt += 1;
+  // Robust session hydration:
+  // 1) getSession()
+  // 2) refreshSession() once
+  // 3) recover tokens from localStorage and setSession()
+  // 4) short retry loop to avoid "null INITIAL_SESSION" races
+  async function tryGetSession() {
     try {
       const { data } = await supabaseClient.auth.getSession();
-      session = data?.session || null;
+      return data?.session || null;
     } catch (_err) {
-      session = null;
+      return null;
     }
+  }
 
-    if (session?.user) break;
+  let session = await tryGetSession();
 
-    if (attempt === 2) {
-      // One refresh attempt to recover in edge cases (expired access token + valid refresh token).
+  if (!session?.user) {
+    try {
+      await supabaseClient.auth.refreshSession();
+    } catch (_err) {}
+    session = await tryGetSession();
+  }
+
+  if (!session?.user) {
+    const tokens = _readStoredSessionTokens();
+    if (tokens) {
       try {
-        await supabaseClient.auth.refreshSession();
+        await supabaseClient.auth.setSession(tokens);
       } catch (_err) {}
+      session = await tryGetSession();
     }
+  }
 
-    // Backoff a bit (total wait ~ 1.6s).
-    await new Promise((r) => window.setTimeout(r, 220 + attempt * 120));
+  for (let attempt = 0; attempt < 6 && !session?.user; attempt += 1) {
+    await new Promise((r) => window.setTimeout(r, 180 + attempt * 120));
+    session = await tryGetSession();
   }
 
   if (!session?.user) {
