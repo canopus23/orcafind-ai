@@ -22,6 +22,28 @@ def _normalize_database_url(url: str) -> str:
     return url
 
 
+def _ensure_sslmode(url: str) -> str:
+    """
+    Supabase requires SSL/TLS. Ensure `sslmode=require` is present when the host
+    looks like Supabase and the URL doesn't already specify sslmode.
+    """
+    try:
+        parsed = urllib.parse.urlsplit(url)
+        hostname = parsed.hostname or ""
+        if "supabase" not in hostname.lower():
+            return url
+        q = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+        if "sslmode" in q:
+            return url
+        q["sslmode"] = ["require"]
+        query = urllib.parse.urlencode(q, doseq=True)
+        return urllib.parse.urlunsplit(
+            (parsed.scheme, parsed.netloc, parsed.path, query, parsed.fragment)
+        )
+    except Exception:
+        return url
+
+
 def _maybe_force_ipv4(url: str) -> str:
     """
     Some hosts (including Supabase) can resolve to IPv6 first. If the runtime
@@ -152,10 +174,11 @@ def get_db_diagnostics() -> dict[str, object]:
     Useful for debugging IPv6 egress issues on some platforms (e.g. Railway).
     """
     raw_url = os.getenv("DATABASE_URL", "") or ""
-    url = _normalize_database_url(raw_url)
+    url = _ensure_sslmode(_normalize_database_url(raw_url))
     if not url:
         return {"configured": False}
     parsed = urllib.parse.urlsplit(url)
+    q = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
     hostaddr = _maybe_db_hostaddr(url) or ""
     return {
         "configured": True,
@@ -163,6 +186,7 @@ def get_db_diagnostics() -> dict[str, object]:
         "hostname": parsed.hostname or "",
         "port": int(parsed.port or 5432),
         "hostaddr": hostaddr,
+        "sslmode": (q.get("sslmode") or [""])[0],
         "db_force_ipv4": (os.getenv("DB_FORCE_IPV4") or "").strip(),
         "db_hostaddr_env_set": bool((os.getenv("DB_HOSTADDR") or "").strip()),
     }
@@ -193,7 +217,7 @@ def get_engine() -> Engine:
     # Important: compute the final, possibly IPv4-rewritten URL first, then cache by that URL.
     # This avoids caching an engine that still resolves via IPv6 and keeps failing on platforms
     # without IPv6 egress (common on Railway).
-    url = _normalize_database_url(os.getenv("DATABASE_URL", ""))
+    url = _ensure_sslmode(_normalize_database_url(os.getenv("DATABASE_URL", "")))
     if not url:
         raise RuntimeError("DATABASE_URL is not configured")
     hostaddr = _maybe_db_hostaddr(url) or ""
