@@ -538,10 +538,17 @@ async def razorpay_create(
     email = _get_user_email(user) or req.email or ""
 
     try:
+        receipt = f"orcafind_{plan}_{billing}_{user_id}"
+        if len(receipt) > 40:
+            # Razorpay receipt max length is 40 chars.
+            # Keep the suffix stable per-user but short.
+            suffix = user_id.replace("-", "")[-10:] if user_id else "user"
+            receipt = f"orc_{plan}_{billing}_{suffix}"
+
         order = await razorpay_create_order(
             amount_paise=amount_minor,
             currency=currency,
-            receipt=f"orcafind_{plan}_{billing}_{user_id}",
+            receipt=receipt,
             notes={
                 "user_id": user_id,
                 "plan": plan,
