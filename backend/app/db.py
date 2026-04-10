@@ -32,17 +32,21 @@ def _maybe_force_ipv4(url: str) -> str:
     rewrite the URL host to that IP. With sslmode=require this is safe enough for
     our use (no hostname verification).
     """
-    force_raw = (os.getenv("DB_FORCE_IPV4") or "").strip().lower()
-    env = (os.getenv("ENV") or "").strip().lower()
-    force = force_raw in {"1", "true", "yes", "on"} or (
-        (not force_raw) and (env in {"prod", "production"})
-    )
-    if not force:
-        return url
-
     parsed = urllib.parse.urlsplit(url)
     hostname = parsed.hostname
     if not hostname:
+        return url
+
+    force_raw = (os.getenv("DB_FORCE_IPV4") or "").strip().lower()
+    env = (os.getenv("ENV") or "").strip().lower()
+    looks_like_supabase = "supabase" in hostname.lower()
+    force = (
+        force_raw in {"1", "true", "yes", "on"}
+        or ((not force_raw) and (env in {"prod", "production"}))
+        # Railway deployments sometimes have no IPv6 egress; Supabase commonly resolves IPv6 first.
+        or ((not force_raw) and looks_like_supabase)
+    )
+    if not force:
         return url
     # If the URL already uses an IP literal, nothing to do.
     if all(ch.isdigit() or ch == "." for ch in hostname):
