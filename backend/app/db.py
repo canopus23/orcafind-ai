@@ -96,15 +96,74 @@ def _maybe_force_ipv4(url: str) -> str:
     )
 
 
+def _maybe_db_hostaddr(url: str) -> str | None:
+    """
+    Returns an IPv4 address to force via libpq's `hostaddr` connection parameter.
+    This is more reliable than URL rewriting in some environments, and also allows
+    a manual override via DB_HOSTADDR when DNS inside the runtime is limited.
+    """
+    explicit = (os.getenv("DB_HOSTADDR") or "").strip()
+    if explicit:
+        return explicit
+
+    parsed = urllib.parse.urlsplit(url)
+    hostname = parsed.hostname
+    if not hostname:
+        return None
+
+    force_raw = (os.getenv("DB_FORCE_IPV4") or "").strip().lower()
+    env = (os.getenv("ENV") or "").strip().lower()
+    looks_like_supabase = "supabase" in hostname.lower()
+    on_railway = any(
+        (os.getenv(k) or "").strip()
+        for k in (
+            "RAILWAY_PROJECT_ID",
+            "RAILWAY_SERVICE_ID",
+            "RAILWAY_ENVIRONMENT",
+            "RAILWAY_STATIC_URL",
+        )
+    )
+    force = (
+        force_raw in {"1", "true", "yes", "on"}
+        or ((not force_raw) and (env in {"prod", "production"}))
+        or ((not force_raw) and looks_like_supabase)
+        or ((not force_raw) and on_railway)
+    )
+    if not force:
+        return None
+
+    # Already an IPv4 literal.
+    if all(ch.isdigit() or ch == "." for ch in hostname):
+        return hostname
+
+    port = parsed.port or 5432
+    try:
+        infos = socket.getaddrinfo(hostname, port, family=socket.AF_INET, type=socket.SOCK_STREAM)
+        if not infos:
+            return None
+        return infos[0][4][0]
+    except Exception:
+        return None
+
+
 @lru_cache(maxsize=8)
-def _engine_for_url(url: str) -> Engine:
+def _engine_for_url(
+    url: str,
+    hostaddr: str,
+    pool_size: int,
+    max_overflow: int,
+    connect_timeout: int,
+) -> Engine:
     # Railway runs a long-lived service; a small pool is fine.
+    connect_args: dict[str, object] = {"connect_timeout": int(connect_timeout)}
+    if hostaddr:
+        connect_args["hostaddr"] = hostaddr
     return create_engine(
         url,
         pool_pre_ping=True,
-        pool_size=int(os.getenv("DB_POOL_SIZE", "5")),
-        max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "10")),
-        connect_args={"connect_timeout": int(os.getenv("DB_CONNECT_TIMEOUT", "5"))},
+        pool_size=int(pool_size),
+        max_overflow=int(max_overflow),
+        connect_args=connect_args,
     )
 
 
@@ -112,7 +171,11 @@ def get_engine() -> Engine:
     # Important: compute the final, possibly IPv4-rewritten URL first, then cache by that URL.
     # This avoids caching an engine that still resolves via IPv6 and keeps failing on platforms
     # without IPv6 egress (common on Railway).
-    url = _maybe_force_ipv4(_normalize_database_url(os.getenv("DATABASE_URL", "")))
+    url = _normalize_database_url(os.getenv("DATABASE_URL", ""))
     if not url:
         raise RuntimeError("DATABASE_URL is not configured")
-    return _engine_for_url(url)
+    hostaddr = _maybe_db_hostaddr(url) or ""
+    pool_size = int(os.getenv("DB_POOL_SIZE", "5"))
+    max_overflow = int(os.getenv("DB_MAX_OVERFLOW", "10"))
+    connect_timeout = int(os.getenv("DB_CONNECT_TIMEOUT", "5"))
+    return _engine_for_url(url, hostaddr, pool_size, max_overflow, connect_timeout)
