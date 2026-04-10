@@ -40,8 +40,8 @@ PLAN_LIMITS = {
     "free": {
         "text_posts": 60,          # /repurpose/ runs per month
         "image_to_posts": 5,       # /repurpose/image runs per month
-        "post_builder": 0,         # /posts/complete (includes image) is Pro-only
-        "image_generations": 0,    # /images/generate is Pro-only
+        "post_builder": 2,         # /posts/complete runs per month
+        "image_generations": 8,    # total images per month (includes Post Builder images)
         "x_single_variants": 2,
         "x_thread_tweets_min": 4,
         "x_thread_tweets_max": 7,
@@ -215,8 +215,36 @@ default_origins = {
 }
 origins = set(_parse_csv_set(os.getenv("CORS_ALLOW_ORIGINS"), lowercase=False)) | default_origins
 
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+# FastAPI/Starlette executes middleware in the order they are added (first = outermost).
+# Add CORS first so preflight OPTIONS and even error responses always include CORS headers.
+=======
+# CORSMiddleware must be added first to handle preflight OPTIONS requests
+>>>>>>> theirs
+=======
+# CORSMiddleware must be added first to handle preflight OPTIONS requests
+>>>>>>> theirs
+=======
 # NOTE: Starlette inserts middleware in a way that the *last* add_middleware call becomes the
 # outermost wrapper. We add CORS last so even error responses still include CORS headers.
+>>>>>>> theirs
+=======
+# NOTE: Starlette inserts middleware in a way that the *last* add_middleware call becomes the
+# outermost wrapper. We add CORS last so even error responses still include CORS headers.
+>>>>>>> theirs
+=======
+# NOTE: Starlette inserts middleware in a way that the *last* add_middleware call becomes the
+# outermost wrapper. We add CORS last so even error responses still include CORS headers.
+>>>>>>> theirs
+=======
+# NOTE: Starlette inserts middleware in a way that the *last* add_middleware call becomes the
+# outermost wrapper. We add CORS last so even error responses still include CORS headers.
+>>>>>>> theirs
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(origins),
@@ -308,24 +336,13 @@ async def generate_images(
     premium = plan in {"starter", "pro", "business", "admin"}
     user_id = str(user.get("sub") or "user")
 
-    # Product rule: AI image generation is Pro-only (and admin for testing).
-    if (not admin) and (not premium):
-        raise HTTPException(
-            status_code=402,
-            detail={
-                "message": "AI image generation is available on Pro plans. Upgrade to unlock.",
-                "feature": "image_generations",
-            },
-        )
-
     limits = _limits_for_plan("business" if admin else plan)
     if not admin:
         if not is_usage_db_configured() and os.getenv("ENV", "development").strip().lower() in {"prod", "production"}:
             raise HTTPException(status_code=503, detail="Usage tracking is not configured")
         usage = get_usage(user_id)
         used = int(usage.get("image_used", 0))
-        inc = max(1, int(req.count or 1))
-        inc = min(3, inc)
+        inc = 1 if not premium else max(1, int(req.count or 1))
         if used + inc > int(limits["image_generations"]):
             raise _usage_error(feature="image_generations", limit=int(limits["image_generations"]), used=used)
 
@@ -333,8 +350,10 @@ async def generate_images(
     images = None
     if os.getenv("OPENAI_API_KEY"):
         quality = "medium" if premium else "low"
-        count = max(1, int(req.count or 1))
-        count = min(3, count)
+        count = int(req.count)
+        # Free plan: keep it to 1 image per request to control costs.
+        if not premium:
+            count = 1
         images = generate_openai_images(
             brief=req.brief,
             style=req.style,
@@ -348,12 +367,12 @@ async def generate_images(
             brief=req.brief,
             style=req.style,
             aspect=req.aspect,
-            count=min(3, max(1, int(req.count or 1))),
+            count=1 if not premium else req.count,
         )
 
     # Usage accounting (monthly).
     if not admin:
-        record_image_usage(user_id, n=min(3, max(1, int(req.count or 1))))
+        record_image_usage(user_id, n=1 if not premium else int(req.count or 1))
     return {"images": images}
 
 
