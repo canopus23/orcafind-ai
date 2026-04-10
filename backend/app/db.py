@@ -96,11 +96,8 @@ def _maybe_force_ipv4(url: str) -> str:
     )
 
 
-@lru_cache(maxsize=1)
-def get_engine() -> Engine:
-    url = _maybe_force_ipv4(_normalize_database_url(os.getenv("DATABASE_URL", "")))
-    if not url:
-        raise RuntimeError("DATABASE_URL is not configured")
+@lru_cache(maxsize=8)
+def _engine_for_url(url: str) -> Engine:
     # Railway runs a long-lived service; a small pool is fine.
     return create_engine(
         url,
@@ -109,3 +106,13 @@ def get_engine() -> Engine:
         max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "10")),
         connect_args={"connect_timeout": int(os.getenv("DB_CONNECT_TIMEOUT", "5"))},
     )
+
+
+def get_engine() -> Engine:
+    # Important: compute the final, possibly IPv4-rewritten URL first, then cache by that URL.
+    # This avoids caching an engine that still resolves via IPv6 and keeps failing on platforms
+    # without IPv6 egress (common on Railway).
+    url = _maybe_force_ipv4(_normalize_database_url(os.getenv("DATABASE_URL", "")))
+    if not url:
+        raise RuntimeError("DATABASE_URL is not configured")
+    return _engine_for_url(url)
