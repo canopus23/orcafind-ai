@@ -249,30 +249,14 @@
         <p id="authModalDescription">Sign in to access your OrcaFind workspace.</p>
       </div>
 
-      <div class="auth-mode-switch" role="tablist" aria-label="Authentication mode">
-        <button id="signInModeBtn" class="btn mode-btn is-active" type="button" role="tab" aria-selected="true" onclick="setAuthMode('signin')">Sign In</button>
-        <button id="signUpModeBtn" class="btn mode-btn" type="button" role="tab" aria-selected="false" onclick="setAuthMode('signup')">Sign Up</button>
-      </div>
-
       <div id="authModeCopy" class="auth-mode-copy">
-        Sign in with your existing account, or continue with Google if you want the fastest path into the studio.
+        Continue with Google or X. OrcaFind will create an account automatically on first sign-in.
       </div>
 
-      <form class="auth-form" onsubmit="event.preventDefault(); submitAuthAction();">
-        <div class="field-group">
-          <label for="email">Email</label>
-          <input id="email" type="email" placeholder="you@company.com" autocomplete="email" required>
-        </div>
-        <div class="field-group">
-          <label for="password">Password</label>
-          <input id="password" type="password" placeholder="Enter your password" autocomplete="current-password" required>
-        </div>
-
-        <div class="auth-actions">
-          <button id="primaryAuthAction" class="btn btn-primary" type="submit">Sign In</button>
-          <button class="btn btn-ghost" type="button" onclick="loginWithGoogle()">Continue with Google</button>
-        </div>
-      </form>
+      <div class="auth-actions" style="margin-top: 6px;">
+        <button class="btn btn-primary" type="button" onclick="loginWithGoogle()">Continue with Google</button>
+        <button class="btn btn-ghost" type="button" onclick="loginWithX()">Continue with X</button>
+      </div>
 
       <div class="muted-row">
         <span id="authNextHint">After sign-in, we’ll return you to your workspace.</span>
@@ -290,10 +274,7 @@
   <script>
     (function () {
       var params = new URLSearchParams(window.location.search);
-      var mode = params.get("mode") || "signin";
-      if (mode !== "signup" && mode !== "signin") mode = "signin";
-      window.setAuthMode && window.setAuthMode(mode);
-      document.title = mode === "signup" ? "OrcaFind AI | Sign Up" : "OrcaFind AI | Sign In";
+      document.title = "OrcaFind AI | Sign In";
       var next = params.get("next");
       var hint = document.getElementById("authNextHint");
       if (hint) {

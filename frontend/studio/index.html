@@ -1073,7 +1073,6 @@
           <span class="pill">Studio workspace</span>
           <div id="headerAuth" class="header-auth">
             <a class="btn btn-ghost auth-trigger" href="/auth/?mode=signin&next=/studio/">Sign In</a>
-            <a class="btn btn-primary auth-trigger" href="/auth/?mode=signup&next=/studio/">Sign Up</a>
           </div>
           <a id="headerProfile" class="header-profile" href="/profile/" aria-label="Open profile">
             <span id="headerAvatar" class="profile-avatar">O</span>
@@ -1124,10 +1123,6 @@
         <a class="sidebar-item" href="/auth/?mode=signin&next=/studio/" onclick="closeStudioSidebar();">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M10 17l5-5-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 12H3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M21 3v18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           <span>Sign In</span>
-        </a>
-        <a class="sidebar-item" href="/auth/?mode=signup&next=/studio/" onclick="closeStudioSidebar();">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" stroke-width="2"/><path d="M19 8v6M22 11h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          <span>Create Account</span>
         </a>
       </div>
 
@@ -1536,30 +1531,13 @@
           <button class="btn btn-ghost auth-close" aria-label="Close authentication dialog" onclick="closeAuthModal()">×</button>
         </div>
 
-        <div class="auth-mode-switch">
-          <button id="signInModeBtn" class="btn mode-btn is-active" onclick="setAuthMode('signin')">Sign In</button>
-          <button id="signUpModeBtn" class="btn mode-btn" onclick="setAuthMode('signup')">Sign Up</button>
-        </div>
-
         <div id="authModeCopy" class="auth-mode-copy">
-          Sign in with your existing account, or use Google if you want the fastest path into the studio.
+          Continue with Google or X. OrcaFind will create an account automatically on first sign-in.
         </div>
 
-        <div class="auth-form">
-          <div class="field-group">
-            <label for="email">Work email</label>
-            <input id="email" type="email" placeholder="you@company.com">
-          </div>
-
-          <div class="field-group">
-            <label for="password">Password</label>
-            <input id="password" type="password" placeholder="Enter your password">
-          </div>
-
-          <div class="auth-actions">
-            <button id="primaryAuthAction" class="btn btn-primary" onclick="submitAuthAction()">Sign In</button>
-            <button class="btn btn-secondary" onclick="loginWithGoogle()">Continue with Google</button>
-          </div>
+        <div class="auth-actions" style="margin-top: 14px;">
+          <button class="btn btn-primary" type="button" onclick="loginWithGoogle()">Continue with Google</button>
+          <button class="btn btn-secondary" type="button" onclick="loginWithX()">Continue with X</button>
         </div>
       </div>
     </div>

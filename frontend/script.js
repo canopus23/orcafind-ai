@@ -1734,6 +1734,21 @@ async function loginWithGoogle() {
   }
 }
 
+async function loginWithX() {
+  const next = getSafeNextFromURL() || buildRelativeUrl({ stripParams: ["auth"] });
+  // Supabase uses "twitter" as the provider name for X.
+  const { error } = await supabaseClient.auth.signInWithOAuth({
+    provider: "twitter",
+    options: {
+      redirectTo: `${window.location.origin}/auth/?mode=signin&next=${encodeURIComponent(next)}`
+    }
+  });
+
+  if (error) {
+    showToast("X sign-in failed", error.message, "error");
+  }
+}
+
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     closeAuthModal();
