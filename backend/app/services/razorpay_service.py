@@ -52,7 +52,31 @@ async def create_order(
             auth=(key_id, key_secret),
             json=payload,
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            detail = ""
+            try:
+                data = response.json()
+                if isinstance(data, dict):
+                    err = data.get("error")
+                    if isinstance(err, dict):
+                        code = str(err.get("code") or "").strip()
+                        desc = str(err.get("description") or "").strip()
+                        detail = f"{code}: {desc}".strip(": ").strip()
+                    if not detail:
+                        detail = str(data)[:300]
+                else:
+                    detail = str(data)[:300]
+            except Exception:
+                detail = (response.text or "").strip().replace("\n", " ")[:300]
+
+            status = response.status_code
+            msg = f"Razorpay create_order failed (HTTP {status})"
+            if detail:
+                msg = f"{msg}: {detail}"
+            raise RuntimeError(msg) from exc
+
         return response.json()
 
 

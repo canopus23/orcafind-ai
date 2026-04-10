@@ -550,19 +550,28 @@ async def razorpay_create(
             },
         )
     except RuntimeError as e:
-        # Most commonly: missing RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET.
+        msg = str(e or "").strip()
+        if msg.startswith("Missing required env var:"):
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "message": "Billing is not configured on the server.",
+                    "request_id": request.state.request_id,
+                },
+            ) from e
+
         raise HTTPException(
-            status_code=503,
-            detail={
-                "message": "Billing is not configured on the server.",
-                "request_id": request.state.request_id,
-            },
+            status_code=502,
+            detail={"message": msg or "Razorpay error", "request_id": request.state.request_id},
         ) from e
     except Exception as e:
         # Fail with a safe upstream error. CORS + request_id header come from middleware.
         raise HTTPException(
             status_code=502,
-            detail={"message": f"Razorpay error: {type(e).__name__}"},
+            detail={
+                "message": f"Razorpay error: {type(e).__name__}",
+                "request_id": request.state.request_id,
+            },
         ) from e
 
     if order.get("id"):
