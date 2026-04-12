@@ -98,11 +98,8 @@
       width: 42px;
       height: 42px;
       border-radius: 14px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      background: linear-gradient(135deg, #1367ff, #0ab5ff);
+      display: inline-block;
+      background: url("/favicon.svg") center/cover no-repeat;
       box-shadow: 0 12px 28px rgba(19, 103, 255, 0.24);
     }
 
@@ -225,7 +222,7 @@
   <div class="container">
     <div class="topbar">
       <a class="brand" href="/">
-        <span class="brand-icon">O</span>
+        <span class="brand-icon" aria-hidden="true"></span>
         <span>OrcaFind AI</span>
       </a>
 
