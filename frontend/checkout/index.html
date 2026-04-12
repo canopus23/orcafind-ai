@@ -6,6 +6,7 @@
   <title>OrcaFind AI | Pricing</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/footer.css">
+  <link rel="stylesheet" href="/loader.css">
   <script>
     (function () {
       try {
@@ -230,6 +231,45 @@
       font-size: 0.9rem;
       font-weight: 800;
     }
+
+    .plan-badge {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(14, 159, 110, 0.22);
+      background: rgba(14, 159, 110, 0.10);
+      color: rgba(10, 97, 66, 0.92);
+      font-weight: 900;
+      font-size: 0.78rem;
+      letter-spacing: -0.02em;
+      white-space: nowrap;
+    }
+    html[data-theme="dark"] .plan-badge {
+      border-color: rgba(14, 159, 110, 0.20);
+      background: rgba(14, 159, 110, 0.12);
+      color: rgba(170, 255, 220, 0.88);
+    }
+    .plan-badge.is-visible { display: inline-flex; }
+
+    .current-plan-note {
+      display: none;
+      margin-top: 10px;
+      padding: 12px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(14, 159, 110, 0.18);
+      background: rgba(14, 159, 110, 0.08);
+      color: rgba(10, 97, 66, 0.92);
+      font-weight: 800;
+      line-height: 1.5;
+    }
+    html[data-theme="dark"] .current-plan-note {
+      border-color: rgba(14, 159, 110, 0.18);
+      background: rgba(14, 159, 110, 0.10);
+      color: rgba(170, 255, 220, 0.88);
+    }
+    .current-plan-note.is-visible { display: block; }
 
     .hero {
       padding: 8px 0 26px;
@@ -573,26 +613,32 @@
           <div id="freePlan" class="plan" role="listitem" tabindex="0" onclick="selectPlan('free')">
             <div class="plan-top">
               <div>
-                <h3>Free</h3>
+                <div style="display:flex; align-items:center; gap: 10px; flex-wrap: wrap;">
+                  <h3>Free</h3>
+                  <span id="freeCurrent" class="plan-badge" aria-label="Current plan">Current plan</span>
+                </div>
                 <div class="per">Best for trying OrcaFind</div>
               </div>
               <div style="text-align:right;">
-                <div class="price">$0</div>
+                <div class="price">₹0</div>
                 <div class="per">forever</div>
               </div>
             </div>
             <div class="features">
               <div class="feature"><span class="dot gray"></span><span>Text → posts: 60 runs / month</span></div>
               <div class="feature"><span class="dot gray"></span><span>Image → posts: 5 runs / month</span></div>
-              <div class="feature"><span class="dot gray"></span><span>AI images: 8 images / month (low quality)</span></div>
-              <div class="feature"><span class="dot gray"></span><span>Post Builder: 2 bundles / month</span></div>
+              <div class="feature"><span class="dot gray"></span><span>AI images: Pro only</span></div>
+              <div class="feature"><span class="dot gray"></span><span>Post Builder: Pro only</span></div>
             </div>
           </div>
 
           <div id="starterPlan" class="plan is-selected" role="listitem" tabindex="0" onclick="selectPlan('starter')">
             <div class="plan-top">
               <div>
-                <h3>Starter</h3>
+                <div style="display:flex; align-items:center; gap: 10px; flex-wrap: wrap;">
+                  <h3>Starter</h3>
+                  <span id="starterCurrent" class="plan-badge" aria-label="Current plan">Current plan</span>
+                </div>
                 <div class="per">For lightweight weekly posting</div>
               </div>
               <div style="text-align:right;">
@@ -603,7 +649,7 @@
             <div class="features">
               <div class="feature"><span class="dot"></span><span>Text → posts: 300 runs / month</span></div>
               <div class="feature"><span class="dot"></span><span>Image → posts: 25 runs / month</span></div>
-              <div class="feature"><span class="dot"></span><span>AI images: 25 images / month (medium quality)</span></div>
+              <div class="feature"><span class="dot"></span><span>AI images: 25 generations / month</span></div>
               <div class="feature"><span class="dot"></span><span>Post Builder: 10 bundles / month</span></div>
               <div class="feature"><span class="dot"></span><span>Premium formats: Story-driven + Product launch</span></div>
             </div>
@@ -612,7 +658,10 @@
           <div id="proPlan" class="plan" role="listitem" tabindex="0" onclick="selectPlan('pro')">
             <div class="plan-top">
               <div>
-                <h3>Pro</h3>
+                <div style="display:flex; align-items:center; gap: 10px; flex-wrap: wrap;">
+                  <h3>Pro</h3>
+                  <span id="proCurrent" class="plan-badge" aria-label="Current plan">Current plan</span>
+                </div>
                 <div class="per">For creators who publish often</div>
               </div>
               <div style="text-align:right;">
@@ -623,7 +672,7 @@
             <div class="features">
               <div class="feature"><span class="dot"></span><span>Text → posts: 1,200 runs / month</span></div>
               <div class="feature"><span class="dot"></span><span>Image → posts: 120 runs / month</span></div>
-              <div class="feature"><span class="dot"></span><span>AI images: 120 images / month (medium quality)</span></div>
+              <div class="feature"><span class="dot"></span><span>AI images: 120 generations / month</span></div>
               <div class="feature"><span class="dot"></span><span>Post Builder: 50 bundles / month</span></div>
               <div class="feature"><span class="dot"></span><span>Premium formats: Story-driven + Product launch</span></div>
             </div>
@@ -632,7 +681,10 @@
           <div id="businessPlan" class="plan" role="listitem" tabindex="0" onclick="selectPlan('business')">
             <div class="plan-top">
               <div>
-                <h3>Business</h3>
+                <div style="display:flex; align-items:center; gap: 10px; flex-wrap: wrap;">
+                  <h3>Business</h3>
+                  <span id="businessCurrent" class="plan-badge" aria-label="Current plan">Current plan</span>
+                </div>
                 <div class="per">For teams and agencies</div>
               </div>
               <div style="text-align:right;">
@@ -643,7 +695,7 @@
             <div class="features">
               <div class="feature"><span class="dot"></span><span>Text → posts: 4,000 runs / month</span></div>
               <div class="feature"><span class="dot"></span><span>Image → posts: 400 runs / month</span></div>
-              <div class="feature"><span class="dot"></span><span>AI images: 400 images / month (medium quality)</span></div>
+              <div class="feature"><span class="dot"></span><span>AI images: 400 generations / month</span></div>
               <div class="feature"><span class="dot"></span><span>Post Builder: 200 bundles / month</span></div>
               <div class="feature"><span class="dot"></span><span>Premium formats: Story-driven + Product launch</span></div>
             </div>
@@ -669,9 +721,11 @@
         </div>
 
         <div style="display:grid; gap: 10px; margin-top: 14px;">
-          <button class="btn btn-primary" type="button" onclick="proceedToPayment()">Continue</button>
+          <button id="continueBtn" class="btn btn-primary" type="button" onclick="proceedToPayment()">Continue</button>
           <a class="btn btn-ghost" href="/studio/">Back to Studio</a>
         </div>
+
+        <div id="currentPlanNote" class="current-plan-note" role="status" aria-live="polite"></div>
 
         <p class="subtitle" style="margin-top: 12px; margin-bottom: 0; font-size: 0.92rem;">
           You must be signed in to upgrade. After payment, Pro unlocks immediately.
@@ -699,6 +753,7 @@
         <div>
           <div class="footer-col-title">Legal</div>
           <div class="footer-links">
+            <a class="footer-link" href="/terms/">Terms</a>
             <a class="footer-link" href="/privacy/">Privacy Policy</a>
           </div>
         </div>
@@ -741,6 +796,7 @@
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
   <script src="/config.js" defer></script>
   <script src="/theme.js" defer></script>
+  <script src="/loader.js" defer></script>
   <script src="/checkout.js" defer></script>
   <script>
     (function () {

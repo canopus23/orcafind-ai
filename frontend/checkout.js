@@ -1,4 +1,5 @@
 let selectedPlan = "starter";
+let currentPlan = null;
 
 const ORCAFIND_CONFIG = window.__ORCAFIND_CONFIG || {};
 const SUPABASE_URL = ORCAFIND_CONFIG.supabaseUrl || window.__ORCAFIND_SUPABASE_URL || "https://rcfehmuiovcesucsvfsr.supabase.co";
@@ -36,6 +37,49 @@ function showToast(title, message, type = "default") {
   }, 3200);
 }
 
+function setCurrentPlan(plan) {
+  const normalized = String(plan || "").trim().toLowerCase();
+  currentPlan = PLAN_CATALOG[normalized] ? normalized : null;
+
+  ["free", "starter", "pro", "business"].forEach((key) => {
+    document.getElementById(`${key}Current`)?.classList.toggle("is-visible", currentPlan === key);
+  });
+
+  // If the user is already on a paid plan, default to showing that plan as selected.
+  if (currentPlan && currentPlan !== "free") {
+    selectPlan(currentPlan);
+  } else if (currentPlan === "free") {
+    // If explicitly free, keep the existing default selection (Starter) so upgrades are easy.
+    syncSummary();
+  }
+
+  updateCheckoutCTA();
+}
+
+function updateCheckoutCTA() {
+  const note = document.getElementById("currentPlanNote");
+  const btn = document.getElementById("continueBtn");
+
+  if (!btn) return;
+
+  if (currentPlan && selectedPlan === currentPlan && selectedPlan !== "free") {
+    btn.disabled = true;
+    btn.textContent = "Current plan";
+    if (note) {
+      note.classList.add("is-visible");
+      note.textContent = `You're currently on the ${PLAN_CATALOG[selectedPlan]?.label || "Pro"} plan.`;
+    }
+    return;
+  }
+
+  btn.disabled = false;
+  btn.textContent = "Continue";
+  if (note) {
+    note.classList.remove("is-visible");
+    note.textContent = "";
+  }
+}
+
 function selectPlan(plan) {
   const next = String(plan || "").trim().toLowerCase();
   selectedPlan = PLAN_CATALOG[next] ? next : "starter";
@@ -43,6 +87,7 @@ function selectPlan(plan) {
     document.getElementById(`${key}Plan`)?.classList.toggle("is-selected", selectedPlan === key);
   });
   syncSummary();
+  updateCheckoutCTA();
 }
 
 function syncSummary() {
@@ -76,7 +121,9 @@ function proceedToPayment() {
     return;
   }
 
+  window.OrcaFindLoader?.show({ title: "Preparing checkout", body: "Starting a secure Razorpay session…" });
   startRazorpayCheckout(email).catch((err) => {
+    window.OrcaFindLoader?.hide();
     showToast("Checkout failed", err.message || "Unable to start payment.", "error");
   });
 }
@@ -107,6 +154,7 @@ async function startRazorpayCheckout(email) {
 
   const orderData = await orderRes.json();
   if (!orderRes.ok) {
+    window.OrcaFindLoader?.hide();
     const detail = orderData?.detail;
     const msg = typeof detail === "string"
       ? detail
@@ -127,10 +175,12 @@ async function startRazorpayCheckout(email) {
     theme: { color: "#1367ff" },
     handler: async function (response) {
       try {
+        window.OrcaFindLoader?.show({ title: "Verifying payment", body: "Finalizing your subscription…" });
         // The checkout flow can take time. Refresh the Supabase session so we don't
         // verify with an expired/stale access token.
         const { data: { session: latestSession } } = await supabaseClient.auth.getSession();
         if (!latestSession) {
+          window.OrcaFindLoader?.hide();
           window.location.href = `/auth/?mode=signin&next=${encodeURIComponent("/checkout/")}`;
           return;
         }
@@ -155,6 +205,7 @@ async function startRazorpayCheckout(email) {
           verifyData = null;
         }
         if (!verifyRes.ok) {
+          window.OrcaFindLoader?.hide();
           const detail = verifyData?.detail;
           const msg = typeof detail === "string"
             ? detail
@@ -162,6 +213,8 @@ async function startRazorpayCheckout(email) {
           const reqId = detail?.request_id;
           throw new Error(reqId ? `${msg} (request_id: ${reqId})` : msg);
         }
+
+        window.OrcaFindLoader?.hide();
 
         // Immediately refresh entitlements so the UI shows the new plan.
         try {
@@ -188,6 +241,7 @@ async function startRazorpayCheckout(email) {
         window.location.href = "/studio/#studio";
       }, 900);
       } catch (err) {
+        window.OrcaFindLoader?.hide();
         showToast("Verification failed", err.message || "Could not verify payment.", "error");
       }
     },
@@ -195,6 +249,8 @@ async function startRazorpayCheckout(email) {
 
   // Razorpay Checkout injected globally by the script tag.
   const rzp = new window.Razorpay(options);
+  // Hide the loader as the Razorpay modal takes over the screen.
+  window.setTimeout(() => window.OrcaFindLoader?.hide(), 450);
   rzp.open();
 }
 
@@ -219,6 +275,27 @@ document.addEventListener("DOMContentLoaded", () => {
     const input = document.getElementById("checkoutEmail");
     if (email && input && !input.value) {
       input.value = email;
+    }
+  });
+
+  // If signed in, fetch entitlements so we can highlight the current plan.
+  supabaseClient.auth.getSession().then(async ({ data }) => {
+    const session = data?.session;
+    if (!session?.access_token) {
+      setCurrentPlan("free");
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/entitlements`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${session.access_token}` },
+      });
+      if (!res.ok) throw new Error("Entitlements fetch failed");
+      const ent = await res.json();
+      setCurrentPlan(ent?.plan || "free");
+    } catch (_err) {
+      // Don't block checkout; just avoid claiming a current plan.
+      setCurrentPlan(null);
     }
   });
 });

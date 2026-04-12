@@ -937,8 +937,8 @@ function setAuthMode(mode) {
   setText(
     "authModeCopy",
     authMode === "signin"
-      ? "Sign in with your existing account, or use Google if you want the fastest path into the studio."
-      : "Sign up with email, or continue with Google if you want to start immediately."
+      ? "Continue with Google or X to access your OrcaFind workspace."
+      : "Continue with Google or X to create your OrcaFind workspace."
   );
   setText("primaryAuthAction", authMode === "signin" ? "Sign In" : "Create Account");
 }
@@ -1706,8 +1706,14 @@ function resetUI() {
 /* ---------- AUTH ACTIONS ---------- */
 
 async function handleSignup() {
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
+  const emailEl = document.getElementById("email");
+  const passwordEl = document.getElementById("password");
+  if (!emailEl || !passwordEl) {
+    showToast("Unavailable", "Email/password sign-up is disabled. Use Google or X.", "error");
+    return;
+  }
+  const email = emailEl.value;
+  const password = passwordEl.value;
   setButtonLoading("primaryAuthAction", true, "Create Account", "Creating account...");
   const next = getSafeNextFromURL() || "/studio/";
   const emailRedirectTo = `${window.location.origin}/auth/?mode=signin&next=${encodeURIComponent(next)}`;
@@ -1727,8 +1733,14 @@ async function handleSignup() {
 }
 
 async function handleLogin() {
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
+  const emailEl = document.getElementById("email");
+  const passwordEl = document.getElementById("password");
+  if (!emailEl || !passwordEl) {
+    showToast("Unavailable", "Email/password sign-in is disabled. Use Google or X.", "error");
+    return;
+  }
+  const email = emailEl.value;
+  const password = passwordEl.value;
   setButtonLoading("primaryAuthAction", true, "Sign In", "Signing in...");
   const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
   setButtonLoading("primaryAuthAction", false, authMode === "signup" ? "Create Account" : "Sign In", "Signing in...");
@@ -1749,6 +1761,7 @@ async function logout() {
 }
 
 async function loginWithGoogle() {
+  window.OrcaFindLoader?.show({ title: "Signing in", body: "Redirecting to Google…" });
   const next = getSafeNextFromURL() || buildRelativeUrl({ stripParams: ["auth"] });
   const { error } = await supabaseClient.auth.signInWithOAuth({
     provider: "google",
@@ -1758,11 +1771,13 @@ async function loginWithGoogle() {
   });
 
   if (error) {
+    window.OrcaFindLoader?.hide();
     showToast("Google sign-in failed", error.message, "error");
   }
 }
 
 async function loginWithX() {
+  window.OrcaFindLoader?.show({ title: "Signing in", body: "Redirecting to X…" });
   const next = getSafeNextFromURL() || buildRelativeUrl({ stripParams: ["auth"] });
   // Supabase uses "twitter" as the provider name for X.
   const { error } = await supabaseClient.auth.signInWithOAuth({
@@ -1773,6 +1788,7 @@ async function loginWithX() {
   });
 
   if (error) {
+    window.OrcaFindLoader?.hide();
     showToast("X sign-in failed", error.message, "error");
   }
 }

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OrcaFind AI | Sign In</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/loader.css">
   <script>
     (function () {
       // Canonicalize auth to the apex domain so Supabase sessions remain consistent.
@@ -250,25 +251,18 @@
       </div>
 
       <div id="authModeCopy" class="auth-mode-copy">
-        Sign in with email/password, or continue with Google or X. OrcaFind will create an account automatically on first sign-in.
+        Continue with Google or X to access your OrcaFind workspace.
       </div>
 
-      <form class="auth-form" onsubmit="event.preventDefault(); handleLogin();">
-        <div class="field-group">
-          <label for="email">Email</label>
-          <input id="email" type="email" placeholder="you@company.com" autocomplete="email" required>
-        </div>
-        <div class="field-group">
-          <label for="password">Password</label>
-          <input id="password" type="password" placeholder="Enter your password" autocomplete="current-password" required>
-        </div>
+      <div class="auth-actions" style="margin-top: 12px;">
+        <button class="btn btn-primary" type="button" onclick="loginWithGoogle()">Continue with Google</button>
+        <button class="btn btn-ghost" type="button" onclick="loginWithX()">Continue with X</button>
+      </div>
 
-        <div class="auth-actions">
-          <button id="primaryAuthAction" class="btn btn-primary" type="submit">Sign In</button>
-          <button class="btn btn-ghost" type="button" onclick="loginWithGoogle()">Continue with Google</button>
-          <button class="btn btn-ghost" type="button" onclick="loginWithX()">Continue with X</button>
-        </div>
-      </form>
+      <div class="auth-mode-copy" style="margin-top: 14px; font-size: 0.88rem;">
+        By continuing, you agree to our <a href="/terms/" style="color: var(--brand); font-weight: 900;">Terms</a>
+        and <a href="/privacy/" style="color: var(--brand); font-weight: 900;">Privacy Policy</a>.
+      </div>
 
       <div class="muted-row">
         <span id="authNextHint">After sign-in, we’ll return you to your workspace.</span>
@@ -282,6 +276,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/config.js" defer></script>
   <script src="/theme.js" defer></script>
+  <script src="/loader.js" defer></script>
   <script src="/script.js" defer></script>
   <script>
     (function () {

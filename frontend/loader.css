@@ -1,0 +1,77 @@
+:root {
+  --loader-backdrop: rgba(3, 8, 18, 0.52);
+  --loader-surface: rgba(255, 255, 255, 0.92);
+  --loader-ink: rgba(16, 35, 63, 0.92);
+  --loader-muted: rgba(80, 99, 126, 0.82);
+  --loader-brand: var(--brand, #1367ff);
+}
+
+html[data-theme="dark"] {
+  --loader-backdrop: rgba(0, 0, 0, 0.62);
+  --loader-surface: rgba(6, 10, 18, 0.88);
+  --loader-ink: rgba(245, 250, 255, 0.92);
+  --loader-muted: rgba(185, 200, 221, 0.72);
+}
+
+.page-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: var(--loader-backdrop);
+  backdrop-filter: blur(10px);
+}
+
+.page-loader.is-visible {
+  display: flex;
+}
+
+.page-loader-card {
+  width: min(520px, 100%);
+  background: var(--loader-surface);
+  border: 1px solid rgba(111, 132, 163, 0.18);
+  border-radius: 20px;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.22);
+  padding: 18px 18px;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+}
+
+html[data-theme="dark"] .page-loader-card {
+  border-color: rgba(255, 255, 255, 0.10);
+  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.56);
+}
+
+.page-loader-spinner {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 3px solid rgba(19, 103, 255, 0.22);
+  border-top-color: var(--loader-brand);
+  animation: loader-spin 0.9s linear infinite;
+}
+
+.page-loader-copy strong {
+  display: block;
+  color: var(--loader-ink);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.page-loader-copy p {
+  margin-top: 3px;
+  color: var(--loader-muted);
+  line-height: 1.5;
+  font-size: 0.92rem;
+}
+
+@keyframes loader-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+

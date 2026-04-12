@@ -251,6 +251,7 @@ if (!window.supabase?.createClient) {
   window.profileSignOut = profileSignOut;
 
   document.addEventListener("DOMContentLoaded", () => {
+    window.OrcaFindLoader?.show({ title: "Loading profile", body: "Fetching your workspace details…" });
     const debugEnabled = new URLSearchParams(window.location.search).get("debug") === "1";
     if (debugEnabled) {
       const panel = document.createElement("pre");
@@ -283,7 +284,7 @@ if (!window.supabase?.createClient) {
       })();
     }
 
-    hydrate();
+    hydrate().finally(() => window.OrcaFindLoader?.hide());
     supabaseClient.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
         applySignedOutUI();
@@ -291,7 +292,10 @@ if (!window.supabase?.createClient) {
       }
 
       if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session?.user) {
-        fetchEntitlements(session.access_token).then((ent) => applySignedInUI({ user: session.user, entitlements: ent }));
+        window.OrcaFindLoader?.show({ title: "Loading profile", body: "Syncing your plan…" });
+        fetchEntitlements(session.access_token)
+          .then((ent) => applySignedInUI({ user: session.user, entitlements: ent }))
+          .finally(() => window.OrcaFindLoader?.hide());
         return;
       }
 

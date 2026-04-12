@@ -6,6 +6,7 @@
   <title>OrcaFind AI | Studio</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/footer.css">
+  <link rel="stylesheet" href="/loader.css">
   <script>
     (function () {
       try {
@@ -1506,12 +1507,13 @@
 	            </div>
 	          </div>
 
-	          <div>
-	            <div class="footer-col-title">Legal</div>
-	            <div class="footer-links">
-	              <a class="footer-link" href="/privacy/">Privacy Policy</a>
-	            </div>
-	          </div>
+		          <div>
+		            <div class="footer-col-title">Legal</div>
+		            <div class="footer-links">
+		              <a class="footer-link" href="/terms/">Terms</a>
+		              <a class="footer-link" href="/privacy/">Privacy Policy</a>
+		            </div>
+		          </div>
 	        </div>
 
 	        <div class="footer-bottom">
@@ -1531,27 +1533,20 @@
           <button class="btn btn-ghost auth-close" aria-label="Close authentication dialog" onclick="closeAuthModal()">×</button>
         </div>
 
-        <div id="authModeCopy" class="auth-mode-copy">
-          Sign in with email/password, or continue with Google or X. OrcaFind will create an account automatically on first sign-in.
-        </div>
+	        <div id="authModeCopy" class="auth-mode-copy">
+	          Continue with Google or X to access your OrcaFind workspace.
+	        </div>
 
-        <div class="auth-form">
-          <div class="field-group">
-            <label for="email">Work email</label>
-            <input id="email" type="email" placeholder="you@company.com">
-          </div>
-
-          <div class="field-group">
-            <label for="password">Password</label>
-            <input id="password" type="password" placeholder="Enter your password">
-          </div>
-
-          <div class="auth-actions">
-            <button id="primaryAuthAction" class="btn btn-primary" onclick="handleLogin()">Sign In</button>
-            <button class="btn btn-secondary" type="button" onclick="loginWithGoogle()">Continue with Google</button>
-            <button class="btn btn-secondary" type="button" onclick="loginWithX()">Continue with X</button>
-          </div>
-        </div>
+	        <div class="auth-form">
+	          <div class="auth-actions">
+	            <button class="btn btn-primary" type="button" onclick="loginWithGoogle()">Continue with Google</button>
+	            <button class="btn btn-secondary" type="button" onclick="loginWithX()">Continue with X</button>
+	          </div>
+	          <div class="auth-mode-copy" style="margin-top: 10px; font-size: 0.88rem;">
+	            By continuing, you agree to our <a href="/terms/" style="color: var(--brand); font-weight: 900;">Terms</a>
+	            and <a href="/privacy/" style="color: var(--brand); font-weight: 900;">Privacy Policy</a>.
+	          </div>
+	        </div>
       </div>
     </div>
 
@@ -1624,10 +1619,11 @@
     <div id="toastStack" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="/config.js" defer></script>
-  <script src="/theme.js" defer></script>
-  <script src="/script.js" defer></script>
+	  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+	  <script src="/config.js" defer></script>
+	  <script src="/theme.js" defer></script>
+	  <script src="/loader.js" defer></script>
+	  <script src="/script.js" defer></script>
   <script>
     (function () {
       var node = document.getElementById("footerYear");
