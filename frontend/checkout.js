@@ -1,5 +1,6 @@
 let selectedPlan = "starter";
 let currentPlan = null;
+let currentSubscription = null;
 
 const ORCAFIND_CONFIG = window.__ORCAFIND_CONFIG || {};
 const SUPABASE_URL = ORCAFIND_CONFIG.supabaseUrl || window.__ORCAFIND_SUPABASE_URL || "https://rcfehmuiovcesucsvfsr.supabase.co";
@@ -59,10 +60,25 @@ function setCurrentPlan(plan) {
 function updateCheckoutCTA() {
   const note = document.getElementById("currentPlanNote");
   const btn = document.getElementById("continueBtn");
+  const applyBtn = document.getElementById("applyChangeBtn");
+  const manageBlock = document.getElementById("manageBlock");
 
   if (!btn) return;
 
-  if (currentPlan && selectedPlan === currentPlan && selectedPlan !== "free") {
+  // If user has an active recurring subscription, show management actions.
+  if (manageBlock) {
+    manageBlock.style.display = currentSubscription ? "block" : "none";
+  }
+  if (currentSubscription) {
+    btn.style.display = "none";
+    if (applyBtn) {
+      applyBtn.disabled = !selectedPlan || selectedPlan === currentPlan || selectedPlan === "free";
+    }
+  } else {
+    btn.style.display = "inline-block";
+  }
+
+  if (currentSubscription && currentPlan && selectedPlan === currentPlan && selectedPlan !== "free") {
     btn.disabled = true;
     btn.textContent = "Current plan";
     if (note) {
@@ -73,10 +89,17 @@ function updateCheckoutCTA() {
   }
 
   btn.disabled = false;
-  btn.textContent = "Continue";
+  btn.textContent = currentPlan && !currentSubscription && selectedPlan === currentPlan && selectedPlan !== "free"
+    ? "Start subscription"
+    : "Continue";
   if (note) {
-    note.classList.remove("is-visible");
-    note.textContent = "";
+    if (currentPlan && !currentSubscription && selectedPlan === currentPlan && selectedPlan !== "free") {
+      note.classList.add("is-visible");
+      note.textContent = "You're on a legacy upgrade. Start a subscription to manage changes and cancellations.";
+    } else {
+      note.classList.remove("is-visible");
+      note.textContent = "";
+    }
   }
 }
 
@@ -139,7 +162,7 @@ async function startRazorpayCheckout(email) {
     return;
   }
 
-  const orderRes = await fetch(`${API_BASE_URL}/billing/razorpay/order`, {
+  const subRes = await fetch(`${API_BASE_URL}/billing/razorpay/subscription`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -147,28 +170,25 @@ async function startRazorpayCheckout(email) {
     },
     body: JSON.stringify({
       plan: selectedPlan,
-      billing: "monthly",
       email,
     }),
   });
 
-  const orderData = await orderRes.json();
-  if (!orderRes.ok) {
+  const subData = await subRes.json();
+  if (!subRes.ok) {
     window.OrcaFindLoader?.hide();
-    const detail = orderData?.detail;
+    const detail = subData?.detail;
     const msg = typeof detail === "string"
       ? detail
-      : (detail?.message || orderData?.message || "Failed to create order");
+      : (detail?.message || subData?.message || "Failed to start subscription");
     throw new Error(msg);
   }
 
   const options = {
-    key: orderData.key_id,
-    amount: orderData.amount,
-    currency: orderData.currency,
-    name: orderData.name,
-    description: orderData.description,
-    order_id: orderData.order_id,
+    key: subData.key_id,
+    name: subData.name,
+    description: subData.description,
+    subscription_id: subData.subscription_id,
     prefill: {
       email: email,
     },
@@ -185,15 +205,15 @@ async function startRazorpayCheckout(email) {
           return;
         }
 
-        const verifyRes = await fetch(`${API_BASE_URL}/billing/razorpay/verify`, {
+        const verifyRes = await fetch(`${API_BASE_URL}/billing/razorpay/subscription/verify`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${latestSession.access_token}`,
           },
           body: JSON.stringify({
-            razorpay_order_id: response.razorpay_order_id,
             razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_subscription_id: response.razorpay_subscription_id,
             razorpay_signature: response.razorpay_signature,
           }),
         });
@@ -254,6 +274,127 @@ async function startRazorpayCheckout(email) {
   rzp.open();
 }
 
+async function applyPlanChange() {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session) {
+    window.location.href = `/auth/?mode=signin&next=${encodeURIComponent("/checkout/")}`;
+    return;
+  }
+
+  if (!selectedPlan || selectedPlan === "free" || selectedPlan === currentPlan) {
+    showToast("No change", "Select a different paid plan to apply.", "error");
+    return;
+  }
+
+  window.OrcaFindLoader?.show({ title: "Updating plan", body: "Applying your subscription change…" });
+  try {
+    const res = await fetch(`${API_BASE_URL}/billing/razorpay/subscription/change`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ plan: selectedPlan }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      const detail = data?.detail;
+      const msg = typeof detail === "string" ? detail : (detail?.message || "Failed to update plan");
+      throw new Error(msg);
+    }
+    showToast("Plan updated", data?.schedule_change_at === "cycle_end" ? "Downgrade scheduled for period end." : "Upgrade applied immediately.", "success");
+  } catch (err) {
+    showToast("Update failed", err.message || "Could not update plan.", "error");
+  } finally {
+    window.OrcaFindLoader?.hide();
+    // Refresh entitlements + UI.
+    try {
+      const entRes = await fetch(`${API_BASE_URL}/entitlements`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${session.access_token}` },
+      });
+      if (entRes.ok) {
+        const ent = await entRes.json();
+        hydrateFromEntitlements(ent);
+      }
+    } catch (_err) {}
+  }
+}
+
+async function cancelSubscription() {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session) {
+    window.location.href = `/auth/?mode=signin&next=${encodeURIComponent("/checkout/")}`;
+    return;
+  }
+
+  window.OrcaFindLoader?.show({ title: "Cancelling", body: "Scheduling cancellation at period end…" });
+  try {
+    const res = await fetch(`${API_BASE_URL}/billing/razorpay/subscription/cancel`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ cancel_at_cycle_end: true }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      const detail = data?.detail;
+      const msg = typeof detail === "string" ? detail : (detail?.message || "Failed to cancel subscription");
+      throw new Error(msg);
+    }
+    showToast("Cancellation scheduled", "Your plan will remain active until the end of the billing period.", "success");
+  } catch (err) {
+    showToast("Cancel failed", err.message || "Could not cancel subscription.", "error");
+  } finally {
+    window.OrcaFindLoader?.hide();
+    try {
+      const entRes = await fetch(`${API_BASE_URL}/entitlements`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${session.access_token}` },
+      });
+      if (entRes.ok) {
+        const ent = await entRes.json();
+        hydrateFromEntitlements(ent);
+      }
+    } catch (_err) {}
+  }
+}
+
+window.applyPlanChange = applyPlanChange;
+window.cancelSubscription = cancelSubscription;
+
+function formatEpoch(epochSeconds) {
+  const sec = Number(epochSeconds || 0);
+  if (!sec) return "—";
+  const date = new Date(sec * 1000);
+  try {
+    return new Intl.DateTimeFormat("en-IN", { month: "short", day: "2-digit", year: "numeric" }).format(date);
+  } catch (_err) {
+    return date.toISOString().slice(0, 10);
+  }
+}
+
+function hydrateFromEntitlements(ent) {
+  currentSubscription = ent?.subscription || null;
+  setCurrentPlan(ent?.plan || "free");
+
+  const statusNode = document.getElementById("subStatus");
+  const renewsNode = document.getElementById("subRenews");
+  const schedNode = document.getElementById("subScheduled");
+
+  if (currentSubscription) {
+    if (statusNode) statusNode.textContent = String(currentSubscription.status || "active").toUpperCase();
+    if (renewsNode) renewsNode.textContent = formatEpoch(currentSubscription.current_period_end);
+    if (schedNode) {
+      const sched = currentSubscription.scheduled_plan;
+      const cancel = currentSubscription.cancel_at_cycle_end;
+      schedNode.textContent = cancel ? "Cancel at period end" : (sched ? `Switch to ${String(sched).toUpperCase()}` : "—");
+    }
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   // Keyboard access for plan cards.
   ["freePlan", "starterPlan", "proPlan", "businessPlan"].forEach((id) => {
@@ -278,11 +419,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // If signed in, fetch entitlements so we can highlight the current plan.
+  // If signed in, fetch entitlements so we can highlight the current plan + manage subscription.
   supabaseClient.auth.getSession().then(async ({ data }) => {
     const session = data?.session;
     if (!session?.access_token) {
-      setCurrentPlan("free");
+      hydrateFromEntitlements({ plan: "free", subscription: null });
       return;
     }
     try {
@@ -292,10 +433,10 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       if (!res.ok) throw new Error("Entitlements fetch failed");
       const ent = await res.json();
-      setCurrentPlan(ent?.plan || "free");
+      hydrateFromEntitlements(ent);
     } catch (_err) {
       // Don't block checkout; just avoid claiming a current plan.
-      setCurrentPlan(null);
+      hydrateFromEntitlements({ plan: null, subscription: null });
     }
   });
 });

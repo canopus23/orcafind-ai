@@ -11,3 +11,22 @@ class RazorpayVerifyRequest(BaseModel):
     razorpay_order_id: str
     razorpay_payment_id: str
     razorpay_signature: str
+
+
+class RazorpayCreateSubscriptionRequest(BaseModel):
+    plan: str = Field(default="pro")
+    email: str = Field(default="")
+
+
+class RazorpayVerifySubscriptionRequest(BaseModel):
+    razorpay_subscription_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+
+
+class RazorpayChangePlanRequest(BaseModel):
+    plan: str
+
+
+class RazorpayCancelSubscriptionRequest(BaseModel):
+    cancel_at_cycle_end: bool = Field(default=True)

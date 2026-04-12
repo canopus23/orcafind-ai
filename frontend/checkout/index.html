@@ -725,6 +725,18 @@
           <a class="btn btn-ghost" href="/studio/">Back to Studio</a>
         </div>
 
+        <div id="manageBlock" style="display:none; margin-top: 14px;">
+          <div class="summary" style="padding: 14px;">
+            <div class="row"><span>Subscription</span><strong id="subStatus">Active</strong></div>
+            <div class="row"><span>Renews</span><strong id="subRenews">—</strong></div>
+            <div class="row"><span>Scheduled</span><strong id="subScheduled">—</strong></div>
+          </div>
+          <div style="display:grid; gap: 10px; margin-top: 10px;">
+            <button id="applyChangeBtn" class="btn btn-primary" type="button" onclick="applyPlanChange()">Apply plan change</button>
+            <button id="cancelSubBtn" class="btn btn-ghost" style="border-color: rgba(194,65,91,0.22); color: var(--danger);" type="button" onclick="cancelSubscription()">Cancel at period end</button>
+          </div>
+        </div>
+
         <div id="currentPlanNote" class="current-plan-note" role="status" aria-live="polite"></div>
 
         <p class="subtitle" style="margin-top: 12px; margin-bottom: 0; font-size: 0.92rem;">
