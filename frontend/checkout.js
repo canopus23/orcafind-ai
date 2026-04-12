@@ -24,6 +24,28 @@ const PLAN_CATALOG = {
   business: { label: "Business", amountInr: 2999, priceLabel: `₹${formatINR(2999)}`, checkoutLabel: `₹${formatINR(2999)} / mo` },
 };
 
+function syncCheckoutModal() {
+  const title = document.getElementById("checkoutModalTitle");
+  const payBtn = document.getElementById("continueBtn");
+  const emailField = document.getElementById("checkoutEmail");
+
+  const label = PLAN_CATALOG[selectedPlan]?.label || "Starter";
+  if (title) title.textContent = `Checkout · ${label}`;
+
+  if (payBtn) {
+    if (selectedPlan === "free") {
+      payBtn.textContent = "Done";
+    } else {
+      payBtn.textContent = "Pay now";
+    }
+  }
+
+  // For free plan, email isn't required; keep the field but de-emphasize.
+  if (emailField) {
+    emailField.placeholder = selectedPlan === "free" ? "Optional for Free plan" : "you@company.com";
+  }
+}
+
 function showToast(title, message, type = "default") {
   const stack = document.getElementById("toastStack");
   if (!stack) return;
@@ -44,6 +66,7 @@ function openCheckoutModal() {
   modal.classList.add("is-open");
   modal.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
+  syncCheckoutModal();
 
   // Focus the email input for fast checkout.
   window.setTimeout(() => {
@@ -135,6 +158,7 @@ function selectPlan(plan) {
     document.getElementById(`${key}Plan`)?.classList.toggle("is-selected", selectedPlan === key);
   });
   syncSummary();
+  syncCheckoutModal();
   updateCheckoutCTA();
 }
 
@@ -155,6 +179,7 @@ function syncSummary() {
   if (summaryTotal) {
     summaryTotal.textContent = PLAN_CATALOG[selectedPlan]?.checkoutLabel || `₹${formatINR(499)} / mo`;
   }
+  syncCheckoutModal();
 }
 
 function proceedToPayment() {
