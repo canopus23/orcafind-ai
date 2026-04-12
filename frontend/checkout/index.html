@@ -560,6 +560,90 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+    }
+
+    .modal.is-open { display: flex; }
+
+    .modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(3, 8, 18, 0.58);
+      backdrop-filter: blur(10px);
+    }
+
+    .modal-panel {
+      position: relative;
+      width: min(560px, 100%);
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-xl);
+      backdrop-filter: blur(18px);
+      padding: 18px;
+      animation: modal-rise 0.18s ease;
+    }
+
+    html[data-theme="dark"] .modal-backdrop { background: rgba(0, 0, 0, 0.62); }
+
+    @keyframes modal-rise {
+      from { opacity: 0; transform: translateY(10px) scale(0.99); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .modal-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .modal-head h2 {
+      font-size: 1.25rem;
+      letter-spacing: -0.03em;
+      margin: 0;
+    }
+
+    .iconbtn {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      border: 1px solid rgba(111, 132, 163, 0.22);
+      background: rgba(255, 255, 255, 0.78);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: inherit;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+    .iconbtn:hover { transform: translateY(-1px); box-shadow: 0 14px 26px rgba(11, 26, 56, 0.10); }
+    .iconbtn:active { transform: translateY(0); }
+
+    html[data-theme="dark"] .iconbtn {
+      background: rgba(6, 10, 18, 0.66);
+      border-color: rgba(255, 255, 255, 0.10);
+    }
+
+    .modal-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    @media (max-width: 520px) {
+      .modal-actions { grid-template-columns: 1fr; }
+    }
+
     @media (max-width: 980px) {
       .hero-grid { grid-template-columns: 1fr; }
       .right { position: static; }
@@ -701,50 +785,68 @@
             </div>
           </div>
         </div>
-      </div>
-
-      <div class="card right">
-        <div class="summary-head">
-          <h2>Checkout</h2>
-          <span class="kicker" style="margin: 0;">Secure payment</span>
-        </div>
-
-        <div class="field" style="display:grid; gap: 8px; margin-bottom: 12px;">
-          <label for="checkoutEmail">Email</label>
-          <input id="checkoutEmail" placeholder="you@company.com" />
-        </div>
-
-        <div class="summary">
-          <div class="row"><span>Plan</span><strong id="summaryPlan">Starter</strong></div>
-          <div class="row"><span>Billing</span><strong>Monthly</strong></div>
-          <div class="row total"><span>Total</span><strong id="summaryTotal">₹499 / mo</strong></div>
-        </div>
 
         <div style="display:grid; gap: 10px; margin-top: 14px;">
-          <button id="continueBtn" class="btn btn-primary" type="button" onclick="proceedToPayment()">Continue</button>
-          <a class="btn btn-ghost" href="/studio/">Back to Studio</a>
-        </div>
-
-        <div id="manageBlock" style="display:none; margin-top: 14px;">
-          <div class="summary" style="padding: 14px;">
-            <div class="row"><span>Subscription</span><strong id="subStatus">Active</strong></div>
-            <div class="row"><span>Renews</span><strong id="subRenews">—</strong></div>
-            <div class="row"><span>Scheduled</span><strong id="subScheduled">—</strong></div>
-          </div>
-          <div style="display:grid; gap: 10px; margin-top: 10px;">
-            <button id="applyChangeBtn" class="btn btn-primary" type="button" onclick="applyPlanChange()">Apply plan change</button>
-            <button id="cancelSubBtn" class="btn btn-ghost" style="border-color: rgba(194,65,91,0.22); color: var(--danger);" type="button" onclick="cancelSubscription()">Cancel at period end</button>
+          <button id="openCheckoutBtn" class="btn btn-primary" type="button" onclick="openCheckoutModal()">Continue</button>
+          <div class="subtitle" style="margin: 0; font-size: 0.92rem;">
+            Secure Razorpay checkout opens in the next step.
           </div>
         </div>
-
-        <div id="currentPlanNote" class="current-plan-note" role="status" aria-live="polite"></div>
-
-        <p class="subtitle" style="margin-top: 12px; margin-bottom: 0; font-size: 0.92rem;">
-          You must be signed in to upgrade. After payment, Pro unlocks immediately.
-        </p>
       </div>
     </div>
   </section>
+
+  <div id="checkoutModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="checkoutModalTitle">
+    <div class="modal-backdrop" data-modal-close></div>
+    <div class="modal-panel">
+      <div class="modal-head">
+        <div>
+          <h2 id="checkoutModalTitle">Checkout</h2>
+          <div class="kicker" style="margin: 8px 0 0;">Secure payment</div>
+        </div>
+        <button class="iconbtn" type="button" aria-label="Close checkout" data-modal-close>
+          <svg style="width:18px;height:18px;display:inline-block;" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="field" style="display:grid; gap: 8px; margin-bottom: 12px;">
+        <label for="checkoutEmail">Email</label>
+        <input id="checkoutEmail" placeholder="you@company.com" />
+      </div>
+
+      <div class="summary">
+        <div class="row"><span>Plan</span><strong id="summaryPlan">Starter</strong></div>
+        <div class="row"><span>Billing</span><strong>Monthly</strong></div>
+        <div class="row total"><span>Total</span><strong id="summaryTotal">₹499 / mo</strong></div>
+      </div>
+
+      <div id="manageBlock" style="display:none; margin-top: 14px;">
+        <div class="summary" style="padding: 14px;">
+          <div class="row"><span>Subscription</span><strong id="subStatus">Active</strong></div>
+          <div class="row"><span>Renews</span><strong id="subRenews">—</strong></div>
+          <div class="row"><span>Scheduled</span><strong id="subScheduled">—</strong></div>
+        </div>
+        <div style="display:grid; gap: 10px; margin-top: 10px;">
+          <button id="applyChangeBtn" class="btn btn-primary" type="button" onclick="applyPlanChange()">Apply plan change</button>
+          <button id="cancelSubBtn" class="btn btn-ghost" style="border-color: rgba(194,65,91,0.22); color: var(--danger);" type="button" onclick="cancelSubscription()">Cancel at period end</button>
+        </div>
+      </div>
+
+      <div id="currentPlanNote" class="current-plan-note" role="status" aria-live="polite"></div>
+
+      <p class="subtitle" style="margin-top: 12px; margin-bottom: 0; font-size: 0.92rem;">
+        You must be signed in to upgrade. After payment, your plan updates immediately.
+      </p>
+
+      <div class="modal-actions">
+        <button class="btn btn-ghost" type="button" data-modal-close>Cancel</button>
+        <button id="continueBtn" class="btn btn-primary" type="button" onclick="proceedToPayment()">Pay now</button>
+      </div>
+    </div>
+  </div>
 
   <footer class="site-footer" aria-label="Footer">
     <div class="container">

@@ -38,6 +38,31 @@ function showToast(title, message, type = "default") {
   }, 3200);
 }
 
+function openCheckoutModal() {
+  const modal = document.getElementById("checkoutModal");
+  if (!modal) return;
+  modal.classList.add("is-open");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+
+  // Focus the email input for fast checkout.
+  window.setTimeout(() => {
+    const input = document.getElementById("checkoutEmail");
+    if (input) input.focus();
+  }, 40);
+}
+
+function closeCheckoutModal() {
+  const modal = document.getElementById("checkoutModal");
+  if (!modal) return;
+  modal.classList.remove("is-open");
+  modal.setAttribute("aria-hidden", "true");
+  document.body.style.overflow = "";
+}
+
+window.openCheckoutModal = openCheckoutModal;
+window.closeCheckoutModal = closeCheckoutModal;
+
 function setCurrentPlan(plan) {
   const normalized = String(plan || "").trim().toLowerCase();
   currentPlan = PLAN_CATALOG[normalized] ? normalized : null;
@@ -140,10 +165,12 @@ function proceedToPayment() {
   }
 
   if (selectedPlan === "free") {
+    closeCheckoutModal();
     showToast("No payment needed", "Free plan does not require checkout.", "success");
     return;
   }
 
+  closeCheckoutModal();
   window.OrcaFindLoader?.show({ title: "Preparing checkout", body: "Starting a secure Razorpay session…" });
   startRazorpayCheckout(email).catch((err) => {
     window.OrcaFindLoader?.hide();
@@ -411,14 +438,35 @@ function hydrateFromEntitlements(ent) {
     }
     if (cancelBtn) {
       const status = String(currentSubscription.status || "").toLowerCase();
-      // Razorpay won't allow cycle-end cancellation if no billing cycle has started yet.
-      // We still allow the click (backend retries immediate cancel), but disable when it is already cancelled.
-      cancelBtn.disabled = status === "cancelled" || status === "canceled";
+      const cancelled = status === "cancelled" || status === "canceled";
+      const scheduledCancel = Boolean(currentSubscription.cancel_at_cycle_end);
+      // Once cancellation is scheduled (or already cancelled), disable the button and show "Cancelled".
+      cancelBtn.disabled = cancelled || scheduledCancel;
+      cancelBtn.textContent = (cancelled || scheduledCancel) ? "Cancelled" : "Cancel at period end";
+      cancelBtn.setAttribute("aria-disabled", cancelBtn.disabled ? "true" : "false");
     }
   }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Modal close events.
+  const modal = document.getElementById("checkoutModal");
+  if (modal) {
+    modal.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.matches("[data-modal-close]")) {
+        closeCheckoutModal();
+      }
+    });
+  }
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    const m = document.getElementById("checkoutModal");
+    if (m && m.classList.contains("is-open")) closeCheckoutModal();
+  });
+
   // Keyboard access for plan cards.
   ["freePlan", "starterPlan", "proPlan", "businessPlan"].forEach((id) => {
     const node = document.getElementById(id);
