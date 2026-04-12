@@ -299,7 +299,17 @@ async function applyPlanChange() {
     const data = await res.json();
     if (!res.ok) {
       const detail = data?.detail;
+      const code = typeof detail === "object" ? detail?.code : null;
       const msg = typeof detail === "string" ? detail : (detail?.message || "Failed to update plan");
+      // Razorpay limitation: UPI subscriptions cannot be updated. Guide the user to cancel + re-subscribe.
+      if (code === "UPI_SUBSCRIPTION_UNCHANGEABLE") {
+        showToast(
+          "Plan change not supported",
+          "Razorpay doesn’t allow plan changes on UPI subscriptions. Cancel your current subscription, then start a new one on the plan you want (Card/NetBanking recommended).",
+          "error"
+        );
+        return;
+      }
       throw new Error(msg);
     }
     showToast("Plan updated", data?.schedule_change_at === "cycle_end" ? "Downgrade scheduled for period end." : "Upgrade applied immediately.", "success");
@@ -328,6 +338,8 @@ async function cancelSubscription() {
     return;
   }
 
+  // Default behavior: cancel at period end (SaaS-standard). Backend will fall back to immediate
+  // cancellation when Razorpay indicates no billing cycle has started yet.
   window.OrcaFindLoader?.show({ title: "Cancelling", body: "Scheduling cancellation at period end…" });
   try {
     const res = await fetch(`${API_BASE_URL}/billing/razorpay/subscription/cancel`, {
@@ -344,7 +356,11 @@ async function cancelSubscription() {
       const msg = typeof detail === "string" ? detail : (detail?.message || "Failed to cancel subscription");
       throw new Error(msg);
     }
-    showToast("Cancellation scheduled", "Your plan will remain active until the end of the billing period.", "success");
+    if (data?.cancel_at_cycle_end) {
+      showToast("Cancellation scheduled", "Your plan will remain active until the end of the billing period.", "success");
+    } else {
+      showToast("Subscription cancelled", "Your subscription was cancelled immediately.", "success");
+    }
   } catch (err) {
     showToast("Cancel failed", err.message || "Could not cancel subscription.", "error");
   } finally {
@@ -383,6 +399,7 @@ function hydrateFromEntitlements(ent) {
   const statusNode = document.getElementById("subStatus");
   const renewsNode = document.getElementById("subRenews");
   const schedNode = document.getElementById("subScheduled");
+  const cancelBtn = document.getElementById("cancelSubBtn");
 
   if (currentSubscription) {
     if (statusNode) statusNode.textContent = String(currentSubscription.status || "active").toUpperCase();
@@ -391,6 +408,12 @@ function hydrateFromEntitlements(ent) {
       const sched = currentSubscription.scheduled_plan;
       const cancel = currentSubscription.cancel_at_cycle_end;
       schedNode.textContent = cancel ? "Cancel at period end" : (sched ? `Switch to ${String(sched).toUpperCase()}` : "—");
+    }
+    if (cancelBtn) {
+      const status = String(currentSubscription.status || "").toLowerCase();
+      // Razorpay won't allow cycle-end cancellation if no billing cycle has started yet.
+      // We still allow the click (backend retries immediate cancel), but disable when it is already cancelled.
+      cancelBtn.disabled = status === "cancelled" || status === "canceled";
     }
   }
 }

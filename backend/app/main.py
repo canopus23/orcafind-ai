@@ -1015,9 +1015,25 @@ async def razorpay_subscription_change(
         )
         sub = await razorpay_fetch_subscription(subscription_id=sub_id)
     except RuntimeError as e:
+        msg = str(e or "").strip()
+        # Razorpay limitation: subscriptions paid/created with UPI cannot be updated.
+        # We surface a product-grade error so the UI can guide the user to cancel + re-subscribe.
+        if "payment mode is upi" in msg.lower():
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "UPI_SUBSCRIPTION_UNCHANGEABLE",
+                    "message": (
+                        "Plan changes are not supported for subscriptions created with UPI. "
+                        "Cancel your current subscription, then start a new subscription "
+                        "on the desired plan (Card/NetBanking recommended)."
+                    ),
+                    "request_id": request.state.request_id,
+                },
+            ) from e
         raise HTTPException(
             status_code=502,
-            detail={"message": str(e), "request_id": request.state.request_id},
+            detail={"message": msg, "request_id": request.state.request_id},
         ) from e
 
     if schedule_change_at == "cycle_end":
@@ -1066,16 +1082,35 @@ async def razorpay_subscription_cancel(
             },
         )
 
+    requested_cycle_end = bool(req.cancel_at_cycle_end)
+    tried_fallback = False
     try:
         sub = await razorpay_cancel_subscription(
             subscription_id=sub_id,
-            cancel_at_cycle_end=bool(req.cancel_at_cycle_end),
+            cancel_at_cycle_end=requested_cycle_end,
         )
     except RuntimeError as e:
-        raise HTTPException(
-            status_code=502,
-            detail={"message": str(e), "request_id": request.state.request_id},
-        ) from e
+        msg = str(e or "").strip()
+        # Razorpay rejects "cancel_at_cycle_end" when the subscription never started a billing cycle
+        # (e.g. status=created/authenticated). In that case, retry with immediate cancellation.
+        if requested_cycle_end and "no billing cycle" in msg.lower():
+            tried_fallback = True
+            try:
+                sub = await razorpay_cancel_subscription(
+                    subscription_id=sub_id,
+                    cancel_at_cycle_end=False,
+                )
+                requested_cycle_end = False
+            except RuntimeError as e2:
+                raise HTTPException(
+                    status_code=502,
+                    detail={"message": str(e2), "request_id": request.state.request_id},
+                ) from e2
+        else:
+            raise HTTPException(
+                status_code=502,
+                detail={"message": msg or "Razorpay error", "request_id": request.state.request_id},
+            ) from e
 
     upsert_subscription_state(
         user_id=user_id,
@@ -1089,7 +1124,11 @@ async def razorpay_subscription_cancel(
         scheduled_plan=state.get("scheduled_plan"),
     )
 
-    return {"status": "ok", "cancel_at_cycle_end": bool(req.cancel_at_cycle_end)}
+    return {
+        "status": "ok",
+        "cancel_at_cycle_end": bool(requested_cycle_end),
+        "fallback_to_immediate_cancel": bool(tried_fallback),
+    }
 
 
 @app.post("/billing/razorpay/webhook")
