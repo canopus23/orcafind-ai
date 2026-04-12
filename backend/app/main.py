@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import re
+import time
 
 import uvicorn
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -49,6 +50,9 @@ from app.services.razorpay_service import (
 )
 from app.services.razorpay_service import (
     create_subscription as razorpay_create_subscription,
+)
+from app.services.razorpay_service import (
+    fetch_plan as razorpay_fetch_plan,
 )
 from app.services.razorpay_service import (
     fetch_subscription as razorpay_fetch_subscription,
@@ -131,6 +135,8 @@ PLAN_PRICES_INR_PAISE = {
 
 PLAN_TIER = {"free": 0, "starter": 1, "pro": 2, "business": 3}
 
+_RAZORPAY_MAX_END_TIME = 4_765_046_400  # 2121-01-01T00:00:00Z (Razorpay validation window)
+
 
 def _razorpay_plan_id(plan: str) -> str:
     """
@@ -164,6 +170,43 @@ def _plan_from_razorpay_plan_id(plan_id: str | None) -> str | None:
         (os.getenv("RAZORPAY_PLAN_ID_BUSINESS") or "").strip(): "business",
     }
     return mapping.get(plan_id) or None
+
+
+def _estimate_cycle_seconds(*, period: str, interval: int) -> int:
+    # Razorpay plan periods are typically: daily, weekly, monthly, yearly.
+    # For month/year we use conservative approximations to keep the computed end_time
+    # inside Razorpay's accepted window.
+    p = (period or "").strip().lower()
+    step = max(1, int(interval or 1))
+    if p == "daily":
+        return 86_400 * step
+    if p == "weekly":
+        return 7 * 86_400 * step
+    if p == "yearly":
+        return 365 * 86_400 * step
+    # monthly (and unknown): 30-day approximation.
+    return 30 * 86_400 * step
+
+
+async def _safe_total_count_for_plan(*, plan_id: str, requested: int) -> int:
+    req = max(1, int(requested or 1))
+    now = int(time.time())
+
+    period = "monthly"
+    interval = 1
+    try:
+        plan = await razorpay_fetch_plan(plan_id=plan_id)
+        if isinstance(plan, dict):
+            period = str(plan.get("period") or period)
+            interval = int(plan.get("interval") or interval)
+    except Exception:
+        # If Razorpay plan fetch fails, keep the conservative fallback.
+        pass
+
+    cycle_seconds = _estimate_cycle_seconds(period=period, interval=interval)
+    # Clamp total_count so Razorpay never computes an end_time beyond their accepted max.
+    max_count = max(1, int((_RAZORPAY_MAX_END_TIME - now) // max(1, cycle_seconds)))
+    return min(req, max_count)
 
 
 def _limits_for_plan(plan: str) -> dict:
@@ -801,7 +844,9 @@ async def razorpay_subscription_create(
     user_id = str(user.get("sub") or "user")
     email = _get_user_email(user) or req.email or ""
     plan_id = _razorpay_plan_id(plan)
-    total_count = int(os.getenv("RAZORPAY_SUBSCRIPTION_TOTAL_COUNT", "1200"))
+    # Keep the subscription long-lived, but within Razorpay's end_time validation window.
+    requested_total = int(os.getenv("RAZORPAY_SUBSCRIPTION_TOTAL_COUNT", "120"))
+    total_count = await _safe_total_count_for_plan(plan_id=plan_id, requested=requested_total)
 
     try:
         sub = await razorpay_create_subscription(
@@ -897,6 +942,33 @@ async def razorpay_subscription_verify(
         cancel_at_cycle_end=bool(int(sub.get("cancel_at_cycle_end") or 0)),
         scheduled_plan=(get_subscription_state(user_id) or {}).get("scheduled_plan"),
     )
+
+    # Fail closed if verification worked but persistence did not. Otherwise the UI will keep
+    # showing "free" and the user will get paywalled after a successful payment.
+    persisted = (get_plan(user_id) or "").strip().lower()
+    if persisted != str(plan).strip().lower():
+        db_info = get_db_diagnostics()
+        db_error = ""
+        try:
+            engine = get_engine()
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+        except Exception as e:
+            db_error = str(e or "").strip().replace("\n", " ")[:240]
+
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message": (
+                    "Subscription verified but could not be saved. "
+                    "Check DATABASE_URL / DB connectivity "
+                    "(and set DB_FORCE_IPV4=true for Supabase if needed)."
+                ),
+                "db": db_info,
+                "db_error": db_error,
+                "request_id": getattr(request.state, "request_id", None),
+            },
+        )
 
     return {"status": "ok", "plan": plan, "effective_plan": get_effective_plan(user)}
 

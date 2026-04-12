@@ -254,3 +254,25 @@ async def fetch_subscription(*, subscription_id: str) -> dict[str, Any]:
                 msg = f"{msg}: {detail}"
             raise RuntimeError(msg) from exc
         return response.json()
+
+
+async def fetch_plan(*, plan_id: str) -> dict[str, Any]:
+    key_id = get_razorpay_key_id()
+    key_secret = get_razorpay_key_secret()
+    base_url = get_razorpay_api_base_url()
+
+    async with httpx.AsyncClient(timeout=_DEFAULT_TIMEOUT) as client:
+        response = await client.get(
+            f"{base_url}/v1/plans/{plan_id}",
+            auth=(key_id, key_secret),
+        )
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            detail = _parse_razorpay_error(response)
+            status = response.status_code
+            msg = f"Razorpay fetch_plan failed (HTTP {status})"
+            if detail:
+                msg = f"{msg}: {detail}"
+            raise RuntimeError(msg) from exc
+        return response.json()
