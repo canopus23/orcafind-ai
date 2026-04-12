@@ -682,6 +682,16 @@ async def razorpay_verify(
     # grant_plan() fails open (returns) and the UI would keep showing "free".
     persisted = (get_plan(user_id) or "").strip().lower()
     if persisted != plan:
+        # Capture safe DB diagnostics so production debugging doesn't require log access.
+        db_info = get_db_diagnostics()
+        db_error = ""
+        try:
+            engine = get_engine()
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+        except Exception as e:
+            db_error = str(e or "").strip().replace("\n", " ")[:240]
+
         raise HTTPException(
             status_code=503,
             detail={
@@ -690,6 +700,8 @@ async def razorpay_verify(
                     "Check DATABASE_URL / DB connectivity "
                     "(and set DB_FORCE_IPV4=true for Supabase if needed)."
                 ),
+                "db": db_info,
+                "db_error": db_error,
                 "request_id": getattr(request.state, "request_id", None),
             },
         )
