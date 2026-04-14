@@ -240,6 +240,71 @@ function setStudioMode(mode) {
     const input = document.getElementById("inputText");
     input?.focus?.();
   }
+
+  // Keep the mobile dock in sync with the active studio mode.
+  updateStudioMobileDock();
+}
+
+function isStudioMobileViewport() {
+  try {
+    return window.matchMedia && window.matchMedia("(max-width: 820px)").matches;
+  } catch (_err) {
+    return false;
+  }
+}
+
+function updateStudioMobileDock() {
+  const dock = document.getElementById("mobileDock");
+  const primary = document.getElementById("mobileDockPrimary");
+  const label = document.getElementById("mobileDockPrimaryLabel");
+  if (!dock || !primary || !label) return;
+
+  const shouldShow = isStudioMobileViewport();
+  dock.setAttribute("aria-hidden", shouldShow ? "false" : "true");
+  if (!shouldShow) {
+    closeStudioOptions();
+    return;
+  }
+
+  let text = "Generate";
+  if (studioMode === "images") text = "Generate images";
+  if (studioMode === "builder") text = "Generate bundle";
+  label.textContent = text;
+
+  const map = {
+    text: "generateBtn",
+    vision: "visionGenerateBtn",
+    images: "imageGenerateBtn",
+    builder: "builderGenerateBtn",
+  };
+  const sourceBtn = document.getElementById(map[studioMode] || "");
+  const isBusy = !!sourceBtn?.classList?.contains("is-loading") || !!sourceBtn?.disabled;
+  primary.disabled = isBusy;
+}
+
+function openStudioOptions() {
+  const aside = document.querySelector(".studio-aside");
+  const backdrop = document.getElementById("studioOptionsBackdrop");
+  if (!aside || !backdrop) return;
+  aside.classList.add("is-open");
+  backdrop.classList.add("is-open");
+  backdrop.setAttribute("aria-hidden", "false");
+}
+
+function closeStudioOptions() {
+  const aside = document.querySelector(".studio-aside");
+  const backdrop = document.getElementById("studioOptionsBackdrop");
+  aside?.classList?.remove("is-open");
+  backdrop?.classList?.remove("is-open");
+  backdrop?.setAttribute?.("aria-hidden", "true");
+}
+
+function runStudioMobilePrimary() {
+  closeStudioOptions();
+  if (studioMode === "vision") return generateFromImage();
+  if (studioMode === "images") return startImageGeneration();
+  if (studioMode === "builder") return startCompletePostGeneration();
+  return generate();
 }
 
 function readFileAsDataUrl(file) {
@@ -1798,6 +1863,7 @@ document.addEventListener("keydown", (event) => {
     closeAuthModal();
     closeProfileModal();
     closeStudioSidebar();
+    closeStudioOptions();
   }
 });
 
@@ -1827,6 +1893,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   } catch (_err) {}
   setStudioMode(studioMode);
+  updateStudioMobileDock();
+
+  window.addEventListener("resize", () => updateStudioMobileDock(), { passive: true });
 
   const headerProfile = document.getElementById("headerProfile");
   if (headerProfile) {
