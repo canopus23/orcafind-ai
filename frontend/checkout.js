@@ -288,27 +288,49 @@ async function startRazorpayCheckout(email) {
 
         window.OrcaFindLoader?.hide();
 
-        // Immediately refresh entitlements so the UI shows the new plan.
+        // Instant UX: cache entitlements from the verify response (no extra /entitlements roundtrip).
+        // This avoids a noticeable delay + "Free" flash on Pricing/Studio/Profile after payment.
+        let cachedFreshEntitlements = false;
         try {
-          const entRes = await fetch(`${API_BASE_URL}/entitlements`, {
-            method: "GET",
-            headers: { "Authorization": `Bearer ${latestSession.access_token}` },
-          });
-          if (entRes.ok) {
-            const ent = await entRes.json();
-            window.localStorage.setItem("orcafind_entitlements_cache", JSON.stringify({
-              at: Date.now(),
-              entitlements: ent,
-            }));
+          const entFromVerify = verifyData?.entitlements;
+          if (entFromVerify && typeof entFromVerify === "object") {
+            window.localStorage.setItem(
+              "orcafind_entitlements_cache",
+              JSON.stringify({ at: Date.now(), entitlements: entFromVerify })
+            );
+            try {
+              window.localStorage.removeItem("orcafind_entitlements_dirty");
+            } catch (_err) {}
+            cachedFreshEntitlements = true;
+          } else {
+            // Fallback: write an optimistic plan into any existing cached entitlements.
+            const planGuess = String(verifyData?.effective_plan || verifyData?.plan || selectedPlan || "pro")
+              .trim()
+              .toLowerCase();
+            const cached = JSON.parse(window.localStorage.getItem("orcafind_entitlements_cache") || "null");
+            const prev = cached?.entitlements && typeof cached.entitlements === "object" ? cached.entitlements : null;
+            const optimistic = prev
+              ? { ...prev, plan: planGuess, is_admin: planGuess === "admin", is_premium: planGuess !== "free" }
+              : { plan: planGuess, is_admin: planGuess === "admin", is_premium: planGuess !== "free" };
+            window.localStorage.setItem(
+              "orcafind_entitlements_cache",
+              JSON.stringify({ at: Date.now(), entitlements: optimistic })
+            );
+            try {
+              window.localStorage.removeItem("orcafind_entitlements_dirty");
+            } catch (_err) {}
+            cachedFreshEntitlements = true;
           }
         } catch (_err) {}
 
         const planLabel = String(verifyData?.effective_plan || verifyData?.plan || "pro").toUpperCase();
         showToast("Payment successful", `${planLabel} is now enabled for your account.`, "success");
-        // Force a fresh entitlements fetch on next page load.
-        try {
-          window.localStorage.setItem("orcafind_entitlements_dirty", String(Date.now()));
-        } catch (_err) {}
+        // If we couldn't cache any entitlements, force a fresh fetch on next load.
+        if (!cachedFreshEntitlements) {
+          try {
+            window.localStorage.setItem("orcafind_entitlements_dirty", String(Date.now()));
+          } catch (_err) {}
+        }
         window.setTimeout(() => {
         window.location.href = "/studio/#studio";
       }, 900);
@@ -338,6 +360,7 @@ async function applyPlanChange() {
     return;
   }
 
+  let nextEntitlements = null;
   window.OrcaFindLoader?.show({ title: "Updating plan", body: "Applying your subscription change…" });
   try {
     const res = await fetch(`${API_BASE_URL}/billing/razorpay/subscription/change`, {
@@ -364,22 +387,41 @@ async function applyPlanChange() {
       }
       throw new Error(msg);
     }
+    nextEntitlements = data?.entitlements || null;
     showToast("Plan updated", data?.schedule_change_at === "cycle_end" ? "Downgrade scheduled for period end." : "Upgrade applied immediately.", "success");
   } catch (err) {
     showToast("Update failed", err.message || "Could not update plan.", "error");
   } finally {
     window.OrcaFindLoader?.hide();
-    // Refresh entitlements + UI.
-    try {
-      const entRes = await fetch(`${API_BASE_URL}/entitlements`, {
-        method: "GET",
-        headers: { "Authorization": `Bearer ${session.access_token}` },
-      });
-      if (entRes.ok) {
-        const ent = await entRes.json();
-        hydrateFromEntitlements(ent);
-      }
-    } catch (_err) {}
+    // Refresh entitlements + UI (prefer the payload returned by the API to avoid extra latency).
+    if (nextEntitlements) {
+      hydrateFromEntitlements(nextEntitlements);
+      try {
+        window.localStorage.setItem(
+          "orcafind_entitlements_cache",
+          JSON.stringify({ at: Date.now(), entitlements: nextEntitlements })
+        );
+        window.localStorage.removeItem("orcafind_entitlements_dirty");
+      } catch (_err) {}
+    } else {
+      try {
+        const entRes = await fetch(`${API_BASE_URL}/entitlements`, {
+          method: "GET",
+          headers: { "Authorization": `Bearer ${session.access_token}` },
+        });
+        if (entRes.ok) {
+          const ent = await entRes.json();
+          hydrateFromEntitlements(ent);
+          try {
+            window.localStorage.setItem(
+              "orcafind_entitlements_cache",
+              JSON.stringify({ at: Date.now(), entitlements: ent })
+            );
+            window.localStorage.removeItem("orcafind_entitlements_dirty");
+          } catch (_err) {}
+        }
+      } catch (_err) {}
+    }
   }
 }
 
@@ -390,6 +432,7 @@ async function cancelSubscription() {
     return;
   }
 
+  let nextEntitlements = null;
   // Default behavior: cancel at period end (SaaS-standard). Backend will fall back to immediate
   // cancellation when Razorpay indicates no billing cycle has started yet.
   window.OrcaFindLoader?.show({ title: "Cancelling", body: "Scheduling cancellation at period end…" });
@@ -408,6 +451,7 @@ async function cancelSubscription() {
       const msg = typeof detail === "string" ? detail : (detail?.message || "Failed to cancel subscription");
       throw new Error(msg);
     }
+    nextEntitlements = data?.entitlements || null;
     if (data?.cancel_at_cycle_end) {
       showToast("Cancellation scheduled", "Your plan will remain active until the end of the billing period.", "success");
     } else {
@@ -417,16 +461,34 @@ async function cancelSubscription() {
     showToast("Cancel failed", err.message || "Could not cancel subscription.", "error");
   } finally {
     window.OrcaFindLoader?.hide();
-    try {
-      const entRes = await fetch(`${API_BASE_URL}/entitlements`, {
-        method: "GET",
-        headers: { "Authorization": `Bearer ${session.access_token}` },
-      });
-      if (entRes.ok) {
-        const ent = await entRes.json();
-        hydrateFromEntitlements(ent);
-      }
-    } catch (_err) {}
+    if (nextEntitlements) {
+      hydrateFromEntitlements(nextEntitlements);
+      try {
+        window.localStorage.setItem(
+          "orcafind_entitlements_cache",
+          JSON.stringify({ at: Date.now(), entitlements: nextEntitlements })
+        );
+        window.localStorage.removeItem("orcafind_entitlements_dirty");
+      } catch (_err) {}
+    } else {
+      try {
+        const entRes = await fetch(`${API_BASE_URL}/entitlements`, {
+          method: "GET",
+          headers: { "Authorization": `Bearer ${session.access_token}` },
+        });
+        if (entRes.ok) {
+          const ent = await entRes.json();
+          hydrateFromEntitlements(ent);
+          try {
+            window.localStorage.setItem(
+              "orcafind_entitlements_cache",
+              JSON.stringify({ at: Date.now(), entitlements: ent })
+            );
+            window.localStorage.removeItem("orcafind_entitlements_dirty");
+          } catch (_err) {}
+        }
+      } catch (_err) {}
+    }
   }
 }
 
@@ -474,6 +536,15 @@ function hydrateFromEntitlements(ent) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Fast path: hydrate from cached entitlements so "Current plan" shows instantly.
+  // We'll still reconcile with the API in the background.
+  try {
+    const cached = JSON.parse(window.localStorage.getItem("orcafind_entitlements_cache") || "null");
+    if (cached?.entitlements) {
+      hydrateFromEntitlements(cached.entitlements);
+    }
+  } catch (_err) {}
+
   // Modal close events.
   const modal = document.getElementById("checkoutModal");
   if (modal) {
@@ -519,7 +590,10 @@ document.addEventListener("DOMContentLoaded", () => {
   supabaseClient.auth.getSession().then(async ({ data }) => {
     const session = data?.session;
     if (!session?.access_token) {
-      hydrateFromEntitlements({ plan: "free", subscription: null });
+      // Don't force the UI to "free" if we already hydrated a cache.
+      if (!currentPlan) {
+        hydrateFromEntitlements({ plan: "free", subscription: null });
+      }
       return;
     }
     try {
@@ -531,8 +605,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const ent = await res.json();
       hydrateFromEntitlements(ent);
     } catch (_err) {
-      // Don't block checkout; just avoid claiming a current plan.
-      hydrateFromEntitlements({ plan: null, subscription: null });
+      // Keep any cached plan shown; if there is no cache, avoid claiming a current plan.
+      if (!currentPlan) {
+        hydrateFromEntitlements({ plan: null, subscription: null });
+      }
     }
   });
 });

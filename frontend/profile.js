@@ -85,6 +85,17 @@ if (!window.supabase?.createClient) {
     }
   }
 
+  function readCachedEntitlements() {
+    try {
+      const cached = JSON.parse(window.localStorage.getItem("orcafind_entitlements_cache") || "null");
+      if (cached?.entitlements && typeof cached?.at === "number") {
+        const fresh = Date.now() - cached.at < 7 * 24 * 60 * 60 * 1000;
+        return fresh ? cached.entitlements : null;
+      }
+    } catch (_err) {}
+    return null;
+  }
+
   function _getSupabaseProjectRef() {
     try {
       const url = new URL(SUPABASE_URL);
@@ -233,8 +244,13 @@ if (!window.supabase?.createClient) {
       return;
     }
 
+    const cached = readCachedEntitlements();
+    if (cached) {
+      applySignedInUI({ user: session.user, entitlements: cached });
+    }
+
     const entitlements = await fetchEntitlements(session.access_token);
-    applySignedInUI({ user: session.user, entitlements });
+    applySignedInUI({ user: session.user, entitlements: entitlements || cached });
   }
 
   async function profileSignOut() {

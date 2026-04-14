@@ -392,6 +392,16 @@ async def root():
 
 @app.get("/entitlements")
 async def entitlements(user=Depends(verify_user)):
+    return _build_entitlements_payload(user)
+
+
+def _build_entitlements_payload(user: dict) -> dict:
+    """
+    Build the entitlements response payload.
+
+    This is used by both /entitlements and billing endpoints so the UI can update
+    immediately after a payment without an extra roundtrip.
+    """
     plan = get_effective_plan(user)
     admin = plan == "admin"
     premium = plan in {"starter", "pro", "business", "admin"}
@@ -828,7 +838,13 @@ async def razorpay_verify(
                 "request_id": getattr(request.state, "request_id", None),
             },
         )
-    return {"status": "ok", "plan": plan, "effective_plan": get_effective_plan(user)}
+    # Include entitlements so the frontend can update instantly without an extra /entitlements fetch.
+    return {
+        "status": "ok",
+        "plan": plan,
+        "effective_plan": get_effective_plan(user),
+        "entitlements": _build_entitlements_payload(user),
+    }
 
 
 @app.post("/billing/razorpay/subscription")
@@ -1061,6 +1077,7 @@ async def razorpay_subscription_change(
         "current_plan": plan,
         "scheduled_plan": scheduled,
         "schedule_change_at": schedule_change_at,
+        "entitlements": _build_entitlements_payload(user),
     }
 
 
@@ -1128,6 +1145,7 @@ async def razorpay_subscription_cancel(
         "status": "ok",
         "cancel_at_cycle_end": bool(requested_cycle_end),
         "fallback_to_immediate_cancel": bool(tried_fallback),
+        "entitlements": _build_entitlements_payload(user),
     }
 
 
