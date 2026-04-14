@@ -1,7 +1,6 @@
 let selectedPlan = "starter";
 let currentPlan = null;
 let currentSubscription = null;
-let billingCatalog = null;
 
 const ORCAFIND_CONFIG = window.__ORCAFIND_CONFIG || {};
 const SUPABASE_URL = ORCAFIND_CONFIG.supabaseUrl || window.__ORCAFIND_SUPABASE_URL || "https://rcfehmuiovcesucsvfsr.supabase.co";
@@ -9,111 +8,21 @@ const SUPABASE_ANON_KEY = ORCAFIND_CONFIG.supabaseAnonKey || window.__ORCAFIND_S
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const API_BASE_URL = ORCAFIND_CONFIG.apiBaseUrl || window.__ORCAFIND_API_BASE_URL || "https://api.orcafind.com";
 
-function formatMoneyFromMinor(amountMinor, currency) {
-  const cur = String(currency || "USD").trim().toUpperCase() || "USD";
-  const minor = Number(amountMinor || 0);
-  const major = minor / 100;
-  const hasCents = Math.abs(minor % 100) > 0;
+function formatINR(amount) {
+  const value = Number(amount || 0);
   try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: cur,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: hasCents ? 2 : 0,
-    }).format(major);
+    return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(value);
   } catch (_err) {
-    // Fallback formatting
-    const rounded = hasCents ? (Math.round(major * 100) / 100).toFixed(2) : String(Math.round(major));
-    return `${cur} ${rounded}`;
+    return String(Math.round(value));
   }
 }
 
-let PLAN_CATALOG = {
-  free: { label: "Free", amountMinor: 0, currency: "USD", priceLabel: "$0", checkoutLabel: "$0" },
-  starter: { label: "Starter", amountMinor: 0, currency: "USD", priceLabel: "—", checkoutLabel: "—" },
-  pro: { label: "Pro", amountMinor: 0, currency: "USD", priceLabel: "—", checkoutLabel: "—" },
-  business: { label: "Business", amountMinor: 0, currency: "USD", priceLabel: "—", checkoutLabel: "—" },
+const PLAN_CATALOG = {
+  free: { label: "Free", amountInr: 0, priceLabel: "₹0", checkoutLabel: "₹0" },
+  starter: { label: "Starter", amountInr: 499, priceLabel: `₹${formatINR(499)}`, checkoutLabel: `₹${formatINR(499)} / mo` },
+  pro: { label: "Pro", amountInr: 1499, priceLabel: `₹${formatINR(1499)}`, checkoutLabel: `₹${formatINR(1499)} / mo` },
+  business: { label: "Business", amountInr: 2999, priceLabel: `₹${formatINR(2999)}`, checkoutLabel: `₹${formatINR(2999)} / mo` },
 };
-
-function applyBillingCatalog(catalog) {
-  if (!catalog || typeof catalog !== "object") return;
-  const currency = String(catalog.currency || "USD").trim().toUpperCase() || "USD";
-  const plans = catalog.plans || {};
-
-  function planAmount(planKey) {
-    const node = plans?.[planKey];
-    const amt = Number(node?.amount_minor || 0);
-    return Number.isFinite(amt) ? amt : 0;
-  }
-
-  PLAN_CATALOG = {
-    free: {
-      label: "Free",
-      amountMinor: 0,
-      currency,
-      priceLabel: formatMoneyFromMinor(0, currency),
-      checkoutLabel: formatMoneyFromMinor(0, currency),
-    },
-    starter: {
-      label: "Starter",
-      amountMinor: planAmount("starter"),
-      currency,
-      priceLabel: formatMoneyFromMinor(planAmount("starter"), currency),
-      checkoutLabel: `${formatMoneyFromMinor(planAmount("starter"), currency)} / mo`,
-    },
-    pro: {
-      label: "Pro",
-      amountMinor: planAmount("pro"),
-      currency,
-      priceLabel: formatMoneyFromMinor(planAmount("pro"), currency),
-      checkoutLabel: `${formatMoneyFromMinor(planAmount("pro"), currency)} / mo`,
-    },
-    business: {
-      label: "Business",
-      amountMinor: planAmount("business"),
-      currency,
-      priceLabel: formatMoneyFromMinor(planAmount("business"), currency),
-      checkoutLabel: `${formatMoneyFromMinor(planAmount("business"), currency)} / mo`,
-    },
-  };
-
-  // Update visible price nodes (cards + summary) immediately.
-  const starterPrice = document.getElementById("starterPrice");
-  const proPrice = document.getElementById("proPrice");
-  const businessPrice = document.getElementById("businessPrice");
-  if (starterPrice) starterPrice.textContent = PLAN_CATALOG.starter.priceLabel;
-  if (proPrice) proPrice.textContent = PLAN_CATALOG.pro.priceLabel;
-  if (businessPrice) businessPrice.textContent = PLAN_CATALOG.business.priceLabel;
-
-  syncSummary();
-  updateCheckoutCTA();
-}
-
-async function loadBillingCatalog() {
-  // Fast path: hydrate from cache
-  try {
-    const cached = JSON.parse(window.localStorage.getItem("orcafind_billing_catalog") || "null");
-    if (cached?.catalog) {
-      billingCatalog = cached.catalog;
-      applyBillingCatalog(billingCatalog);
-    }
-  } catch (_err) {}
-
-  try {
-    const res = await fetch(`${API_BASE_URL}/billing/catalog`, { method: "GET" });
-    if (!res.ok) return;
-    const data = await res.json();
-    if (!data || typeof data !== "object") return;
-    billingCatalog = data;
-    applyBillingCatalog(billingCatalog);
-    try {
-      window.localStorage.setItem(
-        "orcafind_billing_catalog",
-        JSON.stringify({ at: Date.now(), catalog: billingCatalog })
-      );
-    } catch (_err) {}
-  } catch (_err) {}
-}
 
 function syncCheckoutModal() {
   const title = document.getElementById("checkoutModalTitle");
@@ -268,7 +177,7 @@ function syncSummary() {
   if (summaryPlan) summaryPlan.textContent = PLAN_CATALOG[selectedPlan]?.label || "Starter";
 
   if (summaryTotal) {
-    summaryTotal.textContent = PLAN_CATALOG[selectedPlan]?.checkoutLabel || "—";
+    summaryTotal.textContent = PLAN_CATALOG[selectedPlan]?.checkoutLabel || `₹${formatINR(499)} / mo`;
   }
   syncCheckoutModal();
 }
@@ -591,7 +500,7 @@ function formatEpoch(epochSeconds) {
   if (!sec) return "—";
   const date = new Date(sec * 1000);
   try {
-    return new Intl.DateTimeFormat(undefined, { month: "short", day: "2-digit", year: "numeric" }).format(date);
+    return new Intl.DateTimeFormat("en-IN", { month: "short", day: "2-digit", year: "numeric" }).format(date);
   } catch (_err) {
     return date.toISOString().slice(0, 10);
   }
@@ -627,7 +536,6 @@ function hydrateFromEntitlements(ent) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  loadBillingCatalog();
   // Fast path: hydrate from cached entitlements so "Current plan" shows instantly.
   // We'll still reconcile with the API in the background.
   try {

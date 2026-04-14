@@ -770,21 +770,9 @@ async def razorpay_create(
     # For now we only offer monthly billing.
     billing = "monthly"
 
-    currency = _billing_currency()
-    try:
-        prices = _billing_prices_minor(currency)
-    except Exception as e:
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "message": "Billing is not configured on the server.",
-                "error": str(e or "").strip()[:200],
-                "request_id": request.state.request_id,
-            },
-        ) from e
-
-    # Amounts are in the currency's minor unit (paise for INR, cents for USD, etc.).
-    amount_minor = int(prices[plan])
+    # Amounts are in the currency's minor unit (paise for INR).
+    amount_minor = int(PLAN_PRICES_INR_PAISE[plan])
+    currency = "INR"
 
     user_id = str(user.get("sub") or "user")
     email = _get_user_email(user) or req.email or ""
