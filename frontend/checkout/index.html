@@ -387,6 +387,7 @@
     .plan.is-selected {
       border-color: rgba(19, 103, 255, 0.28);
       box-shadow: 0 22px 42px rgba(19, 103, 255, 0.14);
+      padding-top: 52px; /* Reserve space for the top-right "Selected" badge so it can't overlap the price. */
     }
 
     .plan.is-selected::after {
@@ -400,8 +401,8 @@
 
     .plan-badge-top {
       position: absolute;
-      top: 14px;
-      right: 14px;
+      top: 18px;
+      right: 18px;
       display: none;
       align-items: center;
       gap: 8px;
