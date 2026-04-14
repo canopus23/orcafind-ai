@@ -1186,26 +1186,36 @@ async def razorpay_subscription_cancel(
         )
     except RuntimeError as e:
         msg = str(e or "").strip()
+        # Idempotency: users can cancel a UPI mandate (or the subscription) outside our UI.
+        # Razorpay then returns a 400 stating the subscription is already cancelled.
+        # Treat that as success and sync our persisted subscription state.
+        if "not cancellable" in msg.lower() and "cancelled status" in msg.lower():
+            requested_cycle_end = False
+            try:
+                sub = await razorpay_fetch_subscription(subscription_id=sub_id)
+            except Exception:
+                sub = {"id": sub_id, "status": "cancelled", "cancel_at_cycle_end": 0}
+        else:
         # Razorpay rejects "cancel_at_cycle_end" when the subscription never started a billing cycle
         # (e.g. status=created/authenticated). In that case, retry with immediate cancellation.
-        if requested_cycle_end and "no billing cycle" in msg.lower():
-            tried_fallback = True
-            try:
-                sub = await razorpay_cancel_subscription(
-                    subscription_id=sub_id,
-                    cancel_at_cycle_end=False,
-                )
-                requested_cycle_end = False
-            except RuntimeError as e2:
+            if requested_cycle_end and "no billing cycle" in msg.lower():
+                tried_fallback = True
+                try:
+                    sub = await razorpay_cancel_subscription(
+                        subscription_id=sub_id,
+                        cancel_at_cycle_end=False,
+                    )
+                    requested_cycle_end = False
+                except RuntimeError as e2:
+                    raise HTTPException(
+                        status_code=502,
+                        detail={"message": str(e2), "request_id": request.state.request_id},
+                    ) from e2
+            else:
                 raise HTTPException(
                     status_code=502,
-                    detail={"message": str(e2), "request_id": request.state.request_id},
-                ) from e2
-        else:
-            raise HTTPException(
-                status_code=502,
-                detail={"message": msg or "Razorpay error", "request_id": request.state.request_id},
-            ) from e
+                    detail={"message": msg or "Razorpay error", "request_id": request.state.request_id},
+                ) from e
 
     upsert_subscription_state(
         user_id=user_id,
