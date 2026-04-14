@@ -28,10 +28,19 @@
     window.__ORCAFIND_API_BASE_URL ||
     (isLocal ? "http://127.0.0.1:8000" : "https://api.orcafind.com");
 
+  // Google Analytics 4 Measurement ID (e.g. "G-XXXXXXXXXX").
+  // Set this via a global before config.js loads:
+  //   window.__ORCAFIND_GA_MEASUREMENT_ID = "G-...";
+  // or leave unset to disable GA.
+  const gaMeasurementId =
+    window.__ORCAFIND_GA_MEASUREMENT_ID ||
+    "G-7CC59GT8LH";
+
   window.__ORCAFIND_CONFIG = {
     supabaseUrl,
     supabaseAnonKey,
     apiBaseUrl,
     isLocal,
+    gaMeasurementId,
   };
 })();
