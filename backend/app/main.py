@@ -138,6 +138,49 @@ PLAN_TIER = {"free": 0, "starter": 1, "pro": 2, "business": 3}
 _RAZORPAY_MAX_END_TIME = 4_765_046_400  # 2121-01-01T00:00:00Z (Razorpay validation window)
 
 
+def _billing_currency() -> str:
+    """
+    Billing currency used for displaying prices and creating one-time Razorpay orders.
+
+    Note: Razorpay *subscriptions* use the currency configured on the Razorpay Plan IDs.
+    If you switch to USD, you must create USD Razorpay Plans and update the RAZORPAY_PLAN_ID_*
+    env vars accordingly.
+    """
+    value = (os.getenv("BILLING_CURRENCY") or "INR").strip().upper()
+    return value or "INR"
+
+
+def _billing_prices_minor(currency: str) -> dict[str, int]:
+    """
+    Return plan prices in the currency's minor unit (paise for INR, cents for USD, etc.).
+
+    For INR we default to PLAN_PRICES_INR_PAISE for backwards compatibility.
+    For non-INR currencies, prices must be configured explicitly via env vars:
+      BILLING_PRICE_STARTER_MINOR
+      BILLING_PRICE_PRO_MINOR
+      BILLING_PRICE_BUSINESS_MINOR
+    """
+    currency = (currency or "INR").strip().upper()
+    out: dict[str, int] = {}
+    missing: list[str] = []
+    for plan in ("starter", "pro", "business"):
+        env_key = f"BILLING_PRICE_{plan.upper()}_MINOR"
+        raw = (os.getenv(env_key) or "").strip()
+        if raw:
+            out[plan] = int(raw)
+            continue
+        if currency == "INR":
+            out[plan] = int(PLAN_PRICES_INR_PAISE[plan])
+        else:
+            missing.append(env_key)
+    if missing:
+        raise RuntimeError(
+            "Missing billing price env vars for currency "
+            f"{currency}: {', '.join(missing)}"
+        )
+    return out
+
+
 def _razorpay_plan_id(plan: str) -> str:
     """
     Map our plan names to Razorpay Plan IDs (required for recurring subscriptions).
@@ -389,6 +432,41 @@ app.add_middleware(
 @app.get("/")
 async def root():
     return {"status": "online", "message": "OrcaFind API is operational"}
+
+
+@app.get("/billing/catalog")
+async def billing_catalog():
+    """
+    Public billing catalog for the frontend.
+
+    This keeps the UI currency + amounts consistent with backend/Razorpay configuration.
+    """
+    currency = _billing_currency()
+    try:
+        prices = _billing_prices_minor(currency)
+        configured = True
+        error = None
+    except Exception as e:
+        # Don't crash public pages if billing isn't configured yet.
+        configured = False
+        error = str(e or "").strip()[:200]
+        prices = {"starter": 0, "pro": 0, "business": 0}
+
+    return {
+        "provider": "razorpay",
+        "currency": currency,
+        "interval": "month",
+        "configured": configured,
+        "supports_upi": currency == "INR",
+        "plans": {
+            "free": {"label": "Free", "amount_minor": 0},
+            "starter": {"label": "Starter", "amount_minor": int(prices["starter"])},
+            "pro": {"label": "Pro", "amount_minor": int(prices["pro"])},
+            "business": {"label": "Business", "amount_minor": int(prices["business"])},
+        },
+        "error": error,
+    }
+
 
 @app.get("/entitlements")
 async def entitlements(user=Depends(verify_user)):
@@ -692,9 +770,21 @@ async def razorpay_create(
     # For now we only offer monthly billing.
     billing = "monthly"
 
-    # Amounts are in the currency's minor unit (paise for INR).
-    amount_minor = int(PLAN_PRICES_INR_PAISE[plan])
-    currency = "INR"
+    currency = _billing_currency()
+    try:
+        prices = _billing_prices_minor(currency)
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message": "Billing is not configured on the server.",
+                "error": str(e or "").strip()[:200],
+                "request_id": request.state.request_id,
+            },
+        ) from e
+
+    # Amounts are in the currency's minor unit (paise for INR, cents for USD, etc.).
+    amount_minor = int(prices[plan])
 
     user_id = str(user.get("sub") or "user")
     email = _get_user_email(user) or req.email or ""
