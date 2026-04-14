@@ -620,6 +620,11 @@
 	      align-items: start;
 	    }
 
+      .studio-main,
+      .studio-aside {
+        min-width: 0;
+      }
+
 	    .studio-body.is-vision {
 	      grid-template-columns: 1fr;
 	    }
@@ -777,6 +782,7 @@
       border: 1px solid rgba(111, 132, 163, 0.16);
       background: rgba(255, 255, 255, 0.92);
       box-shadow: 0 14px 28px rgba(15, 35, 76, 0.08);
+      min-width: 0;
     }
     .chat-row.is-user .chat-bubble {
       background: linear-gradient(135deg, rgba(19, 103, 255, 0.16), rgba(10, 181, 255, 0.10));
@@ -889,6 +895,8 @@
       background: rgba(19, 103, 255, 0.08);
       border: 1px solid rgba(111, 132, 163, 0.18);
       flex-shrink: 0;
+      max-width: 100%;
+      min-width: 0;
     }
 
     .studio-tab {
@@ -923,6 +931,7 @@
       resize: vertical;
       outline: none;
       line-height: 1.7;
+      max-width: 100%;
     }
 
     textarea:focus, input:focus {
@@ -1091,7 +1100,27 @@
       .topnav,
       .nav-actions { display: none; }
       .mobile-menu-btn { display: inline-flex; }
-      .studio-panel { padding: 22px; }
+      /* On mobile, avoid a "card inside card" look by turning the topbar into the main card. */
+      .studio-panel {
+        padding: 0;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        backdrop-filter: none;
+      }
+      .studio-topbar {
+        padding: 16px 16px;
+        border-radius: 26px;
+        background: var(--surface);
+        border: 1px solid rgba(111, 132, 163, 0.16);
+        box-shadow: var(--shadow-lg);
+        backdrop-filter: blur(18px);
+        margin-bottom: 16px;
+      }
+      html[data-theme="dark"] .studio-topbar {
+        border-color: rgba(255, 255, 255, 0.10);
+        box-shadow: 0 22px 60px rgba(0, 0, 0, 0.45);
+      }
       .mobile-dock { display: flex; }
       .section { padding-bottom: calc(70px + 92px); }
 
@@ -1111,14 +1140,30 @@
         background: rgba(255, 255, 255, 0.82);
         border-top: 1px solid rgba(111, 132, 163, 0.18);
         backdrop-filter: blur(18px);
+        border-radius: 26px 26px 0 0;
+        box-shadow: 0 -24px 70px rgba(11, 26, 56, 0.18);
+      }
+      .studio-aside::before {
+        content: "";
+        display: block;
+        width: 46px;
+        height: 5px;
+        border-radius: 999px;
+        background: rgba(111, 132, 163, 0.35);
+        margin: 4px auto 10px;
       }
       html[data-theme="dark"] .studio-aside {
         background: rgba(6, 10, 18, 0.78);
         border-top-color: rgba(255, 255, 255, 0.10);
+        box-shadow: 0 -28px 90px rgba(0, 0, 0, 0.6);
+      }
+      html[data-theme="dark"] .studio-aside::before {
+        background: rgba(235, 245, 255, 0.22);
       }
       .studio-aside.is-open { transform: translateY(0); }
       .studio-topbar { flex-direction: column; align-items: stretch; gap: 16px; }
       .studio-topbar-copy { width: 100%; }
+      .studio-topbar-copy p { max-width: 52ch; }
       .studio-segment {
         width: 100%;
         justify-content: flex-start;
@@ -1133,6 +1178,11 @@
     @media (max-width: 640px) {
       .container { width: min(calc(100% - 20px), var(--page-width)); }
       .section { padding: 24px 0 52px; }
+      .studio-wrap { gap: 16px; }
+      .studio-body { gap: 14px; }
+      .studio-topbar-copy span { margin-bottom: 6px; }
+      .studio-topbar-copy h3 { font-size: 1.12rem; margin-bottom: 8px; line-height: 1.25; }
+      .studio-topbar-copy p { font-size: 0.92rem; }
       .panel-head { padding: 16px 16px; }
       .panel-body { padding: 16px 16px; }
       .textarea-shell { padding: 16px 16px; }
@@ -1149,11 +1199,11 @@
 
     @media (max-width: 480px) {
       .topbar { gap: 14px; }
-      .composer-card textarea { min-height: 220px; }
+      .panel-card { border-radius: 22px; }
+      .composer-card textarea { min-height: 200px; padding: 18px; }
       .studio-topbar-copy h3 { font-size: 1.15rem; }
       .studio-segment { padding: 6px; gap: 6px; }
-      .studio-tab { padding: 10px 12px; font-size: 0.92rem; }
-      .panel-card { border-radius: 22px; }
+      .studio-tab { padding: 10px 12px; font-size: 0.9rem; }
       .panel-head { flex-direction: column; align-items: stretch; }
       .panel-head .btn { align-self: flex-start; }
       .composer-meta { flex-direction: column; align-items: stretch; gap: 10px; }
