@@ -53,6 +53,10 @@ python3 -m http.server 3000
 - `frontend/favicon.png` is a fallback used by browsers that don't render the SVG favicon reliably.
 - The top-left brand icon on pages uses `favicon.png` as a background image.
 
+#### SEO basics
+- `frontend/robots.txt` points crawlers to `https://orcafind.com/sitemap.xml`.
+- `frontend/sitemap.xml` is a simple XML sitemap for the public pages.
+
 ### Deploy (Vercel + FastAPI on Railway)
 
 Frontend (Vercel):

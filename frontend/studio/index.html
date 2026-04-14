@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OrcaFind AI | Studio</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.png" type="image/png" sizes="96x96">
   <link rel="stylesheet" href="/footer.css">
   <link rel="stylesheet" href="/loader.css">
   <script>
@@ -256,7 +257,7 @@
       height: 42px;
       border-radius: 14px;
       display: inline-block;
-      background: url("/favicon.svg") center/cover no-repeat;
+      background: url("/favicon.png") center/cover no-repeat;
       box-shadow: 0 12px 28px rgba(19, 103, 255, 0.24);
     }
 
@@ -338,6 +339,9 @@
       padding: 16px;
       gap: 14px;
       backdrop-filter: blur(18px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
     }
 
     html[data-theme="dark"] .sidebar {
@@ -992,10 +996,10 @@
 
     @media (max-width: 820px) {
       .topbar { min-height: auto; padding: 14px 0; flex-wrap: wrap; }
-      .topnav { order: 3; width: 100%; overflow-x: auto; padding-bottom: 4px; }
-      .header-auth { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .nav-actions { width: 100%; }
-      .nav-actions .btn { width: 100%; }
+      /* Use the sidebar menu on mobile/tablet widths to avoid cramped header rows. */
+      .topnav,
+      .nav-actions { display: none; }
+      .mobile-menu-btn { display: inline-flex; }
       .studio-panel { padding: 22px; }
       .studio-topbar { flex-direction: column; align-items: stretch; gap: 16px; }
       .studio-topbar-copy { width: 100%; }
@@ -1012,25 +1016,31 @@
 
     @media (max-width: 640px) {
       .container { width: min(calc(100% - 20px), var(--page-width)); }
+      .section { padding: 24px 0 52px; }
+      .panel-head { padding: 16px 16px; }
+      .panel-body { padding: 16px 16px; }
+      .textarea-shell { padding: 16px 16px; }
+      .composer-footer { padding: 14px 16px 16px; }
       .action-bar, .composer-meta, .output-grid { grid-template-columns: 1fr; }
       .output-grid { grid-template-columns: 1fr; }
+      .platform-header { flex-wrap: wrap; align-items: flex-start; }
+      .platform-actions { flex-wrap: wrap; justify-content: flex-start; }
+      .chat-meta { flex-wrap: wrap; align-items: flex-start; }
+      .chat-actions { flex-wrap: wrap; }
       .auth-modal { padding: 12px; }
       .auth-dialog { padding: 22px; }
     }
 
     @media (max-width: 480px) {
       .topbar { gap: 14px; }
-      .nav-actions { width: 100%; flex-wrap: wrap; justify-content: flex-start; }
-      .nav-actions .pill { width: 100%; justify-content: center; }
-      .nav-actions .btn { width: 100%; justify-content: center; }
-      .header-profile { width: 100%; justify-content: flex-start; }
       .composer-card textarea { min-height: 220px; }
       .studio-topbar-copy h3 { font-size: 1.15rem; }
       .studio-segment { padding: 6px; gap: 6px; }
       .studio-tab { padding: 10px 12px; font-size: 0.92rem; }
-      .topnav,
-      .nav-actions { display: none; }
-      .mobile-menu-btn { display: inline-flex; }
+      .panel-card { border-radius: 22px; }
+      .chat-avatar { display: none; }
+      .chat-row { gap: 8px; }
+      .chat-bubble { padding: 12px 12px 11px; }
     }
   </style>
 </head>
