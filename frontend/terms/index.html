@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OrcaFind AI | Terms</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-  <link rel="icon" href="/favicon.png" type="image/png" sizes="96x96" />
+  <link rel="apple-touch-icon" href="/favicon.png" />
   <link rel="stylesheet" href="/footer.css" />
   <script>
     (function () {
@@ -79,7 +79,10 @@
       height: 44px;
       border-radius: 14px;
       display: inline-block;
-      background: url("/favicon.png") center/cover no-repeat;
+      background-image: url("/favicon.svg"), url("/favicon.png");
+      background-position: center;
+      background-size: cover;
+      background-repeat: no-repeat;
       box-shadow: 0 12px 28px rgba(19, 103, 255, 0.24);
     }
     .btn {

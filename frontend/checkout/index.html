@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OrcaFind AI | Pricing</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="icon" href="/favicon.png" type="image/png" sizes="96x96">
+  <link rel="apple-touch-icon" href="/favicon.png">
   <link rel="stylesheet" href="/footer.css">
   <link rel="stylesheet" href="/loader.css">
   <script>
@@ -185,7 +185,10 @@
       height: 44px;
       border-radius: 14px;
       display: inline-block;
-      background: url("/favicon.png") center/cover no-repeat;
+      background-image: url("/favicon.svg"), url("/favicon.png");
+      background-position: center;
+      background-size: cover;
+      background-repeat: no-repeat;
       box-shadow: 0 12px 28px rgba(19, 103, 255, 0.24);
     }
 
@@ -591,13 +594,19 @@
 
     .toast-stack {
       position: fixed;
-      right: 20px;
-      bottom: 20px;
-      z-index: 60;
+      top: calc(16px + env(safe-area-inset-top, 0px));
+      left: 50%;
+      transform: translateX(-50%);
+      right: auto;
+      bottom: auto;
+      z-index: 120; /* Above the checkout modal. */
       display: grid;
       gap: 12px;
-      width: min(360px, calc(100vw - 24px));
+      width: min(520px, calc(100vw - 24px));
+      pointer-events: none;
     }
+
+    .toast { pointer-events: auto; }
 
     .toast {
       padding: 16px 18px;
