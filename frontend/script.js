@@ -243,15 +243,6 @@ function setStudioMode(mode) {
 
   // Keep the mobile dock in sync with the active studio mode.
   updateStudioMobileDock();
-
-  // Mobile UX: vision mode has no source editor, so land users in Options.
-  if (isStudioMobileViewport()) {
-    const body = document.getElementById("studioBody");
-    const currentView = body?.dataset?.view || "source";
-    if (currentView !== "results") {
-      setStudioMobileView(studioMode === "vision" ? "options" : "source");
-    }
-  }
 }
 
 function isStudioMobileViewport() {
@@ -260,28 +251,6 @@ function isStudioMobileViewport() {
   } catch (_err) {
     return false;
   }
-}
-
-function setStudioMobileView(view) {
-  const body = document.getElementById("studioBody");
-  if (!body) return;
-
-  const next = view === "options" ? "options" : view === "results" ? "results" : "source";
-  body.dataset.view = next;
-
-  const map = {
-    source: "dockTabSource",
-    options: "dockTabOptions",
-    results: "dockTabResults",
-  };
-
-  Object.entries(map).forEach(([key, id]) => {
-    const btn = document.getElementById(id);
-    if (!btn) return;
-    const active = key === next;
-    btn.classList.toggle("is-active", active);
-    btn.setAttribute("aria-selected", active ? "true" : "false");
-  });
 }
 
 function updateStudioMobileDock() {
@@ -296,9 +265,6 @@ function updateStudioMobileDock() {
     closeStudioOptions();
     return;
   }
-
-  const body = document.getElementById("studioBody");
-  setStudioMobileView(body?.dataset?.view || "source");
 
   let text = "Generate";
   if (studioMode === "images") text = "Generate images";
@@ -317,22 +283,18 @@ function updateStudioMobileDock() {
 }
 
 function openStudioOptions() {
-  if (isStudioMobileViewport()) {
-    setStudioMobileView("options");
-    return;
-  }
-
-  // Desktop: bring the options rail into view.
-  document.querySelector(".studio-aside")?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+  const aside = document.querySelector(".studio-aside");
+  const backdrop = document.getElementById("studioOptionsBackdrop");
+  if (!aside || !backdrop) return;
+  aside.classList.add("is-open");
+  backdrop.classList.add("is-open");
+  backdrop.setAttribute("aria-hidden", "false");
 }
 
 function closeStudioOptions() {
-  if (isStudioMobileViewport()) {
-    setStudioMobileView("source");
-    return;
-  }
-
+  const aside = document.querySelector(".studio-aside");
   const backdrop = document.getElementById("studioOptionsBackdrop");
+  aside?.classList?.remove("is-open");
   backdrop?.classList?.remove("is-open");
   backdrop?.setAttribute?.("aria-hidden", "true");
 }
@@ -1494,13 +1456,7 @@ function setResultsVisibility(isVisible) {
   const resultsCard = document.getElementById("resultsCard");
 
   if (resultsCard) {
-    resultsCard.dataset.hasResults = isVisible ? "true" : "false";
-    if (!isStudioMobileViewport()) {
-      resultsCard.classList.toggle("is-hidden", !isVisible);
-    } else {
-      // Mobile "Results" view always needs a visible container (empty state vs feed).
-      resultsCard.classList.remove("is-hidden");
-    }
+    resultsCard.classList.toggle("is-hidden", !isVisible);
   }
 
   if (output) {
@@ -1597,11 +1553,6 @@ function addChatMessage({ id, role, title, text, html, pill, actionsHTML, imageD
   setResultsVisibility(true);
   // Scroll into view for long chats.
   row.scrollIntoView({ block: "end", behavior: "smooth" });
-
-  // Mobile: jump to Results for real assistant output (not the typing indicator).
-  if (!isUser && isStudioMobileViewport() && pill !== "Working") {
-    setStudioMobileView("results");
-  }
   return messageId;
 }
 
