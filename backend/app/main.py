@@ -916,7 +916,8 @@ async def razorpay_verify(
                 "request_id": getattr(request.state, "request_id", None),
             },
         )
-    # Include entitlements so the frontend can update instantly without an extra /entitlements fetch.
+    # Include entitlements so the frontend can update instantly without an extra
+    # /entitlements fetch.
     return {
         "status": "ok",
         "plan": plan,
@@ -1214,7 +1215,10 @@ async def razorpay_subscription_cancel(
             else:
                 raise HTTPException(
                     status_code=502,
-                    detail={"message": msg or "Razorpay error", "request_id": request.state.request_id},
+                    detail={
+                        "message": msg or "Razorpay error",
+                        "request_id": request.state.request_id,
+                    },
                 ) from e
 
     upsert_subscription_state(
