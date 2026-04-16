@@ -466,6 +466,47 @@
       box-shadow: 0 26px 70px rgba(0, 0, 0, 0.55);
     }
 
+    .dock-tabs {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(111, 132, 163, 0.18);
+      min-width: 0;
+    }
+
+    html[data-theme="dark"] .dock-tabs {
+      background: rgba(10, 16, 28, 0.55);
+      border-color: rgba(255, 255, 255, 0.10);
+    }
+
+    .dock-tab {
+      border: none;
+      border-radius: 13px;
+      padding: 10px 12px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-weight: 900;
+      line-height: 1;
+      white-space: nowrap;
+      transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .dock-tab.is-active {
+      background: rgba(255, 255, 255, 0.96);
+      color: #153766;
+      box-shadow: 0 10px 18px rgba(15, 35, 76, 0.08);
+    }
+
+    html[data-theme="dark"] .dock-tab.is-active {
+      background: rgba(6, 10, 18, 0.66);
+      color: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.38);
+    }
+
     .dock-btn {
       flex: 0 0 auto;
       padding: 12px 12px;
@@ -757,6 +798,28 @@
 
     .results-card { grid-column: 1 / -1; margin-top: 14px; }
     .results-card .panel-body { padding: 18px; }
+    .results-empty {
+      display: grid;
+      gap: 8px;
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px dashed rgba(111, 132, 163, 0.22);
+      background: rgba(255, 255, 255, 0.56);
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .results-empty strong {
+      color: #1f3655;
+      font-size: 0.95rem;
+    }
+    html[data-theme="dark"] .results-empty {
+      background: rgba(6, 10, 18, 0.46);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+    html[data-theme="dark"] .results-empty strong {
+      color: rgba(255, 255, 255, 0.92);
+    }
+    #resultsCard[data-has-results="true"] .results-empty { display: none; }
     .chat-feed { display: grid; gap: 12px; }
     .chat-row { display: flex; gap: 10px; align-items: flex-end; }
     .chat-row.is-user { justify-content: flex-end; }
@@ -1121,46 +1184,50 @@
         border-color: rgba(255, 255, 255, 0.10);
         box-shadow: 0 22px 60px rgba(0, 0, 0, 0.45);
       }
-      .mobile-dock { display: flex; }
+      .mobile-dock {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .dock-tabs {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      .dock-tab {
+        width: 100%;
+        padding-inline: 8px;
+      }
       .section { padding-bottom: calc(70px + 92px); }
 
-      /* Turn the options aside into a bottom sheet on mobile. */
-      .studio-aside {
-        position: fixed;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        z-index: 62;
-        padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
-        transform: translateY(110%);
-        transition: transform 0.22s ease;
-        max-height: calc(82vh + env(safe-area-inset-bottom, 0px));
-        overflow-y: auto;
-        overscroll-behavior: contain;
-        background: rgba(255, 255, 255, 0.82);
-        border-top: 1px solid rgba(111, 132, 163, 0.18);
-        backdrop-filter: blur(18px);
-        border-radius: 26px 26px 0 0;
-        box-shadow: 0 -24px 70px rgba(11, 26, 56, 0.18);
+      /* Mobile is a view switcher: Source, Options, and Results are separate screens. */
+      .studio-main,
+      .studio-aside,
+      #resultsCard {
+        display: none;
       }
-      .studio-aside::before {
-        content: "";
+      #studioBody[data-view="source"] .studio-main,
+      #studioBody[data-view="options"] .studio-aside,
+      #studioBody[data-view="results"] #resultsCard {
         display: block;
-        width: 46px;
-        height: 5px;
-        border-radius: 999px;
-        background: rgba(111, 132, 163, 0.35);
-        margin: 4px auto 10px;
       }
-      html[data-theme="dark"] .studio-aside {
-        background: rgba(6, 10, 18, 0.78);
-        border-top-color: rgba(255, 255, 255, 0.10);
-        box-shadow: 0 -28px 90px rgba(0, 0, 0, 0.6);
+      .studio-body.is-vision[data-view="source"] .studio-main {
+        display: none;
       }
-      html[data-theme="dark"] .studio-aside::before {
-        background: rgba(235, 245, 255, 0.22);
+      .studio-body.is-vision[data-view="source"] .studio-aside {
+        display: block;
       }
-      .studio-aside.is-open { transform: translateY(0); }
+      .studio-aside {
+        position: static;
+        padding: 0;
+        transform: none;
+        max-height: none;
+        overflow: visible;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        border-radius: 0;
+      }
       .studio-topbar { flex-direction: column; align-items: stretch; gap: 16px; }
       .studio-topbar-copy { width: 100%; }
       .studio-topbar-copy p { max-width: 52ch; }
@@ -1177,7 +1244,7 @@
 
     @media (max-width: 640px) {
       .container { width: min(calc(100% - 20px), var(--page-width)); }
-      .section { padding: 24px 0 52px; }
+      .section { padding: 24px 0 calc(152px + env(safe-area-inset-bottom, 0px)); }
       .studio-wrap { gap: 16px; }
       .studio-body { gap: 14px; }
       .studio-topbar-copy span { margin-bottom: 6px; }
@@ -1328,12 +1395,11 @@
     <div id="studioOptionsBackdrop" class="sheet-backdrop" aria-hidden="true" onclick="closeStudioOptions()"></div>
 
     <div id="mobileDock" class="mobile-dock" aria-hidden="true">
-      <button class="dock-btn" type="button" onclick="openStudioOptions()" aria-label="Open generation options">
-        <svg class="dock-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        Options
-      </button>
+      <div class="dock-tabs" role="tablist" aria-label="Studio sections">
+        <button id="dockTabSource" class="dock-tab is-active" type="button" role="tab" aria-selected="true" onclick="setStudioMobileView('source')">Source</button>
+        <button id="dockTabOptions" class="dock-tab" type="button" role="tab" aria-selected="false" onclick="setStudioMobileView('options')">Options</button>
+        <button id="dockTabResults" class="dock-tab" type="button" role="tab" aria-selected="false" onclick="setStudioMobileView('results')">Results</button>
+      </div>
       <button id="mobileDockPrimary" class="dock-primary" type="button" onclick="runStudioMobilePrimary()" aria-label="Run generation">
         <svg class="dock-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -1360,7 +1426,7 @@
               </div>
             </div>
 
-	            <div id="studioBody" class="studio-body">
+            <div id="studioBody" class="studio-body" data-view="source">
               <div class="studio-main">
                 <div id="workspaceFrame" class="panel-card composer-card">
                   <div class="panel-head">
@@ -1636,7 +1702,7 @@
                 </div>
               </aside>
 
-              <div id="resultsCard" class="panel-card results-card is-hidden">
+              <div id="resultsCard" class="panel-card results-card is-hidden" data-has-results="false">
                 <div class="panel-head">
                   <div>
                     <h4>Results</h4>
@@ -1644,6 +1710,10 @@
                   </div>
                 </div>
                 <div class="panel-body">
+                  <div id="resultsEmptyState" class="results-empty">
+                    <strong>No results yet</strong>
+                    <p>Run a generation from Source or Options, and your drafts will appear here.</p>
+                  </div>
                   <div id="output" class="chat-feed is-hidden"></div>
                 </div>
               </div>

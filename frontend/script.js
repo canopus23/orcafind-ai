@@ -243,6 +243,12 @@ function setStudioMode(mode) {
 
   // Keep the mobile dock in sync with the active studio mode.
   updateStudioMobileDock();
+  if (isStudioMobileViewport()) {
+    const currentView = studioBody?.dataset?.view || "source";
+    if (currentView !== "results") {
+      setStudioMobileView(studioMode === "vision" ? "options" : currentView === "options" ? "options" : "source");
+    }
+  }
 }
 
 function isStudioMobileViewport() {
@@ -251,6 +257,31 @@ function isStudioMobileViewport() {
   } catch (_err) {
     return false;
   }
+}
+
+function setStudioMobileView(view) {
+  const body = document.getElementById("studioBody");
+  if (!body) return;
+
+  let next = view === "options" ? "options" : view === "results" ? "results" : "source";
+  if (studioMode === "vision" && next === "source") {
+    next = "options";
+  }
+  body.dataset.view = next;
+
+  const tabMap = {
+    source: "dockTabSource",
+    options: "dockTabOptions",
+    results: "dockTabResults",
+  };
+
+  Object.entries(tabMap).forEach(([key, id]) => {
+    const tab = document.getElementById(id);
+    if (!tab) return;
+    const isActive = key === next;
+    tab.classList.toggle("is-active", isActive);
+    tab.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
 }
 
 function updateStudioMobileDock() {
@@ -262,11 +293,19 @@ function updateStudioMobileDock() {
   const shouldShow = isStudioMobileViewport();
   dock.setAttribute("aria-hidden", shouldShow ? "false" : "true");
   if (!shouldShow) {
+    const resultsCard = document.getElementById("resultsCard");
+    if (resultsCard?.dataset?.hasResults !== "true") {
+      resultsCard?.classList?.add("is-hidden");
+    }
     closeStudioOptions();
     return;
   }
 
-  let text = "Generate";
+  const body = document.getElementById("studioBody");
+  setStudioMobileView(body?.dataset?.view || "source");
+
+  let text = "Generate posts";
+  if (studioMode === "vision") text = "Generate from image";
   if (studioMode === "images") text = "Generate images";
   if (studioMode === "builder") text = "Generate bundle";
   label.textContent = text;
@@ -283,18 +322,16 @@ function updateStudioMobileDock() {
 }
 
 function openStudioOptions() {
-  const aside = document.querySelector(".studio-aside");
-  const backdrop = document.getElementById("studioOptionsBackdrop");
-  if (!aside || !backdrop) return;
-  aside.classList.add("is-open");
-  backdrop.classList.add("is-open");
-  backdrop.setAttribute("aria-hidden", "false");
+  if (isStudioMobileViewport()) {
+    setStudioMobileView("options");
+    return;
+  }
+
+  document.querySelector(".studio-aside")?.scrollIntoView?.({ block: "start", behavior: "smooth" });
 }
 
 function closeStudioOptions() {
-  const aside = document.querySelector(".studio-aside");
   const backdrop = document.getElementById("studioOptionsBackdrop");
-  aside?.classList?.remove("is-open");
   backdrop?.classList?.remove("is-open");
   backdrop?.setAttribute?.("aria-hidden", "true");
 }
@@ -1456,7 +1493,12 @@ function setResultsVisibility(isVisible) {
   const resultsCard = document.getElementById("resultsCard");
 
   if (resultsCard) {
-    resultsCard.classList.toggle("is-hidden", !isVisible);
+    resultsCard.dataset.hasResults = isVisible ? "true" : "false";
+    if (isStudioMobileViewport()) {
+      resultsCard.classList.remove("is-hidden");
+    } else {
+      resultsCard.classList.toggle("is-hidden", !isVisible);
+    }
   }
 
   if (output) {
@@ -1553,6 +1595,9 @@ function addChatMessage({ id, role, title, text, html, pill, actionsHTML, imageD
   setResultsVisibility(true);
   // Scroll into view for long chats.
   row.scrollIntoView({ block: "end", behavior: "smooth" });
+  if (!isUser && isStudioMobileViewport() && pill !== "Working") {
+    setStudioMobileView("results");
+  }
   return messageId;
 }
 
