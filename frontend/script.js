@@ -253,6 +253,12 @@ function isStudioMobileViewport() {
   }
 }
 
+function setScrollLock(isLocked) {
+  const root = document.documentElement;
+  if (!root) return;
+  root.classList.toggle("is-scroll-locked", !!isLocked);
+}
+
 function updateStudioMobileDock() {
   const dock = document.getElementById("mobileDock");
   const primary = document.getElementById("mobileDockPrimary");
@@ -286,6 +292,7 @@ function openStudioOptions() {
   const aside = document.querySelector(".studio-aside");
   const backdrop = document.getElementById("studioOptionsBackdrop");
   if (!aside || !backdrop) return;
+  setScrollLock(true);
   aside.classList.add("is-open");
   backdrop.classList.add("is-open");
   backdrop.setAttribute("aria-hidden", "false");
@@ -297,6 +304,7 @@ function closeStudioOptions() {
   aside?.classList?.remove("is-open");
   backdrop?.classList?.remove("is-open");
   backdrop?.setAttribute?.("aria-hidden", "true");
+  setScrollLock(false);
 }
 
 function runStudioMobilePrimary() {
@@ -305,6 +313,72 @@ function runStudioMobilePrimary() {
   if (studioMode === "images") return startImageGeneration();
   if (studioMode === "builder") return startCompletePostGeneration();
   return generate();
+}
+
+function getStudioEditorNodes() {
+  return {
+    modal: document.getElementById("studioEditorModal"),
+    textarea: document.getElementById("studioEditorTextarea"),
+    count: document.getElementById("studioEditorCharCount"),
+    input: document.getElementById("inputText"),
+  };
+}
+
+function updateStudioEditorMetrics() {
+  const { textarea, count } = getStudioEditorNodes();
+  if (!textarea || !count) return;
+  const length = textarea.value.trim().length;
+  count.textContent = `${length} character${length === 1 ? "" : "s"}`;
+}
+
+function openStudioEditor() {
+  const { modal, textarea, input } = getStudioEditorNodes();
+  if (!modal || !textarea || !input) return;
+
+  closeStudioOptions();
+  textarea.value = input.value || "";
+  updateStudioEditorMetrics();
+
+  modal.classList.add("is-visible");
+  modal.setAttribute("aria-hidden", "false");
+  setScrollLock(true);
+  textarea.focus?.();
+}
+
+function closeStudioEditor() {
+  const { modal, input } = getStudioEditorNodes();
+  if (!modal) return;
+  modal.classList.remove("is-visible");
+  modal.setAttribute("aria-hidden", "true");
+  setScrollLock(false);
+  input?.focus?.();
+}
+
+function applyStudioEditor() {
+  const { textarea, input } = getStudioEditorNodes();
+  if (!textarea || !input) return closeStudioEditor();
+  input.value = textarea.value || "";
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  closeStudioEditor();
+}
+
+function clearStudioEditor() {
+  const { textarea, input } = getStudioEditorNodes();
+  if (!textarea) return;
+  textarea.value = "";
+  updateStudioEditorMetrics();
+  if (input) {
+    input.value = "";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+}
+
+function handleStudioEditorBackdrop(event) {
+  const { modal } = getStudioEditorNodes();
+  if (!modal) return;
+  if (event?.target === modal) {
+    closeStudioEditor();
+  }
 }
 
 function readFileAsDataUrl(file) {
@@ -1347,6 +1421,23 @@ function initComposerMetrics() {
   updateComposerMetrics();
 }
 
+function initStudioEditorModal() {
+  const { modal, textarea, input } = getStudioEditorNodes();
+  if (!modal || !textarea) {
+    return;
+  }
+
+  textarea.addEventListener("input", () => {
+    updateStudioEditorMetrics();
+    if (input) {
+      input.value = textarea.value || "";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  });
+
+  updateStudioEditorMetrics();
+}
+
 function updateStudioOutputTags() {
   const xStyle = document.getElementById("xStyle");
   const format = document.getElementById("contentFormat");
@@ -1864,6 +1955,7 @@ document.addEventListener("keydown", (event) => {
     closeProfileModal();
     closeStudioSidebar();
     closeStudioOptions();
+    closeStudioEditor();
   }
 });
 
@@ -1871,6 +1963,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initRevealAnimations();
   initActiveNav();
   initComposerMetrics();
+  initStudioEditorModal();
   initStudioControls();
   setHeroSnapshot(heroSnapshots[heroRotationIndex]);
   startHeroRotation();
