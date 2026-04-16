@@ -2,7 +2,13 @@ const ORCAFIND_CONFIG = window.__ORCAFIND_CONFIG || {};
 const SUPABASE_URL = ORCAFIND_CONFIG.supabaseUrl || window.__ORCAFIND_SUPABASE_URL || "https://rcfehmuiovcesucsvfsr.supabase.co";
 const SUPABASE_ANON_KEY = ORCAFIND_CONFIG.supabaseAnonKey || window.__ORCAFIND_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjZmVobXVpb3ZjZXN1Y3N2ZnNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1MzE3MzAsImV4cCI6MjA5MDEwNzczMH0.8J4k5tlyA5G3gr70JT8aDbY36cidBc4s08hlwE-z9tY";
 
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
+});
 const API_BASE_URL = ORCAFIND_CONFIG.apiBaseUrl || window.__ORCAFIND_API_BASE_URL
   || (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
     ? "http://127.0.0.1:8000"
@@ -37,16 +43,135 @@ function redirectToAuth(mode, next) {
   window.location.href = `/auth/?${params.toString()}`;
 }
 
-async function getAccessTokenOrPromptAuth({ toastTitle, toastBody, mode } = {}) {
-  let { data: { session } } = await supabaseClient.auth.getSession();
-  let token = session?.access_token;
-  if (token) return token;
+function getSupabaseProjectRef() {
   try {
-    await supabaseClient.auth.refreshSession();
-    ({ data: { session } } = await supabaseClient.auth.getSession());
-    token = session?.access_token;
-    if (token) return token;
+    const url = new URL(SUPABASE_URL);
+    return (url.hostname || "").split(".")[0] || "";
+  } catch (_err) {
+    return "";
+  }
+}
+
+function readStoredSessionTokens() {
+  try {
+    const ref = getSupabaseProjectRef();
+    const preferredKey = ref ? `sb-${ref}-auth-token` : "";
+    const keys = Object.keys(window.localStorage || {});
+    const orderedKeys = [];
+    if (preferredKey && keys.includes(preferredKey)) {
+      orderedKeys.push(preferredKey);
+    }
+    keys.forEach((key) => {
+      if (key !== preferredKey && key.startsWith("sb-") && key.endsWith("-auth-token")) {
+        orderedKeys.push(key);
+      }
+    });
+
+    for (const key of orderedKeys) {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw);
+      const accessToken = parsed?.access_token;
+      const refreshToken = parsed?.refresh_token;
+      if (typeof accessToken === "string" && typeof refreshToken === "string") {
+        return { access_token: accessToken, refresh_token: refreshToken };
+      }
+    }
   } catch (_err) {}
+  return null;
+}
+
+async function hydrateAuthSession({ attempts = 3, delayMs = 180, recoverStoredTokens = true } = {}) {
+  async function tryGetSession() {
+    try {
+      const { data } = await supabaseClient.auth.getSession();
+      return data?.session || null;
+    } catch (_err) {
+      return null;
+    }
+  }
+
+  let session = await tryGetSession();
+  if (session?.user) return session;
+
+  try {
+    const { data } = await supabaseClient.auth.refreshSession();
+    session = data?.session || await tryGetSession();
+    if (session?.user) return session;
+  } catch (_err) {}
+
+  if (recoverStoredTokens) {
+    const tokens = readStoredSessionTokens();
+    if (tokens) {
+      try {
+        const { data } = await supabaseClient.auth.setSession(tokens);
+        session = data?.session || await tryGetSession();
+        if (session?.user) return session;
+      } catch (_err) {}
+    }
+  }
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    await new Promise((resolve) => window.setTimeout(resolve, delayMs));
+    session = await tryGetSession();
+    if (session?.user) return session;
+  }
+
+  return null;
+}
+
+function scheduleAuthPageRedirect(next) {
+  if (!isAuthPage() || authRedirectTimer) return;
+
+  const target = next || getSafeNextFromURL() || "/studio/";
+  Promise.resolve()
+    .then(() => hydrateAuthSession({ attempts: 2, delayMs: 120 }))
+    .catch(() => null)
+    .finally(() => {
+      authRedirectTimer = window.setTimeout(() => {
+        window.location.href = target;
+      }, 180);
+    });
+}
+
+async function completeAuthRedirectIfNeeded() {
+  if (!isAuthPage()) return;
+
+  const params = new URLSearchParams(window.location.search);
+  const authError = params.get("error_description") || params.get("error");
+  if (authError) {
+    showToast("Sign-in failed", authError, "error");
+    return;
+  }
+
+  const hasOAuthCallback =
+    params.has("code") ||
+    window.location.hash.includes("access_token") ||
+    window.location.hash.includes("refresh_token");
+
+  const next = getSafeNextFromURL() || "/studio/";
+  const session = await hydrateAuthSession({
+    attempts: hasOAuthCallback ? 8 : 2,
+    delayMs: hasOAuthCallback ? 250 : 160,
+  });
+  if (session?.user) {
+    scheduleAuthPageRedirect(next);
+    return;
+  }
+
+  if (!hasOAuthCallback) return;
+
+  showToast(
+    "Almost there",
+    "Sign-in completed, but the session was not ready. Please open Studio again.",
+    "error"
+  );
+}
+
+async function getAccessTokenOrPromptAuth({ toastTitle, toastBody, mode } = {}) {
+  const session = await hydrateAuthSession({ attempts: 2, delayMs: 150 });
+  const token = session?.access_token;
+  if (token) return token;
   if (mode) redirectToAuth(mode, buildRelativeUrl({ stripParams: ["auth"] }));
   if (!mode && (toastTitle || toastBody)) {
     showToast(toastTitle || "Authentication required", toastBody || "Sign in to continue.", "error");
@@ -54,6 +179,7 @@ async function getAccessTokenOrPromptAuth({ toastTitle, toastBody, mode } = {}) 
   return null;
 }
 let authMode = "signin";
+let authRedirectTimer = null;
 let heroRotationIndex = 0;
 let heroRotationTimer;
 let toastTimerSeed = 0;
@@ -820,7 +946,8 @@ async function startImageGeneration() {
       });
     }
     showToast("Images ready", "Your post images are ready to download.", "success");
-    supabaseClient.auth.getSession().then(({ data }) => fetchEntitlements(data?.session?.access_token));
+    hydrateAuthSession({ attempts: 1, delayMs: 100 })
+      .then((session) => fetchEntitlements(session?.access_token));
   } catch (err) {
     removeChatMessage(typingId);
     setImageUIState({ statusText: null, isBusy: false, images: null });
@@ -1674,16 +1801,7 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
   if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
     updateUIForUser(session.user);
     if (isAuthPage()) {
-      const next = getSafeNextFromURL() || "/studio/";
-      // Give Supabase a beat to persist the session before navigating away.
-      Promise.resolve()
-        .then(() => supabaseClient.auth.getSession())
-        .catch(() => null)
-        .finally(() => {
-          window.setTimeout(() => {
-            window.location.href = next;
-          }, 180);
-        });
+      scheduleAuthPageRedirect(getSafeNextFromURL() || "/studio/");
     }
   } else if (event === 'SIGNED_OUT') {
     resetUI();
@@ -1748,7 +1866,8 @@ function updateUIForUser(user) {
   if (footerSignOut) footerSignOut.style.display = "inline-flex";
   closeAuthModal();
   closeProfileModal();
-  supabaseClient.auth.getSession().then(({ data }) => fetchEntitlements(data?.session?.access_token));
+  hydrateAuthSession({ attempts: 1, delayMs: 100 })
+    .then((session) => fetchEntitlements(session?.access_token));
 
   // Intentionally no console logging in production UI.
 }
@@ -1861,6 +1980,9 @@ async function handleLogin() {
     showToast("Login failed", msg, "error");
   } else {
     showToast("Signed in", "Your workspace is ready.", "success");
+    if (isAuthPage()) {
+      scheduleAuthPageRedirect(getSafeNextFromURL() || "/studio/");
+    }
   }
 }
 
@@ -1921,8 +2043,7 @@ document.addEventListener("DOMContentLoaded", () => {
   startHeroRotation();
   setResultsVisibility(false);
   // Hydrate auth UI on load so profile icon shows when already signed in.
-  supabaseClient.auth.getSession().then(({ data }) => {
-    const session = data?.session;
+  hydrateAuthSession({ attempts: 4, delayMs: 160 }).then((session) => {
     if (session?.user) {
       updateUIForUser(session.user);
     } else {
@@ -1976,6 +2097,7 @@ document.addEventListener("DOMContentLoaded", () => {
         ? "After sign-in, we’ll take you back to where you left off."
         : "After sign-in, we’ll open the Studio.";
     }
+    completeAuthRedirectIfNeeded();
   }
 });
 
