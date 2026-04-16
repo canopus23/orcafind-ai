@@ -442,7 +442,7 @@
     }
     .sheet-backdrop.is-open { opacity: 1; pointer-events: auto; }
 
-    .mobile-dock {
+	    .mobile-dock {
       position: fixed;
       left: 50%;
       transform: translateX(-50%);
@@ -454,25 +454,60 @@
       gap: 10px;
       padding: 10px;
       border-radius: 22px;
-      background: rgba(255, 255, 255, 0.78);
-      border: 1px solid rgba(111, 132, 163, 0.18);
-      box-shadow: 0 20px 48px rgba(11, 26, 56, 0.18);
+	      background: var(--surface);
+	      border: 1px solid var(--line);
+	      box-shadow: var(--shadow-lg);
       backdrop-filter: blur(18px);
       z-index: 65;
     }
-    html[data-theme="dark"] .mobile-dock {
-      background: rgba(6, 10, 18, 0.68);
-      border-color: rgba(255, 255, 255, 0.10);
-      box-shadow: 0 26px 70px rgba(0, 0, 0, 0.55);
-    }
+	    html[data-theme="dark"] .mobile-dock {
+	      background: var(--surface);
+	      border-color: var(--line);
+	      box-shadow: var(--shadow-lg);
+	    }
 
-    .dock-btn {
+      .dock-tabs {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background: var(--surface-2);
+        flex: 0 0 auto;
+        min-width: 0;
+      }
+      html[data-theme="dark"] .dock-tabs {
+        border-color: var(--line);
+        background: rgba(10, 12, 22, 0.46);
+      }
+
+      .dock-tab {
+        border: none;
+        background: transparent;
+        color: var(--muted);
+        font-weight: 900;
+        letter-spacing: -0.02em;
+        padding: 10px 12px;
+        border-radius: 14px;
+        cursor: pointer;
+        transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+        line-height: 1;
+        white-space: nowrap;
+      }
+      .dock-tab.is-active {
+        background: var(--surface-strong);
+        color: var(--ink);
+        box-shadow: var(--shadow-md);
+      }
+
+	    .dock-btn {
       flex: 0 0 auto;
       padding: 12px 12px;
       border-radius: 18px;
-      border: 1px solid rgba(111, 132, 163, 0.18);
-      background: rgba(255, 255, 255, 0.72);
-      color: rgba(23, 42, 66, 0.92);
+	      border: 1px solid var(--line);
+	      background: var(--surface);
+	      color: var(--ink);
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -483,13 +518,13 @@
       transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
     }
     .dock-btn:hover { transform: translateY(-1px); }
-    html[data-theme="dark"] .dock-btn {
-      background: rgba(10, 16, 28, 0.55);
-      border-color: rgba(255, 255, 255, 0.10);
-      color: rgba(235, 245, 255, 0.88);
-    }
+	    html[data-theme="dark"] .dock-btn {
+	      background: var(--surface);
+	      border-color: var(--line);
+	      color: var(--ink);
+	    }
 
-    .dock-primary {
+	    .dock-primary {
       flex: 1 1 auto;
       min-width: 0;
       padding: 12px 14px;
@@ -499,15 +534,15 @@
       font-weight: 900;
       letter-spacing: -0.02em;
       cursor: pointer;
-      background: linear-gradient(135deg, var(--brand), #0ab5ff);
-      box-shadow: 0 16px 28px rgba(19, 103, 255, 0.24);
+	      background: linear-gradient(135deg, var(--brand), var(--accent));
+	      box-shadow: 0 16px 30px rgba(11, 107, 255, 0.18), 0 16px 30px rgba(17, 197, 167, 0.12);
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 10px;
       transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
     }
-    .dock-primary:hover { transform: translateY(-1px); box-shadow: 0 20px 38px rgba(19, 103, 255, 0.28); }
+	    .dock-primary:hover { transform: translateY(-1px); box-shadow: 0 20px 44px rgba(11, 107, 255, 0.22), 0 20px 44px rgba(17, 197, 167, 0.16); }
     .dock-primary:active { transform: translateY(0); }
     .dock-primary:disabled { opacity: 0.72; cursor: not-allowed; transform: none; }
 
@@ -613,29 +648,57 @@
     .section { padding: 34px 0 70px; }
     .studio-wrap { display: grid; grid-template-columns: 1fr; gap: 24px; align-items: start; }
 
-	    .studio-body {
-	      display: grid;
-	      grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
-	      gap: 18px;
-	      align-items: start;
-	    }
+		    .studio-body { min-width: 0; }
 
-      .studio-main,
-      .studio-aside {
-        min-width: 0;
-      }
+        /* Desktop/tablet canvas: Source + Results on the left, Options on the right. */
+        .studio-stage {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(340px, 0.54fr);
+          grid-template-areas:
+            "main aside"
+            "results aside";
+          gap: 18px;
+          align-items: start;
+        }
 
-	    .studio-body.is-vision {
-	      grid-template-columns: 1fr;
-	    }
+        .studio-main { grid-area: main; min-width: 0; }
+        .studio-aside { grid-area: aside; min-width: 0; }
+        .results-card { grid-area: results; min-width: 0; }
 
-	    .studio-body.is-vision .studio-main {
-	      display: none;
-	    }
+        .studio-body.is-vision .studio-main { display: none; }
+        .studio-body.is-vision .studio-stage {
+          grid-template-columns: 1fr;
+          grid-template-areas:
+            "aside"
+            "results";
+        }
 
-	    .studio-body.is-vision .studio-aside {
-	      grid-column: 1 / -1;
-	    }
+        @media (min-width: 981px) {
+          .studio-aside {
+            position: sticky;
+            top: 96px;
+            max-height: calc(100vh - 116px);
+            overflow: auto;
+            overscroll-behavior: contain;
+          }
+        }
+
+        .results-empty {
+          display: grid;
+          gap: 8px;
+          padding: 14px 14px;
+          border-radius: 18px;
+          border: 1px dashed var(--line);
+          background: rgba(255, 255, 255, 0.55);
+          color: var(--muted);
+          margin-bottom: 14px;
+        }
+        html[data-theme="dark"] .results-empty {
+          background: rgba(10, 12, 22, 0.48);
+        }
+        .results-empty strong { color: var(--ink); letter-spacing: -0.02em; }
+        .results-empty p { line-height: 1.55; font-size: 0.92rem; }
+        #resultsCard[data-has-results="true"] .results-empty { display: none; }
 
 	    .panel-card {
 	      background: rgba(255, 255, 255, 0.92);
@@ -1026,7 +1089,8 @@
       line-height: 1.65;
     }
 
-    .is-hidden { display: none !important; }
+	    .is-hidden { display: none !important; }
+
 
     .auth-modal {
       position: fixed;
@@ -1124,43 +1188,27 @@
       .mobile-dock { display: flex; }
       .section { padding-bottom: calc(70px + 92px); }
 
-      /* Turn the options aside into a bottom sheet on mobile. */
-      .studio-aside {
-        position: fixed;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        z-index: 62;
-        padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
-        transform: translateY(110%);
-        transition: transform 0.22s ease;
-        max-height: calc(82vh + env(safe-area-inset-bottom, 0px));
-        overflow-y: auto;
-        overscroll-behavior: contain;
-        background: rgba(255, 255, 255, 0.82);
-        border-top: 1px solid rgba(111, 132, 163, 0.18);
-        backdrop-filter: blur(18px);
-        border-radius: 26px 26px 0 0;
-        box-shadow: 0 -24px 70px rgba(11, 26, 56, 0.18);
-      }
-      .studio-aside::before {
-        content: "";
-        display: block;
-        width: 46px;
-        height: 5px;
-        border-radius: 999px;
-        background: rgba(111, 132, 163, 0.35);
-        margin: 4px auto 10px;
-      }
-      html[data-theme="dark"] .studio-aside {
-        background: rgba(6, 10, 18, 0.78);
-        border-top-color: rgba(255, 255, 255, 0.10);
-        box-shadow: 0 -28px 90px rgba(0, 0, 0, 0.6);
-      }
-      html[data-theme="dark"] .studio-aside::before {
-        background: rgba(235, 245, 255, 0.22);
-      }
-      .studio-aside.is-open { transform: translateY(0); }
+	      /* Mobile structure: switch between Source / Options / Results views. */
+        .studio-stage {
+          grid-template-columns: 1fr;
+          grid-template-areas:
+            "main"
+            "results"
+            "aside";
+          gap: 14px;
+        }
+
+        .studio-main,
+        .studio-aside,
+        #resultsCard {
+          display: none;
+        }
+
+        #studioBody[data-view="source"] .studio-main { display: block; }
+        #studioBody[data-view="options"] .studio-aside { display: block; }
+        #studioBody[data-view="results"] #resultsCard { display: block; }
+
+        .studio-body.is-vision[data-view="source"] .studio-aside { display: block; }
       .studio-topbar { flex-direction: column; align-items: stretch; gap: 16px; }
       .studio-topbar-copy { width: 100%; }
       .studio-topbar-copy p { max-width: 52ch; }
@@ -1171,9 +1219,9 @@
         -webkit-overflow-scrolling: touch;
         scroll-snap-type: x mandatory;
       }
-      .studio-segment::-webkit-scrollbar { height: 0; }
-      .studio-tab { flex: 0 0 auto; scroll-snap-align: start; }
-    }
+	      .studio-segment::-webkit-scrollbar { height: 0; }
+	      .studio-tab { flex: 0 0 auto; scroll-snap-align: start; }
+	    }
 
     @media (max-width: 640px) {
       .container { width: min(calc(100% - 20px), var(--page-width)); }
@@ -1327,20 +1375,19 @@
 
     <div id="studioOptionsBackdrop" class="sheet-backdrop" aria-hidden="true" onclick="closeStudioOptions()"></div>
 
-    <div id="mobileDock" class="mobile-dock" aria-hidden="true">
-      <button class="dock-btn" type="button" onclick="openStudioOptions()" aria-label="Open generation options">
-        <svg class="dock-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        Options
-      </button>
-      <button id="mobileDockPrimary" class="dock-primary" type="button" onclick="runStudioMobilePrimary()" aria-label="Run generation">
-        <svg class="dock-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <span id="mobileDockPrimaryLabel">Generate</span>
-      </button>
-    </div>
+	    <div id="mobileDock" class="mobile-dock" aria-hidden="true">
+        <div class="dock-tabs" role="tablist" aria-label="Studio views">
+          <button id="dockTabSource" class="dock-tab is-active" type="button" role="tab" aria-selected="true" onclick="setStudioMobileView('source')">Source</button>
+          <button id="dockTabOptions" class="dock-tab" type="button" role="tab" aria-selected="false" onclick="setStudioMobileView('options')">Options</button>
+          <button id="dockTabResults" class="dock-tab" type="button" role="tab" aria-selected="false" onclick="setStudioMobileView('results')">Results</button>
+        </div>
+	      <button id="mobileDockPrimary" class="dock-primary" type="button" onclick="runStudioMobilePrimary()" aria-label="Run generation">
+	        <svg class="dock-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+	          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+	        </svg>
+	        <span id="mobileDockPrimaryLabel">Generate</span>
+	      </button>
+	    </div>
 
 	    <main id="top">
 	      <section class="section" id="studio">
@@ -1360,16 +1407,17 @@
               </div>
             </div>
 
-	            <div id="studioBody" class="studio-body">
-              <div class="studio-main">
-                <div id="workspaceFrame" class="panel-card composer-card">
-                  <div class="panel-head">
-                    <div>
-                      <h4>Source Content</h4>
-                      <p>Paste your article, transcript, release note, or raw thinking. We will generate X and LinkedIn posts, plus Instagram and Facebook captions.</p>
-                    </div>
-                    <button class="btn btn-ghost btn-mini" onclick="clearSource()">Clear</button>
-                  </div>
+		            <div id="studioBody" class="studio-body" data-view="source">
+                  <div class="studio-stage">
+	                <div class="studio-main">
+	                  <div id="workspaceFrame" class="panel-card composer-card">
+	                  <div class="panel-head">
+	                    <div>
+	                      <h4>Source Content</h4>
+	                      <p>Paste your article, transcript, release note, or raw thinking. We will generate X and LinkedIn posts, plus Instagram and Facebook captions.</p>
+	                    </div>
+	                    <button class="btn btn-ghost btn-mini" type="button" onclick="clearSource()">Clear</button>
+	                  </div>
 
                   <div class="textarea-shell">
                     <textarea id="inputText" placeholder="Paste your source content here...&#10;&#10;Include your audience and the key takeaway for best results."></textarea>
@@ -1386,8 +1434,8 @@
                           <div id="textProgress" class="progress-fill"></div>
                         </div>
                         <span id="readinessLabel">Waiting for input</span>
-                      </div>
-                    </div>
+	                  </div>
+	                </div>
                   </div>
                 </div>
               </div>
@@ -1636,18 +1684,23 @@
                 </div>
               </aside>
 
-              <div id="resultsCard" class="panel-card results-card is-hidden">
-                <div class="panel-head">
-                  <div>
-                    <h4>Results</h4>
-                    <p>X and LinkedIn are generated as full post drafts. Instagram and Facebook are generated as captions. Everything appears in one chat feed once you run generation.</p>
-                  </div>
-                </div>
-                <div class="panel-body">
-                  <div id="output" class="chat-feed is-hidden"></div>
-                </div>
+	              <div id="resultsCard" class="panel-card results-card" data-has-results="false">
+	                <div class="panel-head">
+	                  <div>
+	                    <h4>Results</h4>
+	                    <p>X and LinkedIn are generated as full post drafts. Instagram and Facebook are generated as captions. Everything appears in one chat feed once you run generation.</p>
+	                  </div>
+	                </div>
+	                <div class="panel-body">
+                    <div id="resultsEmptyState" class="results-empty">
+                      <strong>No results yet</strong>
+                      <p>Generate something from Source or Options, and results will show up here.</p>
+                    </div>
+	                  <div id="output" class="chat-feed is-hidden"></div>
+	                </div>
+	              </div>
               </div>
-            </div>
+	            </div>
           </div>
         </div>
 	      </section>
