@@ -71,10 +71,30 @@ async function fetchEntitlements(accessToken) {
       headers: { "Authorization": `Bearer ${accessToken}` }
     });
     if (!res.ok) return null;
-    return await res.json();
+    const data = await res.json();
+    writeCachedEntitlements(data);
+    return data;
   } catch (_err) {
     return null;
   }
+}
+
+function readCachedEntitlements() {
+  try {
+    const cached = JSON.parse(window.localStorage.getItem("orcafind_entitlements_cache") || "null");
+    if (cached?.entitlements && typeof cached?.at === "number") {
+      const fresh = Date.now() - cached.at < 7 * 24 * 60 * 60 * 1000;
+      return fresh ? cached.entitlements : null;
+    }
+  } catch (_err) {}
+  return null;
+}
+
+function writeCachedEntitlements(entitlements) {
+  try {
+    if (!entitlements) return;
+    window.localStorage.setItem("orcafind_entitlements_cache", JSON.stringify({ at: Date.now(), entitlements }));
+  } catch (_err) {}
 }
 
 function _getSupabaseProjectRef() {
@@ -230,8 +250,11 @@ async function hydrate({ allowSignedOut = true } = {}) {
     return;
   }
 
+  const cached = readCachedEntitlements();
+  if (cached) applySignedInUI({ user: session.user, entitlements: cached });
+
   const entitlements = await fetchEntitlements(session.access_token);
-  applySignedInUI({ user: session.user, entitlements });
+  applySignedInUI({ user: session.user, entitlements: entitlements || cached });
 }
 
 async function profileSignOut() {
@@ -256,7 +279,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session?.user) {
-      fetchEntitlements(session.access_token).then((ent) => applySignedInUI({ user: session.user, entitlements: ent }));
+      const cached = readCachedEntitlements();
+      if (cached) applySignedInUI({ user: session.user, entitlements: cached });
+      fetchEntitlements(session.access_token).then((ent) => applySignedInUI({ user: session.user, entitlements: ent || cached }));
       return;
     }
 

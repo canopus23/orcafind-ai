@@ -79,7 +79,9 @@ if (!window.supabase?.createClient) {
         headers: { "Authorization": `Bearer ${accessToken}` }
       });
       if (!res.ok) return null;
-      return await res.json();
+      const data = await res.json();
+      writeCachedEntitlements(data);
+      return data;
     } catch (_err) {
       return null;
     }
@@ -94,6 +96,13 @@ if (!window.supabase?.createClient) {
       }
     } catch (_err) {}
     return null;
+  }
+
+  function writeCachedEntitlements(entitlements) {
+    try {
+      if (!entitlements) return;
+      window.localStorage.setItem("orcafind_entitlements_cache", JSON.stringify({ at: Date.now(), entitlements }));
+    } catch (_err) {}
   }
 
   function _getSupabaseProjectRef() {
@@ -309,8 +318,10 @@ if (!window.supabase?.createClient) {
 
       if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session?.user) {
         window.OrcaFindLoader?.show({ title: "Loading profile", body: "Syncing your plan…" });
+        const cached = readCachedEntitlements();
+        if (cached) applySignedInUI({ user: session.user, entitlements: cached });
         fetchEntitlements(session.access_token)
-          .then((ent) => applySignedInUI({ user: session.user, entitlements: ent }))
+          .then((ent) => applySignedInUI({ user: session.user, entitlements: ent || cached }))
           .finally(() => window.OrcaFindLoader?.hide());
         return;
       }
