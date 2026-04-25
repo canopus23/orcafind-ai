@@ -26,7 +26,17 @@
 
   const apiBaseUrl =
     window.__ORCAFIND_API_BASE_URL ||
-    (isLocal ? "http://127.0.0.1:8000" : "https://api.orcafind.com");
+    (function () {
+      // Staging: route Vercel staging frontend to Railway staging API by default.
+      // This keeps production (orcafind.com) untouched while allowing isolated testing.
+      try {
+        const host = String(window.location.hostname || "").toLowerCase();
+        if (host === "orcafind-api-staging.vercel.app") {
+          return "https://orcafind-api-staging-production.up.railway.app";
+        }
+      } catch (_err) {}
+      return isLocal ? "http://127.0.0.1:8000" : "https://api.orcafind.com";
+    })();
 
   // Google Analytics 4 Measurement ID (e.g. "G-XXXXXXXXXX").
   // Set this via a global before config.js loads:
