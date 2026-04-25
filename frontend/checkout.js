@@ -196,8 +196,8 @@ function proceedToPayment() {
   }
 
   closeCheckoutModal();
-  window.OrcaFindLoader?.show({ title: "Preparing checkout", body: "Starting a secure checkout session…" });
-  startDodoCheckout(email).catch((err) => {
+  window.OrcaFindLoader?.show({ title: "Preparing checkout", body: "Starting a secure Razorpay session…" });
+  startRazorpayCheckout(email).catch((err) => {
     window.OrcaFindLoader?.hide();
     showToast("Checkout failed", err.message || "Unable to start payment.", "error");
   });
@@ -207,14 +207,14 @@ function contactSales() {
   showToast("Contact sales", "Add a contact form or mailto link here.", "success");
 }
 
-async function startDodoCheckout(email) {
+async function startRazorpayCheckout(email) {
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (!session) {
     window.location.href = `/auth/?mode=signin&next=${encodeURIComponent("/checkout/")}`;
     return;
   }
 
-  const subRes = await fetch(`${API_BASE_URL}/billing/dodo/checkout-session`, {
+  const subRes = await fetch(`${API_BASE_URL}/billing/razorpay/subscription`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -236,14 +236,116 @@ async function startDodoCheckout(email) {
     throw new Error(msg);
   }
 
-  const checkoutUrl = subData?.checkout_url;
-  if (!checkoutUrl) {
-    window.OrcaFindLoader?.hide();
-    throw new Error("Missing checkout_url from server");
-  }
+  const options = {
+    key: subData.key_id,
+    name: subData.name,
+    description: subData.description,
+    subscription_id: subData.subscription_id,
+    prefill: {
+      email: email,
+    },
+    theme: { color: "#1367ff" },
+    handler: async function (response) {
+      try {
+        window.OrcaFindLoader?.show({ title: "Verifying payment", body: "Finalizing your subscription…" });
+        // The checkout flow can take time. Refresh the Supabase session so we don't
+        // verify with an expired/stale access token.
+        const { data: { session: latestSession } } = await supabaseClient.auth.getSession();
+        if (!latestSession) {
+          window.OrcaFindLoader?.hide();
+          window.location.href = `/auth/?mode=signin&next=${encodeURIComponent("/checkout/")}`;
+          return;
+        }
 
-  // Redirect to Dodo hosted checkout.
-  window.location.href = checkoutUrl;
+        const verifyRes = await fetch(`${API_BASE_URL}/billing/razorpay/subscription/verify`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${latestSession.access_token}`,
+          },
+          body: JSON.stringify({
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_subscription_id: response.razorpay_subscription_id,
+            razorpay_signature: response.razorpay_signature,
+          }),
+        });
+
+        let verifyData = null;
+        try {
+          verifyData = await verifyRes.json();
+        } catch (_err) {
+          verifyData = null;
+        }
+        if (!verifyRes.ok) {
+          window.OrcaFindLoader?.hide();
+          const detail = verifyData?.detail;
+          const msg = typeof detail === "string"
+            ? detail
+            : (detail?.message || verifyData?.message || "Payment verification failed");
+          const reqId = detail?.request_id;
+          throw new Error(reqId ? `${msg} (request_id: ${reqId})` : msg);
+        }
+
+        window.OrcaFindLoader?.hide();
+
+        // Instant UX: cache entitlements from the verify response (no extra /entitlements roundtrip).
+        // This avoids a noticeable delay + "Free" flash on Pricing/Studio/Profile after payment.
+        let cachedFreshEntitlements = false;
+        try {
+          const entFromVerify = verifyData?.entitlements;
+          if (entFromVerify && typeof entFromVerify === "object") {
+            window.localStorage.setItem(
+              "orcafind_entitlements_cache",
+              JSON.stringify({ at: Date.now(), entitlements: entFromVerify })
+            );
+            try {
+              window.localStorage.removeItem("orcafind_entitlements_dirty");
+            } catch (_err) {}
+            cachedFreshEntitlements = true;
+          } else {
+            // Fallback: write an optimistic plan into any existing cached entitlements.
+            const planGuess = String(verifyData?.effective_plan || verifyData?.plan || selectedPlan || "pro")
+              .trim()
+              .toLowerCase();
+            const cached = JSON.parse(window.localStorage.getItem("orcafind_entitlements_cache") || "null");
+            const prev = cached?.entitlements && typeof cached.entitlements === "object" ? cached.entitlements : null;
+            const optimistic = prev
+              ? { ...prev, plan: planGuess, is_admin: planGuess === "admin", is_premium: planGuess !== "free" }
+              : { plan: planGuess, is_admin: planGuess === "admin", is_premium: planGuess !== "free" };
+            window.localStorage.setItem(
+              "orcafind_entitlements_cache",
+              JSON.stringify({ at: Date.now(), entitlements: optimistic })
+            );
+            try {
+              window.localStorage.removeItem("orcafind_entitlements_dirty");
+            } catch (_err) {}
+            cachedFreshEntitlements = true;
+          }
+        } catch (_err) {}
+
+        const planLabel = String(verifyData?.effective_plan || verifyData?.plan || "pro").toUpperCase();
+        showToast("Payment successful", `${planLabel} is now enabled for your account.`, "success");
+        // If we couldn't cache any entitlements, force a fresh fetch on next load.
+        if (!cachedFreshEntitlements) {
+          try {
+            window.localStorage.setItem("orcafind_entitlements_dirty", String(Date.now()));
+          } catch (_err) {}
+        }
+        window.setTimeout(() => {
+        window.location.href = "/studio/#studio";
+      }, 900);
+      } catch (err) {
+        window.OrcaFindLoader?.hide();
+        showToast("Verification failed", err.message || "Could not verify payment.", "error");
+      }
+    },
+  };
+
+  // Razorpay Checkout injected globally by the script tag.
+  const rzp = new window.Razorpay(options);
+  // Hide the loader as the Razorpay modal takes over the screen.
+  window.setTimeout(() => window.OrcaFindLoader?.hide(), 450);
+  rzp.open();
 }
 
 async function applyPlanChange() {
@@ -261,7 +363,7 @@ async function applyPlanChange() {
   let nextEntitlements = null;
   window.OrcaFindLoader?.show({ title: "Updating plan", body: "Applying your subscription change…" });
   try {
-    const res = await fetch(`${API_BASE_URL}/billing/dodo/subscription/change`, {
+    const res = await fetch(`${API_BASE_URL}/billing/razorpay/subscription/change`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -272,11 +374,21 @@ async function applyPlanChange() {
     const data = await res.json();
     if (!res.ok) {
       const detail = data?.detail;
+      const code = typeof detail === "object" ? detail?.code : null;
       const msg = typeof detail === "string" ? detail : (detail?.message || "Failed to update plan");
+      // Razorpay limitation: UPI subscriptions cannot be updated. Guide the user to cancel + re-subscribe.
+      if (code === "UPI_SUBSCRIPTION_UNCHANGEABLE") {
+        showToast(
+          "Plan change not supported",
+          "Razorpay doesn’t allow plan changes on UPI subscriptions. Cancel your current subscription, then start a new one on the plan you want (Card/NetBanking recommended).",
+          "error"
+        );
+        return;
+      }
       throw new Error(msg);
     }
     nextEntitlements = data?.entitlements || null;
-    showToast("Plan updated", "Your subscription plan has been updated.", "success");
+    showToast("Plan updated", data?.schedule_change_at === "cycle_end" ? "Downgrade scheduled for period end." : "Upgrade applied immediately.", "success");
   } catch (err) {
     showToast("Update failed", err.message || "Could not update plan.", "error");
   } finally {
@@ -321,10 +433,11 @@ async function cancelSubscription() {
   }
 
   let nextEntitlements = null;
-  // Default behavior: cancel at period end (SaaS-standard).
+  // Default behavior: cancel at period end (SaaS-standard). Backend will fall back to immediate
+  // cancellation when Razorpay indicates no billing cycle has started yet.
   window.OrcaFindLoader?.show({ title: "Cancelling", body: "Scheduling cancellation at period end…" });
   try {
-    const res = await fetch(`${API_BASE_URL}/billing/dodo/subscription/cancel`, {
+    const res = await fetch(`${API_BASE_URL}/billing/razorpay/subscription/cancel`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -341,6 +454,8 @@ async function cancelSubscription() {
     nextEntitlements = data?.entitlements || null;
     if (data?.cancel_at_cycle_end) {
       showToast("Cancellation scheduled", "Your plan will remain active until the end of the billing period.", "success");
+    } else {
+      showToast("Subscription cancelled", "Your subscription was cancelled immediately.", "success");
     }
   } catch (err) {
     showToast("Cancel failed", err.message || "Could not cancel subscription.", "error");
@@ -427,61 +542,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const cached = JSON.parse(window.localStorage.getItem("orcafind_entitlements_cache") || "null");
     if (cached?.entitlements) {
       hydrateFromEntitlements(cached.entitlements);
-    }
-  } catch (_err) {}
-
-  // Dodo return_url handler: after hosted checkout, Dodo redirects back with query params.
-  // If a subscription_id is present, sync it to the backend so entitlements update immediately.
-  try {
-    const params = new URLSearchParams(window.location.search || "");
-    const subscriptionId = params.get("subscription_id");
-    const status = params.get("status");
-    if (subscriptionId) {
-      window.OrcaFindLoader?.show({ title: "Finalizing", body: "Activating your subscription…" });
-      supabaseClient.auth.getSession().then(async ({ data }) => {
-        const session = data?.session;
-        if (!session) {
-          window.OrcaFindLoader?.hide();
-          window.location.href = `/auth/?mode=signin&next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
-          return;
-        }
-        try {
-          const res = await fetch(`${API_BASE_URL}/billing/dodo/subscription/sync`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({ subscription_id: subscriptionId }),
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            const detail = data?.detail;
-            const msg = typeof detail === "string" ? detail : (detail?.message || "Could not sync subscription");
-            throw new Error(msg);
-          }
-          const ent = data?.entitlements;
-          if (ent) {
-            hydrateFromEntitlements(ent);
-            try {
-              window.localStorage.setItem(
-                "orcafind_entitlements_cache",
-                JSON.stringify({ at: Date.now(), entitlements: ent })
-              );
-              window.localStorage.removeItem("orcafind_entitlements_dirty");
-            } catch (_err) {}
-          }
-          const planLabel = String(ent?.plan || selectedPlan || "pro").toUpperCase();
-          showToast("Subscription updated", status === "failed" ? "Payment failed. Please try again." : `${planLabel} is now active.`, status === "failed" ? "error" : "success");
-          window.setTimeout(() => {
-            window.location.href = "/studio/#studio";
-          }, 900);
-        } catch (err) {
-          showToast("Activation failed", err.message || "Could not activate subscription.", "error");
-        } finally {
-          window.OrcaFindLoader?.hide();
-        }
-      });
     }
   } catch (_err) {}
 
