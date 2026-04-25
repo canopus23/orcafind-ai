@@ -30,3 +30,20 @@ class RazorpayChangePlanRequest(BaseModel):
 
 class RazorpayCancelSubscriptionRequest(BaseModel):
     cancel_at_cycle_end: bool = Field(default=True)
+
+
+class DodoCreateCheckoutSessionRequest(BaseModel):
+    plan: str = Field(default="pro")
+    email: str = Field(default="")
+
+
+class DodoSyncSubscriptionRequest(BaseModel):
+    subscription_id: str
+
+
+class DodoChangePlanRequest(BaseModel):
+    plan: str
+
+
+class DodoCancelSubscriptionRequest(BaseModel):
+    cancel_at_cycle_end: bool = Field(default=True)

@@ -199,6 +199,7 @@ def record_webhook_digest(*, digest: str, provider: str = "razorpay") -> bool:
 def upsert_subscription_state(
     *,
     user_id: str,
+    provider: str = "razorpay",
     subscription_id: str | None,
     customer_id: str | None,
     plan: str,
@@ -214,6 +215,7 @@ def upsert_subscription_state(
     now = int(time.time())
     plan_norm = _normalize_plan(plan) or "free"
     sched_norm = _normalize_plan(scheduled_plan) or None
+    provider_norm = (provider or "").strip().lower() or "razorpay"
     try:
         with engine.begin() as conn:
             conn.execute(
@@ -235,7 +237,7 @@ def upsert_subscription_state(
                     )
                     VALUES (
                       :user_id,
-                      'razorpay',
+                      :provider,
                       :subscription_id,
                       :customer_id,
                       :plan,
@@ -256,6 +258,7 @@ def upsert_subscription_state(
                         EXCLUDED.customer_id,
                         subscription_state.customer_id
                       ),
+                      provider = EXCLUDED.provider,
                       plan = EXCLUDED.plan,
                       status = EXCLUDED.status,
                       current_period_start = COALESCE(
@@ -273,6 +276,7 @@ def upsert_subscription_state(
                 ),
                 {
                     "user_id": user_id,
+                    "provider": provider_norm,
                     "subscription_id": subscription_id,
                     "customer_id": customer_id,
                     "plan": plan_norm,
@@ -665,14 +669,15 @@ def get_plan(user_id: str) -> str | None:
             now = int(time.time())
             if status in {"active", "authenticated"}:
                 return plan or None
+            # Dodo statuses that should not grant access without special handling.
+            if status in {"on_hold", "failed", "expired", "pending"}:
+                return None
             if status in {"cancelled", "canceled"}:
                 # Keep access until period end if present.
                 if isinstance(end, (int, float)) and int(end) > now:
                     return plan or None
                 return None
-            # For unknown/halted/past_due, prefer returning the stored plan so the
-            # API can decide how to gate features (e.g. grace periods).
-            return plan or None
+            return None
 
         with engine.begin() as conn:
             row = conn.execute(

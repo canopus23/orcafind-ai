@@ -3,7 +3,7 @@
 Marketing site + authenticated studio for generating social posts, captions, and (Pro-only) post images.
 
 **Frontend:** static HTML/CSS/JS in `frontend/` (pretty URLs via folder `index.html`).
-**Backend:** FastAPI in `backend/app/` (auth via Supabase JWTs, billing via Razorpay).
+**Backend:** FastAPI in `backend/app/` (auth via Supabase JWTs, billing via Dodo Payments).
 
 ### Local setup
 
@@ -69,7 +69,7 @@ Backend (Railway):
 - Optional: set `CORS_ALLOW_ORIGIN_REGEX=https://.*\\.vercel\\.app` for preview deploys.
 
 Core services:
-- Set `DATABASE_URL` (required in production for persistent subscriptions/usage and Razorpay entitlements).
+- Set `DATABASE_URL` (required in production for persistent subscriptions/usage and subscription entitlements).
 - Set `OPENAI_API_KEY` (required for real text/image generation).
 
 Recommended:
@@ -79,13 +79,17 @@ Recommended:
 Supabase database networking:
 - If your runtime cannot reach Supabase IPv6 endpoints, set `DB_FORCE_IPV4=true` and use a Supabase connection option that supports IPv4 (for example a dedicated IPv4 add-on or pooler where applicable).
 
-Razorpay billing (subscriptions):
-- Set `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`.
-- Create plans in Razorpay and set:
-  - `RAZORPAY_PLAN_ID_STARTER`
-  - `RAZORPAY_PLAN_ID_PRO`
-  - `RAZORPAY_PLAN_ID_BUSINESS`
-- `RAZORPAY_SUBSCRIPTION_TOTAL_COUNT` is clamped server-side to stay inside Razorpay's supported `end_time` window.
+Dodo Payments billing (subscriptions):
+- Set `DODO_PAYMENTS_API_KEY`
+- Set `DODO_PAYMENTS_API_BASE_URL` to `https://test.dodopayments.com` or `https://live.dodopayments.com`
+- Set `DODO_PAYMENTS_WEBHOOK_KEY` (Svix/Standard Webhooks secret)
+- Create subscription products in Dodo and set:
+  - `DODO_PRODUCT_ID_STARTER` (or legacy: `DODO_PLAN_ID_STARTER`)
+  - `DODO_PRODUCT_ID_PRO` (or legacy: `DODO_PLAN_ID_PRO`)
+  - `DODO_PRODUCT_ID_BUSINESS` (or legacy: `DODO_PLAN_ID_BUSINESS`)
+- Optional redirect URLs (otherwise derived from request Origin):
+  - `DODO_CHECKOUT_RETURN_URL`
+  - `DODO_CHECKOUT_CANCEL_URL`
 
 Notes:
 - If Cloudflare R2 is configured (`R2_*` vars), generated images are uploaded and the API returns public URLs; otherwise the API returns base64 data URLs.
