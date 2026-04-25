@@ -3,7 +3,7 @@
 Marketing site + authenticated studio for generating social posts, captions, and (Pro-only) post images.
 
 **Frontend:** static HTML/CSS/JS in `frontend/` (pretty URLs via folder `index.html`).
-**Backend:** FastAPI in `backend/app/` (auth via Supabase JWTs, billing via Razorpay).
+**Backend:** FastAPI in `backend/app/` (auth via Supabase JWTs, billing via Razorpay or Dodo Payments).
 
 ### Local setup
 
@@ -78,6 +78,19 @@ Recommended:
 
 Supabase database networking:
 - If your runtime cannot reach Supabase IPv6 endpoints, set `DB_FORCE_IPV4=true` and use a Supabase connection option that supports IPv4 (for example a dedicated IPv4 add-on or pooler where applicable).
+
+Dodo Payments billing (subscriptions):
+- Set `BILLING_PROVIDER=dodo`
+- Set `DODO_PAYMENTS_API_KEY`
+- Set `DODO_PAYMENTS_API_BASE_URL` to `https://test.dodopayments.com` or `https://live.dodopayments.com`
+- Set `DODO_PAYMENTS_WEBHOOK_KEY` (Svix/Standard Webhooks secret)
+- Create subscription products in Dodo and set:
+  - `DODO_PRODUCT_ID_STARTER` (or legacy: `DODO_PLAN_ID_STARTER`)
+  - `DODO_PRODUCT_ID_PRO` (or legacy: `DODO_PLAN_ID_PRO`)
+  - `DODO_PRODUCT_ID_BUSINESS` (or legacy: `DODO_PLAN_ID_BUSINESS`)
+- Optional redirect URLs (otherwise derived from request Origin):
+  - `DODO_CHECKOUT_RETURN_URL`
+  - `DODO_CHECKOUT_CANCEL_URL`
 
 Razorpay billing (subscriptions):
 - Set `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`.

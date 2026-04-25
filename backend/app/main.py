@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import time
+from datetime import datetime, timezone
 
 import uvicorn
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -23,6 +24,10 @@ from app.dependencies.auth import verify_user
 from app.dependencies.rate_limit import RateLimitConfig, rate_limit
 from app.middleware.request_context import RequestContextMiddleware
 from app.schemas.billing import (
+    DodoCancelSubscriptionRequest,
+    DodoChangePlanRequest,
+    DodoCreateCheckoutSessionRequest,
+    DodoSyncSubscriptionRequest,
     RazorpayCancelSubscriptionRequest,
     RazorpayChangePlanRequest,
     RazorpayCreateOrderRequest,
@@ -37,6 +42,13 @@ from app.services.ai_service import (
     generate_linkedin_post,
     generate_social_content,
     generate_social_content_from_image,
+)
+from app.services.dodo_service import (
+    change_plan as dodo_change_plan,
+    create_checkout_session as dodo_create_checkout_session,
+    retrieve_subscription as dodo_retrieve_subscription,
+    update_subscription as dodo_update_subscription,
+    verify_webhook_signature as dodo_verify_webhook_signature,
 )
 from app.services.image_service import generate_openai_images, generate_placeholder_images
 from app.services.razorpay_service import (
@@ -215,6 +227,45 @@ def _plan_from_razorpay_plan_id(plan_id: str | None) -> str | None:
     return mapping.get(plan_id) or None
 
 
+def _dodo_product_id(plan: str) -> str:
+    """
+    Map our plan names to Dodo Product IDs (subscription products).
+    Env vars:
+    - DODO_PRODUCT_ID_STARTER (or legacy: DODO_PLAN_ID_STARTER)
+    - DODO_PRODUCT_ID_PRO (or legacy: DODO_PLAN_ID_PRO)
+    - DODO_PRODUCT_ID_BUSINESS (or legacy: DODO_PLAN_ID_BUSINESS)
+    """
+    p = (plan or "").strip().lower()
+    env_keys = {
+        "starter": ("DODO_PRODUCT_ID_STARTER", "DODO_PLAN_ID_STARTER"),
+        "pro": ("DODO_PRODUCT_ID_PRO", "DODO_PLAN_ID_PRO"),
+        "business": ("DODO_PRODUCT_ID_BUSINESS", "DODO_PLAN_ID_BUSINESS"),
+    }.get(p)
+    if not env_keys:
+        raise RuntimeError("Unsupported plan")
+    for key in env_keys:
+        value = (os.getenv(key) or "").strip()
+        if value:
+            return value
+    raise RuntimeError(f"Missing required env var: {env_keys[0]}")
+
+
+def _plan_from_dodo_product_id(product_id: str | None) -> str | None:
+    if not product_id:
+        return None
+    pid = str(product_id).strip()
+    mapping = {
+        (os.getenv("DODO_PRODUCT_ID_STARTER") or os.getenv("DODO_PLAN_ID_STARTER") or "").strip(): "starter",
+        (os.getenv("DODO_PRODUCT_ID_PRO") or os.getenv("DODO_PLAN_ID_PRO") or "").strip(): "pro",
+        (
+            os.getenv("DODO_PRODUCT_ID_BUSINESS")
+            or os.getenv("DODO_PLAN_ID_BUSINESS")
+            or ""
+        ).strip(): "business",
+    }
+    return mapping.get(pid) or None
+
+
 def _estimate_cycle_seconds(*, period: str, interval: int) -> int:
     # Razorpay plan periods are typically: daily, weekly, monthly, yearly.
     # For month/year we use conservative approximations to keep the computed end_time
@@ -229,6 +280,21 @@ def _estimate_cycle_seconds(*, period: str, interval: int) -> int:
         return 365 * 86_400 * step
     # monthly (and unknown): 30-day approximation.
     return 30 * 86_400 * step
+
+
+def _parse_iso8601_to_epoch_seconds(value: str | None) -> int | None:
+    raw = (value or "").strip()
+    if not raw:
+        return None
+    try:
+        if raw.endswith("Z"):
+            raw = raw[:-1] + "+00:00"
+        dt = datetime.fromisoformat(raw)
+        if not dt.tzinfo:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return int(dt.timestamp())
+    except Exception:
+        return None
 
 
 async def _safe_total_count_for_plan(*, plan_id: str, requested: int) -> int:
@@ -452,8 +518,12 @@ async def billing_catalog():
         error = str(e or "").strip()[:200]
         prices = {"starter": 0, "pro": 0, "business": 0}
 
+    provider = (os.getenv("BILLING_PROVIDER") or "razorpay").strip().lower()
+    if provider not in {"razorpay", "dodo"}:
+        provider = "razorpay"
+
     return {
-        "provider": "razorpay",
+        "provider": provider,
         "currency": currency,
         "interval": "month",
         "configured": configured,
@@ -471,6 +541,308 @@ async def billing_catalog():
 @app.get("/entitlements")
 async def entitlements(user=Depends(verify_user)):
     return _build_entitlements_payload(user)
+
+
+@app.post("/billing/dodo/checkout-session")
+async def dodo_checkout_session_create(
+    request: Request,
+    req: DodoCreateCheckoutSessionRequest,
+    user=Depends(verify_user),
+):
+    plan = (req.plan or "starter").strip().lower()
+    if plan not in {"starter", "pro", "business"}:
+        raise HTTPException(status_code=400, detail="Unsupported plan")
+
+    user_id = str(user.get("sub") or "user")
+    email = _get_user_email(user) or (req.email or "").strip()
+    if not email:
+        raise HTTPException(status_code=400, detail="Missing customer email")
+
+    origin = (
+        (request.headers.get("origin") or "").strip()
+        or (os.getenv("FRONTEND_BASE_URL") or "").strip()
+        or "https://orcafind.com"
+    ).rstrip("/")
+    return_url = (os.getenv("DODO_CHECKOUT_RETURN_URL") or "").strip() or (
+        f"{origin}/checkout/?dodo_return=1"
+    )
+    cancel_url = (os.getenv("DODO_CHECKOUT_CANCEL_URL") or "").strip() or (
+        f"{origin}/checkout/?dodo_cancel=1"
+    )
+
+    try:
+        product_id = _dodo_product_id(plan)
+        session = await dodo_create_checkout_session(
+            product_id=product_id,
+            quantity=1,
+            customer_email=email,
+            return_url=return_url,
+            cancel_url=cancel_url,
+            metadata={"user_id": user_id, "plan": plan, "email": email},
+        )
+    except RuntimeError as e:
+        msg = str(e or "").strip()
+        if msg.startswith("Missing required env var:"):
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "message": "Billing is not configured on the server.",
+                    "request_id": request.state.request_id,
+                },
+            ) from e
+        raise HTTPException(
+            status_code=502,
+            detail={"message": msg or "Dodo error", "request_id": request.state.request_id},
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "message": f"Dodo error: {type(e).__name__}",
+                "request_id": request.state.request_id,
+            },
+        ) from e
+
+    return {
+        "plan": plan,
+        "session_id": session.get("session_id") or session.get("id"),
+        "checkout_url": session.get("checkout_url") or session.get("url"),
+    }
+
+
+@app.post("/billing/dodo/subscription/sync")
+async def dodo_subscription_sync(
+    request: Request,
+    req: DodoSyncSubscriptionRequest,
+    user=Depends(verify_user),
+):
+    user_id = str(user.get("sub") or "user")
+    sub_id = (req.subscription_id or "").strip()
+    if not sub_id:
+        raise HTTPException(status_code=400, detail="Missing subscription_id")
+
+    try:
+        sub = await dodo_retrieve_subscription(subscription_id=sub_id)
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=502,
+            detail={"message": str(e), "request_id": request.state.request_id},
+        ) from e
+
+    product_id = sub.get("product_id") or (sub.get("product") or {}).get("product_id")
+    plan = _plan_from_dodo_product_id(product_id) or "pro"
+    status = str(sub.get("status") or "unknown").strip().lower()
+    current_start = _parse_iso8601_to_epoch_seconds(sub.get("previous_billing_date"))
+    current_end = _parse_iso8601_to_epoch_seconds(sub.get("next_billing_date"))
+    cancel_at_next = bool(sub.get("cancel_at_next_billing_date"))
+
+    customer_id = None
+    customer = sub.get("customer")
+    if isinstance(customer, dict):
+        customer_id = customer.get("customer_id") or customer.get("id")
+
+    upsert_subscription_state(
+        user_id=user_id,
+        provider="dodo",
+        subscription_id=str(sub.get("subscription_id") or sub.get("id") or sub_id),
+        customer_id=customer_id,
+        plan=plan,
+        status=status,
+        current_period_start=current_start,
+        current_period_end=current_end,
+        cancel_at_cycle_end=cancel_at_next,
+        scheduled_plan=None,
+    )
+
+    return {"status": "ok", "entitlements": _build_entitlements_payload(user)}
+
+
+@app.post("/billing/dodo/subscription/change")
+async def dodo_subscription_change(
+    request: Request,
+    req: DodoChangePlanRequest,
+    user=Depends(verify_user),
+):
+    user_id = str(user.get("sub") or "user")
+    state = get_subscription_state(user_id) or {}
+    sub_id = str(state.get("subscription_id") or "").strip()
+    if not sub_id:
+        raise HTTPException(status_code=400, detail="No active subscription to update")
+
+    target = (req.plan or "").strip().lower()
+    if target not in {"starter", "pro", "business"}:
+        raise HTTPException(status_code=400, detail="Unsupported plan")
+
+    try:
+        product_id = _dodo_product_id(target)
+        await dodo_change_plan(subscription_id=sub_id, product_id=product_id)
+        sub = await dodo_retrieve_subscription(subscription_id=sub_id)
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=502,
+            detail={"message": str(e), "request_id": request.state.request_id},
+        ) from e
+
+    product_id = sub.get("product_id") or (sub.get("product") or {}).get("product_id")
+    plan = _plan_from_dodo_product_id(product_id) or target
+    status = str(sub.get("status") or "unknown").strip().lower()
+    current_start = _parse_iso8601_to_epoch_seconds(sub.get("previous_billing_date"))
+    current_end = _parse_iso8601_to_epoch_seconds(sub.get("next_billing_date"))
+    cancel_at_next = bool(sub.get("cancel_at_next_billing_date"))
+
+    customer_id = None
+    customer = sub.get("customer")
+    if isinstance(customer, dict):
+        customer_id = customer.get("customer_id") or customer.get("id")
+
+    upsert_subscription_state(
+        user_id=user_id,
+        provider="dodo",
+        subscription_id=str(sub.get("subscription_id") or sub.get("id") or sub_id),
+        customer_id=customer_id,
+        plan=plan,
+        status=status,
+        current_period_start=current_start,
+        current_period_end=current_end,
+        cancel_at_cycle_end=cancel_at_next,
+        scheduled_plan=None,
+    )
+
+    return {"status": "ok", "entitlements": _build_entitlements_payload(user)}
+
+
+@app.post("/billing/dodo/subscription/cancel")
+async def dodo_subscription_cancel(
+    request: Request,
+    req: DodoCancelSubscriptionRequest,
+    user=Depends(verify_user),
+):
+    user_id = str(user.get("sub") or "user")
+    state = get_subscription_state(user_id) or {}
+    sub_id = str(state.get("subscription_id") or "").strip()
+    if not sub_id:
+        raise HTTPException(status_code=400, detail="No subscription found")
+
+    cancel_at_cycle_end = bool(req.cancel_at_cycle_end)
+    if not cancel_at_cycle_end:
+        raise HTTPException(
+            status_code=400,
+            detail="Immediate cancellation is not implemented. Use cancel_at_cycle_end=true.",
+        )
+
+    try:
+        sub = await dodo_update_subscription(
+            subscription_id=sub_id, cancel_at_next_billing_date=True
+        )
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=502,
+            detail={"message": str(e), "request_id": request.state.request_id},
+        ) from e
+
+    product_id = sub.get("product_id") or (sub.get("product") or {}).get("product_id")
+    plan = _plan_from_dodo_product_id(product_id) or (state.get("plan") or "pro")
+    status = str(sub.get("status") or "unknown").strip().lower()
+    current_start = _parse_iso8601_to_epoch_seconds(sub.get("previous_billing_date"))
+    current_end = _parse_iso8601_to_epoch_seconds(sub.get("next_billing_date"))
+    cancel_at_next = bool(sub.get("cancel_at_next_billing_date"))
+
+    customer_id = None
+    customer = sub.get("customer")
+    if isinstance(customer, dict):
+        customer_id = customer.get("customer_id") or customer.get("id")
+
+    upsert_subscription_state(
+        user_id=user_id,
+        provider="dodo",
+        subscription_id=str(sub.get("subscription_id") or sub.get("id") or sub_id),
+        customer_id=customer_id,
+        plan=str(plan),
+        status=status,
+        current_period_start=current_start,
+        current_period_end=current_end,
+        cancel_at_cycle_end=cancel_at_next,
+        scheduled_plan=None,
+    )
+
+    return {
+        "status": "ok",
+        "cancel_at_cycle_end": bool(cancel_at_next),
+        "entitlements": _build_entitlements_payload(user),
+    }
+
+
+@app.post("/billing/dodo/webhook")
+async def dodo_webhook(request: Request):
+    body = await request.body()
+    webhook_id = (request.headers.get("webhook-id") or "").strip()
+    webhook_timestamp = (request.headers.get("webhook-timestamp") or "").strip()
+    webhook_signature = (request.headers.get("webhook-signature") or "").strip()
+
+    if not dodo_verify_webhook_signature(
+        body=body,
+        webhook_id=webhook_id,
+        webhook_timestamp=webhook_timestamp,
+        webhook_signature=webhook_signature,
+    ):
+        raise HTTPException(status_code=400, detail="Invalid webhook signature")
+
+    digest = hashlib.sha256(body).hexdigest()
+    if not record_webhook_digest(digest=digest, provider="dodo"):
+        return {"status": "duplicate"}
+
+    try:
+        data = json.loads(body.decode("utf-8") or "{}")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Invalid JSON") from e
+
+    payload = data.get("data") or data.get("payload") or {}
+    if not isinstance(payload, dict):
+        payload = {}
+
+    # subscription object may be nested under data.subscription in some events
+    subscription = payload.get("subscription") if isinstance(payload.get("subscription"), dict) else payload
+
+    if isinstance(subscription, dict):
+        sub_id = str(subscription.get("subscription_id") or subscription.get("id") or "").strip()
+        if sub_id:
+            user_id = get_user_for_subscription(sub_id)
+
+            metadata = subscription.get("metadata") or {}
+            if not user_id and isinstance(metadata, dict):
+                user_id = str(metadata.get("user_id") or "") or None
+
+            if user_id:
+                product_id = subscription.get("product_id") or (subscription.get("product") or {}).get(
+                    "product_id"
+                )
+                plan = _plan_from_dodo_product_id(product_id) or (
+                    (get_subscription_state(user_id) or {}).get("plan") or "pro"
+                )
+                status = str(subscription.get("status") or "unknown").strip().lower()
+                current_start = _parse_iso8601_to_epoch_seconds(subscription.get("previous_billing_date"))
+                current_end = _parse_iso8601_to_epoch_seconds(subscription.get("next_billing_date"))
+                cancel_at_next = bool(subscription.get("cancel_at_next_billing_date"))
+
+                customer_id = None
+                customer = subscription.get("customer")
+                if isinstance(customer, dict):
+                    customer_id = customer.get("customer_id") or customer.get("id")
+
+                upsert_subscription_state(
+                    user_id=user_id,
+                    provider="dodo",
+                    subscription_id=sub_id,
+                    customer_id=customer_id,
+                    plan=plan,
+                    status=status,
+                    current_period_start=current_start,
+                    current_period_end=current_end,
+                    cancel_at_cycle_end=cancel_at_next,
+                    scheduled_plan=None,
+                )
+
+    return {"status": "ok"}
 
 
 def _build_entitlements_payload(user: dict) -> dict:
