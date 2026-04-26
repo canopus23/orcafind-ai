@@ -467,6 +467,7 @@ def is_admin_user(payload: dict) -> bool:
 default_origins = {
     "https://orcafind.com",
     "https://www.orcafind.com",
+    "https://orcafind-api-staging.vercel.app",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 }
