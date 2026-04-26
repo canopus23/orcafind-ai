@@ -330,7 +330,11 @@ async function cancelSubscription() {
   // Default behavior: cancel at period end (SaaS-standard).
   window.OrcaFindLoader?.show({ title: "Cancelling", body: "Scheduling cancellation at period end…" });
   try {
-    const res = await fetch(`${API_BASE_URL}/billing/dodo/subscription/cancel`, {
+    const provider = String(currentSubscription?.provider || "dodo").toLowerCase();
+    const cancelPath = provider === "razorpay"
+      ? "/billing/razorpay/subscription/cancel"
+      : "/billing/dodo/subscription/cancel";
+    const res = await fetch(`${API_BASE_URL}${cancelPath}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -338,7 +342,12 @@ async function cancelSubscription() {
       },
       body: JSON.stringify({ cancel_at_cycle_end: true }),
     });
-    const data = await res.json();
+    let data = null;
+    try {
+      data = await res.json();
+    } catch (_err) {
+      data = null;
+    }
     if (!res.ok) {
       const detail = data?.detail;
       const msg = typeof detail === "string" ? detail : (detail?.message || "Failed to cancel subscription");
