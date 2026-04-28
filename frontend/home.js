@@ -19,7 +19,7 @@ function ensureSupabaseClient() {
 
       const s = document.createElement("script");
       s.defer = true;
-      s.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
+      s.src = "/vendor/supabase-js-2.105.1.umd.min.js";
       s.onload = () => {
         try {
           if (!window.supabase?.createClient) throw new Error("Supabase SDK did not initialize");
