@@ -2,7 +2,42 @@ const ORCAFIND_CONFIG = window.__ORCAFIND_CONFIG || {};
 const SUPABASE_URL = ORCAFIND_CONFIG.supabaseUrl || window.__ORCAFIND_SUPABASE_URL || "https://rcfehmuiovcesucsvfsr.supabase.co";
 const SUPABASE_ANON_KEY = ORCAFIND_CONFIG.supabaseAnonKey || window.__ORCAFIND_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjZmVobXVpb3ZjZXN1Y3N2ZnNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1MzE3MzAsImV4cCI6MjA5MDEwNzczMH0.8J4k5tlyA5G3gr70JT8aDbY36cidBc4s08hlwE-z9tY";
 
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let supabaseClient = null;
+let supabaseLoadPromise = null;
+
+function ensureSupabaseClient() {
+  if (supabaseClient) return Promise.resolve(supabaseClient);
+  if (supabaseLoadPromise) return supabaseLoadPromise;
+
+  supabaseLoadPromise = new Promise((resolve, reject) => {
+    try {
+      if (window.supabase?.createClient) {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        resolve(supabaseClient);
+        return;
+      }
+
+      const s = document.createElement("script");
+      s.defer = true;
+      s.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
+      s.onload = () => {
+        try {
+          if (!window.supabase?.createClient) throw new Error("Supabase SDK did not initialize");
+          supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+          resolve(supabaseClient);
+        } catch (err) {
+          reject(err);
+        }
+      };
+      s.onerror = () => reject(new Error("Failed to load Supabase SDK"));
+      document.head.appendChild(s);
+    } catch (err) {
+      reject(err);
+    }
+  });
+
+  return supabaseLoadPromise;
+}
 
 function setText(id, value) {
   const el = document.getElementById(id);
@@ -154,7 +189,8 @@ function setHomeSidebarFocusEnabled(panel, enabled) {
 
 async function homeLogout() {
   try {
-    await supabaseClient.auth.signOut();
+    const client = await ensureSupabaseClient();
+    await client.auth.signOut();
   } finally {
     closeHomeSidebar();
     window.location.href = "/";
@@ -382,11 +418,18 @@ function initActiveNav() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  supabaseClient.auth.getSession().then(({ data }) => updateHeaderForUser(data?.session?.user));
+  // Lazy-load Supabase so Lighthouse doesn't pay for it on first paint.
+  const idle = window.requestIdleCallback || function (fn) { return window.setTimeout(fn, 900); };
+  idle(() => {
+    ensureSupabaseClient()
+      .then((client) => client.auth.getSession())
+      .then(({ data }) => updateHeaderForUser(data?.session?.user))
+      .catch(() => updateHeaderForUser(null));
 
-  supabaseClient.auth.onAuthStateChange((_event, session) => {
-    updateHeaderForUser(session?.user);
-  });
+    ensureSupabaseClient()
+      .then((client) => client.auth.onAuthStateChange((_event, session) => updateHeaderForUser(session?.user)))
+      .catch(() => {});
+  }, { timeout: 2500 });
 
   closeHomeSidebar();
 

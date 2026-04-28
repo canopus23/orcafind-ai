@@ -18,25 +18,39 @@
     window.dataLayer = window.dataLayer || [];
     window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
 
-    var s = document.createElement("script");
-    s.async = true;
-    s.src = "https://www.googletagmanager.com/gtag/js?id=" + encodeURIComponent(measurementId);
-    document.head.appendChild(s);
+    var didLoad = false;
+    function loadGA() {
+      if (didLoad) return;
+      didLoad = true;
 
-    window.gtag("js", new Date());
-    window.gtag("config", measurementId, {
-      anonymize_ip: true,
-      // We don't use cookies for auth; avoid any accidental cross-site credential behavior.
-      // GA uses its own cookies; this just keeps our integration conservative.
-      allow_google_signals: false,
-    });
+      var s = document.createElement("script");
+      s.async = true;
+      s.src = "https://www.googletagmanager.com/gtag/js?id=" + encodeURIComponent(measurementId);
+      document.head.appendChild(s);
 
-    // Minimal helper for future custom events.
-    window.orcafindTrack = function (eventName, params) {
-      try {
-        window.gtag("event", String(eventName || "event"), params || {});
-      } catch (_err) {}
-    };
+      window.gtag("js", new Date());
+      window.gtag("config", measurementId, {
+        anonymize_ip: true,
+        // We don't use cookies for auth; avoid any accidental cross-site credential behavior.
+        // GA uses its own cookies; this just keeps our integration conservative.
+        allow_google_signals: false,
+      });
+
+      // Minimal helper for future custom events.
+      window.orcafindTrack = function (eventName, params) {
+        try {
+          window.gtag("event", String(eventName || "event"), params || {});
+        } catch (_err) {}
+      };
+    }
+
+    // Delay third-party JS until the user interacts (improves Lighthouse diagnostics).
+    var opts = { once: true, passive: true };
+    window.addEventListener("pointerdown", loadGA, opts);
+    window.addEventListener("keydown", loadGA, opts);
+    window.addEventListener("scroll", loadGA, opts);
+    var idle = window.requestIdleCallback || function (fn) { return window.setTimeout(fn, 4500); };
+    idle(loadGA, { timeout: 6500 });
   } catch (_err) {
     // If an adblocker blocks GA, don't affect UX.
   }
