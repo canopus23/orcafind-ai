@@ -1206,11 +1206,21 @@ function closeProfileModal() {
 function openStudioSidebar() {
   const panel = document.getElementById("studioSidebar");
   const backdrop = document.getElementById("studioSidebarBackdrop");
+  const activeEl = document.activeElement;
+  if (activeEl && activeEl instanceof HTMLElement) {
+    window.__orcafindStudioSidebarLastFocus = activeEl;
+  }
   if (panel) {
     panel.classList.add("is-open");
     panel.setAttribute("aria-hidden", "false");
+    setStudioSidebarFocusEnabled(panel, true);
   }
   if (backdrop) backdrop.classList.add("is-open");
+
+  window.setTimeout(() => {
+    const closeButton = panel?.querySelector('button[aria-label="Close menu"]');
+    closeButton?.focus?.({ preventScroll: true });
+  }, 0);
 }
 
 function closeStudioSidebar() {
@@ -1219,8 +1229,48 @@ function closeStudioSidebar() {
   if (panel) {
     panel.classList.remove("is-open");
     panel.setAttribute("aria-hidden", "true");
+    setStudioSidebarFocusEnabled(panel, false);
   }
   if (backdrop) backdrop.classList.remove("is-open");
+
+  const lastFocus = window.__orcafindStudioSidebarLastFocus;
+  if (lastFocus && lastFocus instanceof HTMLElement) {
+    window.__orcafindStudioSidebarLastFocus = null;
+    try {
+      lastFocus.focus({ preventScroll: true });
+    } catch (_err) {}
+  }
+}
+
+function setStudioSidebarFocusEnabled(panel, enabled) {
+  if (!panel) return;
+
+  try {
+    panel.inert = !enabled;
+  } catch (_err) {}
+
+  const focusables = Array.from(
+    panel.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]'
+    )
+  );
+
+  focusables.forEach((el) => {
+    if (!(el instanceof HTMLElement)) return;
+    if (enabled) {
+      if (!Object.prototype.hasOwnProperty.call(el.dataset, "prevTabindex")) return;
+      const prev = el.dataset.prevTabindex;
+      delete el.dataset.prevTabindex;
+      if (prev === "") el.removeAttribute("tabindex");
+      else el.setAttribute("tabindex", prev);
+      return;
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(el.dataset, "prevTabindex")) {
+      el.dataset.prevTabindex = el.getAttribute("tabindex") ?? "";
+    }
+    el.setAttribute("tabindex", "-1");
+  });
 }
 
 function handleProfileBackdrop(event) {
@@ -2035,6 +2085,7 @@ document.addEventListener("keydown", (event) => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
+  closeStudioSidebar();
   initRevealAnimations();
   initActiveNav();
   initComposerMetrics();

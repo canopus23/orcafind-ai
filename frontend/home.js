@@ -77,9 +77,14 @@ function updateHeaderForUser(user) {
 function openHomeSidebar(target) {
   const panel = document.getElementById("homeSidebar");
   const backdrop = document.getElementById("homeSidebarBackdrop");
+  const activeEl = document.activeElement;
+  if (activeEl && activeEl instanceof HTMLElement) {
+    window.__orcafindHomeSidebarLastFocus = activeEl;
+  }
   if (panel) {
     panel.classList.add("is-open");
     panel.setAttribute("aria-hidden", "false");
+    setHomeSidebarFocusEnabled(panel, true);
   }
   if (backdrop) backdrop.classList.add("is-open");
 
@@ -90,6 +95,11 @@ function openHomeSidebar(target) {
       (signOut || profile || panel)?.scrollIntoView?.({ block: "end", behavior: "smooth" });
     }, 30);
   }
+
+  window.setTimeout(() => {
+    const closeButton = panel?.querySelector('button[aria-label="Close menu"]');
+    closeButton?.focus?.({ preventScroll: true });
+  }, 0);
 }
 
 function closeHomeSidebar() {
@@ -98,8 +108,48 @@ function closeHomeSidebar() {
   if (panel) {
     panel.classList.remove("is-open");
     panel.setAttribute("aria-hidden", "true");
+    setHomeSidebarFocusEnabled(panel, false);
   }
   if (backdrop) backdrop.classList.remove("is-open");
+
+  const lastFocus = window.__orcafindHomeSidebarLastFocus;
+  if (lastFocus && lastFocus instanceof HTMLElement) {
+    window.__orcafindHomeSidebarLastFocus = null;
+    try {
+      lastFocus.focus({ preventScroll: true });
+    } catch (_err) {}
+  }
+}
+
+function setHomeSidebarFocusEnabled(panel, enabled) {
+  if (!panel) return;
+
+  try {
+    panel.inert = !enabled;
+  } catch (_err) {}
+
+  const focusables = Array.from(
+    panel.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]'
+    )
+  );
+
+  focusables.forEach((el) => {
+    if (!(el instanceof HTMLElement)) return;
+    if (enabled) {
+      if (!Object.prototype.hasOwnProperty.call(el.dataset, "prevTabindex")) return;
+      const prev = el.dataset.prevTabindex;
+      delete el.dataset.prevTabindex;
+      if (prev === "") el.removeAttribute("tabindex");
+      else el.setAttribute("tabindex", prev);
+      return;
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(el.dataset, "prevTabindex")) {
+      el.dataset.prevTabindex = el.getAttribute("tabindex") ?? "";
+    }
+    el.setAttribute("tabindex", "-1");
+  });
 }
 
 async function homeLogout() {
@@ -337,6 +387,8 @@ document.addEventListener("DOMContentLoaded", () => {
   supabaseClient.auth.onAuthStateChange((_event, session) => {
     updateHeaderForUser(session?.user);
   });
+
+  closeHomeSidebar();
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
