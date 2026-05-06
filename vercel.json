@@ -1,4 +1,18 @@
 {
+  "rewrites": [
+    { "source": "/", "destination": "/frontend/index.html" },
+    { "source": "/auth/", "destination": "/frontend/auth/index.html" },
+    { "source": "/checkout/", "destination": "/frontend/checkout/index.html" },
+    { "source": "/privacy/", "destination": "/frontend/privacy/index.html" },
+    { "source": "/profile/", "destination": "/frontend/profile/index.html" },
+    { "source": "/refund/", "destination": "/frontend/refund/index.html" },
+    { "source": "/sitemap/", "destination": "/frontend/sitemap/index.html" },
+    { "source": "/studio/", "destination": "/frontend/studio/index.html" },
+    { "source": "/terms/", "destination": "/frontend/terms/index.html" },
+    { "source": "/robots.txt", "destination": "/frontend/robots.txt" },
+    { "source": "/sitemap.xml", "destination": "/frontend/sitemap.xml" },
+    { "source": "/(.*)", "destination": "/frontend/$1" }
+  ],
   "headers": [
     {
       "source": "/vendor/(.*)\\.(js|mjs)",

@@ -2,7 +2,7 @@
 
 Marketing site + authenticated studio for generating social posts, captions, and (Pro-only) post images.
 
-**Frontend:** Next.js app in repo root (static pages still served from `public/` while routes migrate).
+**Frontend:** static HTML/CSS/JS in `frontend/` (pretty URLs via folder `index.html`).
 **Backend:** FastAPI in `backend/app/` (auth via Supabase JWTs, billing via Razorpay).
 
 ### Local setup
@@ -33,11 +33,11 @@ cd backend
 ENV=development uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-5. Run frontend (Next.js) and open:
+5. Serve `frontend/` (any static server) and open:
 
 ```bash
-npm install
-npm run dev
+cd frontend
+python3 -m http.server 3000
 ```
 
 - `/` marketing
