@@ -1,5 +1,5 @@
-// Profile page logic (served from root to avoid SPA rewrites like /profile/* -> /profile/index.html)
-// Keep this file in sync with frontend/profile/profile.js when editing.
+// Profile page logic (served from /profile.js).
+// Note: this is used by the Next.js `/profile/` page shell.
 
 const ORCAFIND_CONFIG = window.__ORCAFIND_CONFIG || {};
 const SUPABASE_URL = ORCAFIND_CONFIG.supabaseUrl || window.__ORCAFIND_SUPABASE_URL || "https://rcfehmuiovcesucsvfsr.supabase.co";
