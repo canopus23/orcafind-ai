@@ -77,22 +77,12 @@ function applyAuthProviderUi({ providerStatus } = {}) {
   xButtons.forEach((button) => {
     if (!knowsTwitter) return;
     button.disabled = !hasTwitter;
-    if (!hasTwitter) {
-      button.title = "X sign-in is not enabled for this Supabase project.";
-    } else {
-      button.removeAttribute("title");
-    }
   });
 
   const googleButtons = Array.from(document.querySelectorAll('button[onclick="loginWithGoogle()"]'));
   googleButtons.forEach((button) => {
     if (!knowsGoogle) return;
     button.disabled = !hasGoogle;
-    if (!hasGoogle) {
-      button.title = "Google sign-in is not enabled for this Supabase project.";
-    } else {
-      button.removeAttribute("title");
-    }
   });
 
   const copyNodes = Array.from(document.querySelectorAll("#authModeCopy"));
@@ -2193,12 +2183,10 @@ document.addEventListener("keydown", (event) => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Hide OAuth buttons that are not enabled in the active Supabase project.
-  // (Prevents a confusing redirect flow when a provider isn't configured.)
-  fetchSupabaseAuthSettings().then((settings) => {
-    const providerStatus = getOAuthProviderStatusFromSettings(settings);
-    applyAuthProviderUi({ providerStatus });
-  });
+  // Note: Supabase `/auth/v1/settings` provider flags can vary across GoTrue versions
+  // and may not reliably reflect OAuth enablement for all providers. We avoid
+  // hiding buttons based on this endpoint and instead show a clear error message
+  // if a provider isn't enabled when the OAuth flow starts.
 
   closeStudioSidebar();
   initRevealAnimations();
