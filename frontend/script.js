@@ -29,7 +29,7 @@ function _normalizeProviderFromSettings(value) {
 
 async function fetchSupabaseAuthSettings() {
   try {
-    const response = await fetch(`${SUPABASE_URL.replace(/\\/$/, "")}/auth/v1/settings`, {
+    const response = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/auth/v1/settings`, {
       method: "GET",
       headers: {
         apikey: SUPABASE_ANON_KEY,
