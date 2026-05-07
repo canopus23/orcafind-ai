@@ -2161,9 +2161,18 @@ async function loginWithX() {
       lowered.includes("not enabled");
 
     if (isProviderDisabled) {
+      let settingsHint = "";
+      try {
+        const ref = getSupabaseProjectRef();
+        const settings = await fetchSupabaseAuthSettings();
+        const external = settings?.external && typeof settings.external === "object" ? settings.external : null;
+        const externalKeys = external ? Object.keys(external).slice(0, 12) : [];
+        settingsHint = ` (project: ${ref || "unknown"}${externalKeys.length ? `, /settings external: ${externalKeys.join(", ")}` : ""})`;
+      } catch (_err) {}
+
       showToast(
         "X sign-in not configured",
-        "This Supabase project does not have the Twitter/X provider enabled. Enable it in Supabase Auth → Providers, or set the correct SUPABASE URL/anon key for the project that has it enabled.",
+        `Supabase rejected provider "twitter" as not enabled.${settingsHint} Enable X/Twitter in Supabase Auth → Providers for THIS project, and confirm the deployed site is using the correct SUPABASE URL/anon key.`,
         "error"
       );
       return;
