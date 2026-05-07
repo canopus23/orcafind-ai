@@ -18,6 +18,10 @@ function isAuthPage() {
   return window.location.pathname === "/auth" || window.location.pathname.startsWith("/auth/");
 }
 
+function isAuthCallbackPage() {
+  return window.location.pathname === "/auth/callback" || window.location.pathname.startsWith("/auth/callback/");
+}
+
 /* ---------- AUTH PROVIDER FLAGS ---------- */
 
 function _normalizeProviderFromSettings(value) {
@@ -2130,7 +2134,7 @@ async function loginWithGoogle() {
   const { error } = await supabaseClient.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${window.location.origin}/auth/?mode=signin&next=${encodeURIComponent(next)}`
+      redirectTo: `${window.location.origin}/auth/callback/?next=${encodeURIComponent(next)}`
     }
   });
 
@@ -2147,7 +2151,7 @@ async function loginWithX() {
   const { error } = await supabaseClient.auth.signInWithOAuth({
     provider: "twitter",
     options: {
-      redirectTo: `${window.location.origin}/auth/?mode=signin&next=${encodeURIComponent(next)}`
+      redirectTo: `${window.location.origin}/auth/callback/?next=${encodeURIComponent(next)}`
     }
   });
 
@@ -2196,6 +2200,19 @@ document.addEventListener("DOMContentLoaded", () => {
   // and may not reliably reflect OAuth enablement for all providers. We avoid
   // hiding buttons based on this endpoint and instead show a clear error message
   // if a provider isn't enabled when the OAuth flow starts.
+
+  if (isAuthCallbackPage()) {
+    const next = getSafeNextFromURL() || "/studio/";
+    hydrateAuthSession({ attempts: 6, delayMs: 220, recoverStoredTokens: true }).then((session) => {
+      if (!session?.user) {
+        // If we can't hydrate a session, send the user back to sign in.
+        redirectToAuth("signin", next);
+        return;
+      }
+      window.location.replace(next);
+    });
+    return;
+  }
 
   closeStudioSidebar();
   initRevealAnimations();

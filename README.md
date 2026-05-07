@@ -60,6 +60,7 @@ it means the active Supabase project has the Twitter provider disabled (or the s
 Checklist:
 - In Supabase Dashboard → **Authentication → Providers**, enable **Twitter** and configure the client ID/secret.
 - In Supabase Dashboard → **Authentication → URL Configuration**, ensure the site URL matches your deployed domain.
+- Add `https://orcafind.com/auth/callback/` (and your preview/local equivalents) to **Additional Redirect URLs**.
 - Ensure your deployed `frontend/config.js` is pointing at the correct project via:
   - `window.__ORCAFIND_SUPABASE_URL`
   - `window.__ORCAFIND_SUPABASE_ANON_KEY`
