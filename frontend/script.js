@@ -18,6 +18,79 @@ function isAuthPage() {
   return window.location.pathname === "/auth" || window.location.pathname.startsWith("/auth/");
 }
 
+/* ---------- AUTH PROVIDER FLAGS ---------- */
+
+function _normalizeProviderFromSettings(value) {
+  if (!value) return null;
+  if (value === true) return { enabled: true };
+  if (typeof value === "object") return value;
+  return null;
+}
+
+async function fetchSupabaseAuthSettings() {
+  try {
+    const response = await fetch(`${SUPABASE_URL.replace(/\\/$/, "")}/auth/v1/settings`, {
+      method: "GET",
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+      },
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (_err) {
+    return null;
+  }
+}
+
+function getEnabledOAuthProvidersFromSettings(settings) {
+  const external = settings?.external;
+  if (!external || typeof external !== "object") return null;
+
+  // GoTrue settings shape varies by version; be defensive.
+  // Common: { external: { google: true, twitter: true, ... } }
+  const enabled = new Set();
+  for (const [key, value] of Object.entries(external)) {
+    const normalized = _normalizeProviderFromSettings(value);
+    if (!normalized) continue;
+    enabled.add(String(key).toLowerCase());
+  }
+  return enabled;
+}
+
+function applyAuthProviderUi({ enabledProviders } = {}) {
+  // If we can't determine enabled providers, keep UI as-is.
+  if (!enabledProviders || !(enabledProviders instanceof Set)) return;
+
+  const hasGoogle = enabledProviders.has("google");
+  const hasTwitter = enabledProviders.has("twitter");
+
+  const xButtons = Array.from(document.querySelectorAll('button[onclick="loginWithX()"]'));
+  xButtons.forEach((button) => {
+    button.disabled = !hasTwitter;
+    button.style.display = hasTwitter ? "" : "none";
+  });
+
+  const googleButtons = Array.from(document.querySelectorAll('button[onclick="loginWithGoogle()"]'));
+  googleButtons.forEach((button) => {
+    button.disabled = !hasGoogle;
+    button.style.display = hasGoogle ? "" : "none";
+  });
+
+  const copyNodes = Array.from(document.querySelectorAll("#authModeCopy"));
+  copyNodes.forEach((node) => {
+    if (!(node instanceof HTMLElement)) return;
+    if (hasGoogle && hasTwitter) {
+      node.textContent = "Continue with Google or X to access your OrcaFind workspace.";
+    } else if (hasGoogle && !hasTwitter) {
+      node.textContent = "Continue with Google to access your OrcaFind workspace.";
+    } else if (!hasGoogle && hasTwitter) {
+      node.textContent = "Continue with X to access your OrcaFind workspace.";
+    } else {
+      node.textContent = "Sign-in is temporarily unavailable. Please try again later.";
+    }
+  });
+}
+
 function buildRelativeUrl({ stripParams = [] } = {}) {
   const url = new URL(window.location.href);
   stripParams.forEach((key) => url.searchParams.delete(key));
@@ -2071,7 +2144,23 @@ async function loginWithX() {
 
   if (error) {
     window.OrcaFindLoader?.hide();
-    showToast("X sign-in failed", error.message, "error");
+    const rawMessage = String(error.message || "");
+    const lowered = rawMessage.toLowerCase();
+    const isProviderDisabled =
+      lowered.includes("unsupported provider") ||
+      lowered.includes("provider is not enabled") ||
+      lowered.includes("not enabled");
+
+    if (isProviderDisabled) {
+      showToast(
+        "X sign-in not configured",
+        "This Supabase project does not have the Twitter/X provider enabled. Enable it in Supabase Auth → Providers, or set the correct SUPABASE URL/anon key for the project that has it enabled.",
+        "error"
+      );
+      return;
+    }
+
+    showToast("X sign-in failed", rawMessage || "Unable to start X sign-in.", "error");
   }
 }
 
@@ -2085,6 +2174,13 @@ document.addEventListener("keydown", (event) => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Hide OAuth buttons that are not enabled in the active Supabase project.
+  // (Prevents a confusing redirect flow when a provider isn't configured.)
+  fetchSupabaseAuthSettings().then((settings) => {
+    const enabledProviders = getEnabledOAuthProvidersFromSettings(settings);
+    applyAuthProviderUi({ enabledProviders });
+  });
+
   closeStudioSidebar();
   initRevealAnimations();
   initActiveNav();

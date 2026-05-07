@@ -48,6 +48,22 @@ python3 -m http.server 3000
 
 ### Production notes
 
+### Supabase Auth (Google + X/Twitter)
+
+This frontend uses `supabaseClient.auth.signInWithOAuth({ provider: "google" })` and `provider: "twitter"` (Supabase’s provider key for X/Twitter).
+
+If you see an error like:
+- `{"code":400,"error_code":"validation_failed","msg":"Unsupported provider: provider is not enabled"}`
+
+it means the active Supabase project has the Twitter provider disabled (or the site is pointed at the wrong Supabase project).
+
+Checklist:
+- In Supabase Dashboard → **Authentication → Providers**, enable **Twitter** and configure the client ID/secret.
+- In Supabase Dashboard → **Authentication → URL Configuration**, ensure the site URL matches your deployed domain.
+- Ensure your deployed `frontend/config.js` is pointing at the correct project via:
+  - `window.__ORCAFIND_SUPABASE_URL`
+  - `window.__ORCAFIND_SUPABASE_ANON_KEY`
+
 #### Favicons / brand icon
 - `frontend/favicon.svg` is an SVG wrapper for the favicon image with rounded corners.
 - `frontend/favicon.png` is a fallback used by browsers that don't render the SVG favicon reliably.
