@@ -42,50 +42,69 @@ async function fetchSupabaseAuthSettings() {
   }
 }
 
-function getEnabledOAuthProvidersFromSettings(settings) {
+function getOAuthProviderStatusFromSettings(settings) {
   const external = settings?.external;
   if (!external || typeof external !== "object") return null;
 
   // GoTrue settings shape varies by version; be defensive.
   // Common: { external: { google: true, twitter: true, ... } }
   const enabled = new Set();
+  const seen = new Set();
   for (const [key, value] of Object.entries(external)) {
+    const providerKey = String(key).toLowerCase();
+    seen.add(providerKey);
     const normalized = _normalizeProviderFromSettings(value);
     if (!normalized) continue;
-    enabled.add(String(key).toLowerCase());
+    if (normalized.enabled === false) continue;
+    enabled.add(providerKey);
   }
-  return enabled;
+  return { enabled, seen };
 }
 
-function applyAuthProviderUi({ enabledProviders } = {}) {
-  // If we can't determine enabled providers, keep UI as-is.
-  if (!enabledProviders || !(enabledProviders instanceof Set)) return;
+function applyAuthProviderUi({ providerStatus } = {}) {
+  // If we can't determine provider status, keep UI as-is.
+  if (!providerStatus?.enabled || !providerStatus?.seen) return;
+  const { enabled, seen } = providerStatus;
 
-  const hasGoogle = enabledProviders.has("google");
-  const hasTwitter = enabledProviders.has("twitter");
+  // Only hide/disable a provider if the settings explicitly mention it.
+  // If a provider isn't listed, we don't know—leave the button visible.
+  const hasGoogle = enabled.has("google");
+  const hasTwitter = enabled.has("twitter");
+  const knowsGoogle = seen.has("google");
+  const knowsTwitter = seen.has("twitter");
 
   const xButtons = Array.from(document.querySelectorAll('button[onclick="loginWithX()"]'));
   xButtons.forEach((button) => {
+    if (!knowsTwitter) return;
     button.disabled = !hasTwitter;
-    button.style.display = hasTwitter ? "" : "none";
+    if (!hasTwitter) {
+      button.title = "X sign-in is not enabled for this Supabase project.";
+    } else {
+      button.removeAttribute("title");
+    }
   });
 
   const googleButtons = Array.from(document.querySelectorAll('button[onclick="loginWithGoogle()"]'));
   googleButtons.forEach((button) => {
+    if (!knowsGoogle) return;
     button.disabled = !hasGoogle;
-    button.style.display = hasGoogle ? "" : "none";
+    if (!hasGoogle) {
+      button.title = "Google sign-in is not enabled for this Supabase project.";
+    } else {
+      button.removeAttribute("title");
+    }
   });
 
   const copyNodes = Array.from(document.querySelectorAll("#authModeCopy"));
   copyNodes.forEach((node) => {
     if (!(node instanceof HTMLElement)) return;
-    if (hasGoogle && hasTwitter) {
+    if (knowsGoogle && knowsTwitter && hasGoogle && hasTwitter) {
       node.textContent = "Continue with Google or X to access your OrcaFind workspace.";
-    } else if (hasGoogle && !hasTwitter) {
+    } else if (knowsGoogle && knowsTwitter && hasGoogle && !hasTwitter) {
       node.textContent = "Continue with Google to access your OrcaFind workspace.";
-    } else if (!hasGoogle && hasTwitter) {
+    } else if (knowsGoogle && knowsTwitter && !hasGoogle && hasTwitter) {
       node.textContent = "Continue with X to access your OrcaFind workspace.";
-    } else {
+    } else if (knowsGoogle && knowsTwitter && !hasGoogle && !hasTwitter) {
       node.textContent = "Sign-in is temporarily unavailable. Please try again later.";
     }
   });
@@ -2177,8 +2196,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // Hide OAuth buttons that are not enabled in the active Supabase project.
   // (Prevents a confusing redirect flow when a provider isn't configured.)
   fetchSupabaseAuthSettings().then((settings) => {
-    const enabledProviders = getEnabledOAuthProvidersFromSettings(settings);
-    applyAuthProviderUi({ enabledProviders });
+    const providerStatus = getOAuthProviderStatusFromSettings(settings);
+    applyAuthProviderUi({ providerStatus });
   });
 
   closeStudioSidebar();
