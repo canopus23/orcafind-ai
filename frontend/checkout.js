@@ -13,6 +13,9 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
   },
 });
 const API_BASE_URL = ORCAFIND_CONFIG.apiBaseUrl || window.__ORCAFIND_API_BASE_URL || "https://api.orcafind.com";
+const BILLING_PROVIDER_OVERRIDE = String(ORCAFIND_CONFIG.billingProvider || window.__ORCAFIND_BILLING_PROVIDER || "")
+  .trim()
+  .toLowerCase();
 
 function formatINR(amount) {
   const value = Number(amount || 0);
@@ -295,7 +298,8 @@ async function applyPlanChange() {
   let nextEntitlements = null;
   window.OrcaFindLoader?.show({ title: "Updating plan", body: "Applying your subscription change…" });
   try {
-    const endpoint = String(currentSubscription?.provider || "").toLowerCase() === "dodo_payments"
+    const provider = BILLING_PROVIDER_OVERRIDE || String(currentSubscription?.provider || "").toLowerCase();
+    const endpoint = provider === "dodo" || provider === "dodo_payments"
       ? `${API_BASE_URL}/billing/dodo/subscription/change`
       : `${API_BASE_URL}/billing/razorpay/subscription/change`;
     const res = await fetch(endpoint, {
@@ -372,7 +376,8 @@ async function cancelSubscription() {
   // cancellation when Razorpay indicates no billing cycle has started yet.
   window.OrcaFindLoader?.show({ title: "Cancelling", body: "Scheduling cancellation at period end…" });
   try {
-    const endpoint = String(currentSubscription?.provider || "").toLowerCase() === "dodo_payments"
+    const provider = BILLING_PROVIDER_OVERRIDE || String(currentSubscription?.provider || "").toLowerCase();
+    const endpoint = provider === "dodo" || provider === "dodo_payments"
       ? `${API_BASE_URL}/billing/dodo/subscription/cancel`
       : `${API_BASE_URL}/billing/razorpay/subscription/cancel`;
     const res = await fetch(endpoint, {

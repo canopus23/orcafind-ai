@@ -28,6 +28,14 @@
     window.__ORCAFIND_API_BASE_URL ||
     (isLocal ? "http://127.0.0.1:8000" : "https://api.orcafind.com");
 
+  // Billing provider override for the frontend (optional).
+  // Set this via a global before config.js loads:
+  //   window.__ORCAFIND_BILLING_PROVIDER = "dodo" | "razorpay"
+  // If unset, the UI falls back to whatever provider the backend reports in /entitlements.
+  const billingProvider =
+    window.__ORCAFIND_BILLING_PROVIDER ||
+    "";
+
   // Google Analytics 4 Measurement ID (e.g. "G-XXXXXXXXXX").
   // Set this via a global before config.js loads:
   //   window.__ORCAFIND_GA_MEASUREMENT_ID = "G-...";
@@ -42,5 +50,6 @@
     apiBaseUrl,
     isLocal,
     gaMeasurementId,
+    billingProvider,
   };
 })();
