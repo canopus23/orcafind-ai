@@ -27,12 +27,8 @@ from app.middleware.request_context import RequestContextMiddleware
 from app.schemas.billing import (
     DodoConfirmCheckoutRequest,
     DodoCreateCheckoutSessionRequest,
-    RazorpayCancelSubscriptionRequest,
     RazorpayChangePlanRequest,
-    RazorpayCreateOrderRequest,
-    RazorpayCreateSubscriptionRequest,
-    RazorpayVerifyRequest,
-    RazorpayVerifySubscriptionRequest,
+    RazorpayCancelSubscriptionRequest,
 )
 from app.schemas.complete_post import CompletePostRequest
 from app.schemas.images import ImageGenerateRequest
@@ -51,46 +47,15 @@ from app.services.dodo_payments_service import (
     subscription_period_from_payload as dodo_subscription_period_from_payload,
     verify_webhook_signature as dodo_verify_webhook_signature,
 )
-from app.services.razorpay_service import (
-    cancel_scheduled_changes as razorpay_cancel_scheduled_changes,
-)
-from app.services.razorpay_service import (
-    cancel_subscription as razorpay_cancel_subscription,
-)
-from app.services.razorpay_service import (
-    create_order as razorpay_create_order,
-)
-from app.services.razorpay_service import (
-    create_subscription as razorpay_create_subscription,
-)
-from app.services.razorpay_service import (
-    fetch_plan as razorpay_fetch_plan,
-)
-from app.services.razorpay_service import (
-    fetch_subscription as razorpay_fetch_subscription,
-)
-from app.services.razorpay_service import (
-    get_razorpay_key_id,
-    verify_signature,
-    verify_subscription_signature,
-    verify_webhook_signature,
-)
-from app.services.razorpay_service import (
-    update_subscription as razorpay_update_subscription,
-)
 from app.services.subscriptions import (
     get_plan,
-    get_plan_for_order,
     get_subscription_state,
     get_usage,
-    get_user_for_order,
     get_user_for_subscription,
-    grant_plan,
     grant_plan_with_source,
     has_paid_plan,
     init_schema,
     is_usage_db_configured,
-    link_order_to_user,
     record_image_usage,
     record_usage,
     record_webhook_digest,
