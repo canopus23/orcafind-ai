@@ -199,6 +199,7 @@ def record_webhook_digest(*, digest: str, provider: str = "razorpay") -> bool:
 def upsert_subscription_state(
     *,
     user_id: str,
+    provider: str = "razorpay",
     subscription_id: str | None,
     customer_id: str | None,
     plan: str,
@@ -214,6 +215,7 @@ def upsert_subscription_state(
     now = int(time.time())
     plan_norm = _normalize_plan(plan) or "free"
     sched_norm = _normalize_plan(scheduled_plan) or None
+    provider_norm = (provider or "razorpay").strip().lower() or "razorpay"
     try:
         with engine.begin() as conn:
             conn.execute(
@@ -235,7 +237,7 @@ def upsert_subscription_state(
                     )
                     VALUES (
                       :user_id,
-                      'razorpay',
+                      :provider,
                       :subscription_id,
                       :customer_id,
                       :plan,
@@ -248,6 +250,7 @@ def upsert_subscription_state(
                       :created_at
                     )
                     ON CONFLICT (user_id) DO UPDATE SET
+                      provider = EXCLUDED.provider,
                       subscription_id = COALESCE(
                         EXCLUDED.subscription_id,
                         subscription_state.subscription_id
@@ -273,6 +276,7 @@ def upsert_subscription_state(
                 ),
                 {
                     "user_id": user_id,
+                    "provider": provider_norm,
                     "subscription_id": subscription_id,
                     "customer_id": customer_id,
                     "plan": plan_norm,
@@ -611,12 +615,19 @@ def grant_pro(*, user_id: str, order_id: str, payment_id: str):
 
 
 def grant_plan(*, user_id: str, plan: str, order_id: str, payment_id: str):
+    return grant_plan_with_source(
+        user_id=user_id, plan=plan, order_id=order_id, payment_id=payment_id, source="razorpay"
+    )
+
+
+def grant_plan_with_source(*, user_id: str, plan: str, order_id: str, payment_id: str, source: str):
     plan_norm = (plan or "pro").strip().lower()
     if plan_norm not in {"starter", "pro", "business"}:
         plan_norm = "pro"
     engine = _engine()
     if not engine:
         return
+    src = (source or "razorpay").strip().lower() or "razorpay"
     created_at = int(time.time())
     try:
         with engine.begin() as conn:
@@ -631,7 +642,7 @@ def grant_plan(*, user_id: str, plan: str, order_id: str, payment_id: str):
                       payment_id,
                       created_at
                     )
-                    VALUES (:user_id, :plan, 'razorpay', :order_id, :payment_id, :created_at)
+                    VALUES (:user_id, :plan, :source, :order_id, :payment_id, :created_at)
                     ON CONFLICT (user_id) DO UPDATE SET
                       plan = EXCLUDED.plan,
                       source = EXCLUDED.source,
@@ -643,6 +654,7 @@ def grant_plan(*, user_id: str, plan: str, order_id: str, payment_id: str):
                 {
                     "user_id": user_id,
                     "plan": plan_norm,
+                    "source": src,
                     "order_id": order_id,
                     "payment_id": payment_id,
                     "created_at": created_at,

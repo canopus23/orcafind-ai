@@ -4,6 +4,8 @@ import logging
 import os
 import re
 import time
+from typing import Any
+from urllib.parse import urlparse
 
 import uvicorn
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -23,6 +25,8 @@ from app.dependencies.auth import verify_user
 from app.dependencies.rate_limit import RateLimitConfig, rate_limit
 from app.middleware.request_context import RequestContextMiddleware
 from app.schemas.billing import (
+    DodoConfirmCheckoutRequest,
+    DodoCreateCheckoutSessionRequest,
     RazorpayCancelSubscriptionRequest,
     RazorpayChangePlanRequest,
     RazorpayCreateOrderRequest,
@@ -39,6 +43,14 @@ from app.services.ai_service import (
     generate_social_content_from_image,
 )
 from app.services.image_service import generate_openai_images, generate_placeholder_images
+from app.services.dodo_payments_service import (
+    cancel_subscription as dodo_cancel_subscription,
+    change_plan as dodo_change_plan,
+    create_checkout_session as dodo_create_checkout_session,
+    fetch_subscription as dodo_fetch_subscription,
+    subscription_period_from_payload as dodo_subscription_period_from_payload,
+    verify_webhook_signature as dodo_verify_webhook_signature,
+)
 from app.services.razorpay_service import (
     cancel_scheduled_changes as razorpay_cancel_scheduled_changes,
 )
@@ -74,6 +86,7 @@ from app.services.subscriptions import (
     get_user_for_order,
     get_user_for_subscription,
     grant_plan,
+    grant_plan_with_source,
     has_paid_plan,
     init_schema,
     is_usage_db_configured,
@@ -126,6 +139,32 @@ PLAN_LIMITS = {
         "x_thread_tweets_max": 10,
     },
 }
+
+
+def _dodo_product_id(plan: str) -> str:
+    p = (plan or "").strip().lower()
+    if p == "starter":
+        return os.getenv("DODO_PRODUCT_ID_STARTER", "").strip()
+    if p == "pro":
+        return os.getenv("DODO_PRODUCT_ID_PRO", "").strip()
+    if p == "business":
+        return os.getenv("DODO_PRODUCT_ID_BUSINESS", "").strip()
+    return ""
+
+
+def _is_allowed_return_url(url: str) -> bool:
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return False
+    if parsed.scheme not in {"http", "https"}:
+        return False
+    origin = f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+    # Only allow redirects back to origins we already allow for CORS.
+    try:
+        return origin in origins  # type: ignore[name-defined]
+    except Exception:
+        return False
 
 PLAN_PRICES_INR_PAISE = {
     "starter": 49900,
@@ -1241,6 +1280,270 @@ async def razorpay_subscription_cancel(
     }
 
 
+@app.post("/billing/dodo/checkout-session")
+async def dodo_checkout_session_create(
+    request: Request,
+    req: DodoCreateCheckoutSessionRequest,
+    user=Depends(verify_user),
+):
+    plan = (req.plan or "pro").strip().lower()
+    if plan not in {"starter", "pro", "business"}:
+        raise HTTPException(status_code=400, detail="Unsupported plan")
+
+    product_id = _dodo_product_id(plan)
+    if not product_id:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message": "Dodo Payments products are not configured on the server.",
+                "request_id": getattr(request.state, "request_id", None),
+            },
+        )
+
+    return_url = (req.return_url or "").strip()
+    if not return_url or not _is_allowed_return_url(return_url):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": "Invalid return_url (must match an allowed site origin).",
+                "request_id": getattr(request.state, "request_id", None),
+            },
+        )
+
+    user_id = str(user.get("sub") or "user")
+    email = _get_user_email(user) or req.email or ""
+
+    try:
+        session = await dodo_create_checkout_session(
+            product_id=product_id,
+            email=email,
+            return_url=return_url,
+            metadata={"user_id": user_id, "plan": plan},
+        )
+    except RuntimeError as e:
+        msg = str(e or "").strip()
+        if msg.startswith("Missing required env var:"):
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "message": "Billing is not configured on the server.",
+                    "request_id": getattr(request.state, "request_id", None),
+                },
+            ) from e
+        raise HTTPException(
+            status_code=502,
+            detail={"message": msg or "Dodo Payments error", "request_id": request.state.request_id},
+        ) from e
+
+    return {
+        "plan": plan,
+        "session_id": session.get("session_id"),
+        "checkout_url": session.get("checkout_url"),
+    }
+
+
+@app.post("/billing/dodo/confirm")
+async def dodo_checkout_confirm(
+    request: Request,
+    req: DodoConfirmCheckoutRequest,
+    user=Depends(verify_user),
+):
+    user_id = str(user.get("sub") or "user")
+    subscription_id = (req.subscription_id or "").strip()
+    if not subscription_id:
+        raise HTTPException(status_code=400, detail="Missing subscription_id")
+
+    try:
+        sub = await dodo_fetch_subscription(subscription_id=subscription_id)
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=502,
+            detail={"message": str(e), "request_id": request.state.request_id},
+        ) from e
+
+    meta = sub.get("metadata") if isinstance(sub, dict) else {}
+    if not isinstance(meta, dict):
+        meta = {}
+    meta_user = str(meta.get("user_id") or "").strip()
+    if meta_user and meta_user != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "message": "Forbidden: subscription is linked to a different user.",
+                "request_id": getattr(request.state, "request_id", None),
+            },
+        )
+
+    plan = (str(meta.get("plan") or "") or "").strip().lower()
+    if plan not in {"starter", "pro", "business"}:
+        plan = "pro"
+
+    start, end = dodo_subscription_period_from_payload(sub if isinstance(sub, dict) else {})
+    status = str(sub.get("status") or "active").strip().lower() if isinstance(sub, dict) else "active"
+
+    upsert_subscription_state(
+        user_id=user_id,
+        provider="dodo_payments",
+        subscription_id=str(sub.get("subscription_id") or subscription_id) if isinstance(sub, dict) else subscription_id,
+        customer_id=(sub.get("customer", {}) or {}).get("customer_id") if isinstance(sub, dict) else None,
+        plan=plan,
+        status=status,
+        current_period_start=start,
+        current_period_end=end,
+        cancel_at_cycle_end=bool(sub.get("cancel_at_next_billing_date")) if isinstance(sub, dict) else False,
+        scheduled_plan=None,
+    )
+
+    # Keep legacy "subscriptions" table in sync for older gating logic.
+    try:
+        grant_plan_with_source(
+            user_id=user_id,
+            plan=plan,
+            order_id=str(subscription_id),
+            payment_id=(req.payment_id or "").strip() or str(subscription_id),
+            source="dodo_payments",
+        )
+    except Exception:
+        pass
+
+    return {
+        "status": "ok",
+        "plan": plan,
+        "effective_plan": get_effective_plan(user),
+        "entitlements": _build_entitlements_payload(user),
+    }
+
+
+@app.post("/billing/dodo/subscription/change")
+async def dodo_subscription_change(
+    request: Request,
+    req: RazorpayChangePlanRequest,
+    user=Depends(verify_user),
+):
+    user_id = str(user.get("sub") or "user")
+    state = get_subscription_state(user_id) or {}
+    if str(state.get("provider") or "").strip().lower() != "dodo_payments":
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "No Dodo Payments subscription found for this account.",
+                "request_id": getattr(request.state, "request_id", None),
+            },
+        )
+    sub_id = str(state.get("subscription_id") or "")
+    if not sub_id:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "No active subscription found for this account.",
+                "request_id": getattr(request.state, "request_id", None),
+            },
+        )
+
+    target = (req.plan or "").strip().lower()
+    if target not in {"starter", "pro", "business"}:
+        raise HTTPException(status_code=400, detail="Unsupported plan")
+
+    product_id = _dodo_product_id(target)
+    if not product_id:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message": "Dodo Payments products are not configured on the server.",
+                "request_id": getattr(request.state, "request_id", None),
+            },
+        )
+
+    try:
+        updated = await dodo_change_plan(subscription_id=sub_id, product_id=product_id)
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=502,
+            detail={"message": str(e), "request_id": request.state.request_id},
+        ) from e
+
+    start, end = dodo_subscription_period_from_payload(updated if isinstance(updated, dict) else {})
+    status = str(updated.get("status") or "active").strip().lower() if isinstance(updated, dict) else "active"
+    upsert_subscription_state(
+        user_id=user_id,
+        provider="dodo_payments",
+        subscription_id=str(updated.get("subscription_id") or sub_id) if isinstance(updated, dict) else sub_id,
+        customer_id=(updated.get("customer", {}) or {}).get("customer_id") if isinstance(updated, dict) else None,
+        plan=target,
+        status=status,
+        current_period_start=start,
+        current_period_end=end,
+        cancel_at_cycle_end=bool(updated.get("cancel_at_next_billing_date")) if isinstance(updated, dict) else False,
+        scheduled_plan=None,
+    )
+
+    return {
+        "status": "ok",
+        "current_plan": target,
+        "scheduled_plan": None,
+        "entitlements": _build_entitlements_payload(user),
+    }
+
+
+@app.post("/billing/dodo/subscription/cancel")
+async def dodo_subscription_cancel(
+    request: Request,
+    req: RazorpayCancelSubscriptionRequest,
+    user=Depends(verify_user),
+):
+    user_id = str(user.get("sub") or "user")
+    state = get_subscription_state(user_id) or {}
+    if str(state.get("provider") or "").strip().lower() != "dodo_payments":
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "No Dodo Payments subscription found for this account.",
+                "request_id": getattr(request.state, "request_id", None),
+            },
+        )
+    sub_id = str(state.get("subscription_id") or "")
+    if not sub_id:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "No active subscription found for this account.",
+                "request_id": getattr(request.state, "request_id", None),
+            },
+        )
+
+    try:
+        updated = await dodo_cancel_subscription(
+            subscription_id=sub_id,
+            cancel_at_next_billing_date=bool(req.cancel_at_cycle_end),
+        )
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=502,
+            detail={"message": str(e), "request_id": request.state.request_id},
+        ) from e
+
+    start, end = dodo_subscription_period_from_payload(updated if isinstance(updated, dict) else {})
+    status = str(updated.get("status") or "cancelled").strip().lower() if isinstance(updated, dict) else "cancelled"
+    upsert_subscription_state(
+        user_id=user_id,
+        provider="dodo_payments",
+        subscription_id=str(updated.get("subscription_id") or sub_id) if isinstance(updated, dict) else sub_id,
+        customer_id=(updated.get("customer", {}) or {}).get("customer_id") if isinstance(updated, dict) else None,
+        plan=str(state.get("plan") or "pro"),
+        status=status,
+        current_period_start=start,
+        current_period_end=end,
+        cancel_at_cycle_end=bool(updated.get("cancel_at_next_billing_date")) if isinstance(updated, dict) else bool(req.cancel_at_cycle_end),
+        scheduled_plan=state.get("scheduled_plan"),
+    )
+
+    return {
+        "status": "ok",
+        "cancel_at_cycle_end": bool(req.cancel_at_cycle_end),
+        "entitlements": _build_entitlements_payload(user),
+    }
+
+
 @app.post("/billing/razorpay/webhook")
 async def razorpay_webhook(request: Request):
     body = await request.body()
@@ -1297,6 +1600,108 @@ async def razorpay_webhook(request: Request):
                 cancel_at_cycle_end=bool(int(sub_entity.get("cancel_at_cycle_end") or 0)),
                 scheduled_plan=scheduled,
             )
+
+    return {"status": "ok"}
+
+
+def _plan_from_dodo_product_id(product_id: str | None) -> str | None:
+    pid = (product_id or "").strip()
+    if not pid:
+        return None
+    mapping = {
+        (os.getenv("DODO_PRODUCT_ID_STARTER", "") or "").strip(): "starter",
+        (os.getenv("DODO_PRODUCT_ID_PRO", "") or "").strip(): "pro",
+        (os.getenv("DODO_PRODUCT_ID_BUSINESS", "") or "").strip(): "business",
+    }
+    return mapping.get(pid) or None
+
+
+@app.post("/billing/dodo/webhook")
+async def dodo_webhook(request: Request):
+    body = await request.body()
+    webhook_id = (request.headers.get("webhook-id") or "").strip()
+    webhook_ts = (request.headers.get("webhook-timestamp") or "").strip()
+    sig = (request.headers.get("webhook-signature") or "").strip()
+
+    if not webhook_id or not webhook_ts or not sig:
+        raise HTTPException(status_code=400, detail="Missing webhook headers")
+    if not dodo_verify_webhook_signature(
+        body=body,
+        webhook_id=webhook_id,
+        webhook_timestamp=webhook_ts,
+        signature=sig,
+    ):
+        raise HTTPException(status_code=400, detail="Invalid webhook signature")
+
+    digest = hashlib.sha256(body).hexdigest()
+    if not record_webhook_digest(digest=digest, provider="dodo_payments"):
+        return {"status": "duplicate"}
+
+    try:
+        data = json.loads(body.decode("utf-8") or "{}")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Invalid JSON") from e
+
+    event_type = str(data.get("type") or "")
+    payload = data.get("data") or {}
+    if not isinstance(payload, dict):
+        return {"status": "ignored"}
+
+    # Attempt to locate a subscription payload. For most subscription.* events, the "data"
+    # object matches the Subscription payload schema and includes subscription_id, product_id, etc.
+    sub_entity: dict[str, Any] | None = None
+    if payload.get("payload_type") == "Subscription" or payload.get("subscription_id"):
+        sub_entity = payload  # Subscription payload fields at top-level in "data"
+    elif isinstance(payload.get("subscription"), dict):
+        sub_entity = payload.get("subscription")
+
+    if not isinstance(sub_entity, dict):
+        return {"status": "ignored"}
+
+    sub_id = str(sub_entity.get("subscription_id") or "").strip()
+    if not sub_id:
+        return {"status": "ignored"}
+
+    meta = sub_entity.get("metadata") if isinstance(sub_entity.get("metadata"), dict) else {}
+    user_id = str(meta.get("user_id") or "").strip() or (get_user_for_subscription(sub_id) or "")
+    if not user_id:
+        return {"status": "ignored"}
+
+    plan = str(meta.get("plan") or "").strip().lower()
+    if plan not in {"starter", "pro", "business"}:
+        plan = _plan_from_dodo_product_id(str(sub_entity.get("product_id") or "")) or (
+            (get_subscription_state(user_id) or {}).get("plan") or "pro"
+        )
+
+    start, end = dodo_subscription_period_from_payload(sub_entity)
+    status = str(sub_entity.get("status") or "unknown").strip().lower()
+    cancel_at_cycle_end = bool(sub_entity.get("cancel_at_next_billing_date"))
+
+    upsert_subscription_state(
+        user_id=user_id,
+        provider="dodo_payments",
+        subscription_id=sub_id,
+        customer_id=None,
+        plan=str(plan),
+        status=status,
+        current_period_start=start,
+        current_period_end=end,
+        cancel_at_cycle_end=cancel_at_cycle_end,
+        scheduled_plan=None,
+    )
+
+    # Keep legacy subscriptions table in sync for entitlement checks in older clients.
+    if event_type in {"subscription.active", "subscription.renewed", "payment.succeeded"}:
+        try:
+            grant_plan_with_source(
+                user_id=user_id,
+                plan=str(plan),
+                order_id=sub_id,
+                payment_id=sub_id,
+                source="dodo_payments",
+            )
+        except Exception:
+            pass
 
     return {"status": "ok"}
 

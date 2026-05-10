@@ -3,7 +3,7 @@
 Marketing site + authenticated studio for generating social posts, captions, and (Pro-only) post images.
 
 **Frontend:** static HTML/CSS/JS in `frontend/` (pretty URLs via folder `index.html`).
-**Backend:** FastAPI in `backend/app/` (auth via Supabase JWTs, billing via Razorpay).
+**Backend:** FastAPI in `backend/app/` (auth via Supabase JWTs, billing via Razorpay or Dodo Payments).
 
 ### Local setup
 
@@ -106,3 +106,14 @@ Razorpay billing (subscriptions):
 
 Notes:
 - If Cloudflare R2 is configured (`R2_*` vars), generated images are uploaded and the API returns public URLs; otherwise the API returns base64 data URLs.
+
+Dodo Payments billing (hosted checkout + subscriptions):
+- Set `DODO_PAYMENTS_API_KEY`, `DODO_PAYMENTS_WEBHOOK_KEY` (webhook signing key), and either:
+  - `DODO_PAYMENTS_ENVIRONMENT=test_mode|live_mode`, or
+  - `DODO_PAYMENTS_API_BASE_URL` to override the API base URL.
+- Create subscription products in Dodo and set:
+  - `DODO_PRODUCT_ID_STARTER`
+  - `DODO_PRODUCT_ID_PRO`
+  - `DODO_PRODUCT_ID_BUSINESS`
+- Configure a webhook endpoint pointing to `POST /billing/dodo/webhook` and subscribe to at least:
+  - `subscription.active`, `subscription.updated`, `subscription.cancelled`, `subscription.plan_changed`

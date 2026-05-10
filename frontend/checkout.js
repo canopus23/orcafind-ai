@@ -202,8 +202,8 @@ function proceedToPayment() {
   }
 
   closeCheckoutModal();
-  window.OrcaFindLoader?.show({ title: "Preparing checkout", body: "Starting a secure Razorpay session…" });
-  startRazorpayCheckout(email).catch((err) => {
+  window.OrcaFindLoader?.show({ title: "Preparing checkout", body: "Starting a secure Dodo Payments session…" });
+  startDodoCheckout(email).catch((err) => {
     window.OrcaFindLoader?.hide();
     showToast("Checkout failed", err.message || "Unable to start payment.", "error");
   });
@@ -213,14 +213,42 @@ function contactSales() {
   showToast("Contact sales", "Add a contact form or mailto link here.", "success");
 }
 
-async function startRazorpayCheckout(email) {
+function isDodoSuccessStatus(status) {
+  const s = String(status || "").trim().toLowerCase();
+  return s === "succeeded" || s === "success" || s === "paid" || s === "completed";
+}
+
+function readDodoReturnParams() {
+  const params = new URLSearchParams(window.location.search);
+  const isReturn = params.get("dodo_return") === "1";
+  const subscriptionId =
+    params.get("subscription_id") ||
+    params.get("subscriptionId") ||
+    params.get("sub_id") ||
+    "";
+  const paymentId =
+    params.get("payment_id") ||
+    params.get("paymentId") ||
+    params.get("pay_id") ||
+    "";
+  const status = params.get("status") || "";
+  return {
+    isReturn,
+    subscription_id: String(subscriptionId || "").trim(),
+    payment_id: String(paymentId || "").trim(),
+    status: String(status || "").trim(),
+  };
+}
+
+async function startDodoCheckout(email) {
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (!session) {
     window.location.href = `/auth/?mode=signin&next=${encodeURIComponent("/checkout/")}`;
     return;
   }
 
-  const subRes = await fetch(`${API_BASE_URL}/billing/razorpay/subscription`, {
+  const returnUrl = `${window.location.origin}/checkout/?dodo_return=1`;
+  const subRes = await fetch(`${API_BASE_URL}/billing/dodo/checkout-session`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -229,6 +257,7 @@ async function startRazorpayCheckout(email) {
     body: JSON.stringify({
       plan: selectedPlan,
       email,
+      return_url: returnUrl,
     }),
   });
 
@@ -242,116 +271,13 @@ async function startRazorpayCheckout(email) {
     throw new Error(msg);
   }
 
-  const options = {
-    key: subData.key_id,
-    name: subData.name,
-    description: subData.description,
-    subscription_id: subData.subscription_id,
-    prefill: {
-      email: email,
-    },
-    theme: { color: "#1367ff" },
-    handler: async function (response) {
-      try {
-        window.OrcaFindLoader?.show({ title: "Verifying payment", body: "Finalizing your subscription…" });
-        // The checkout flow can take time. Refresh the Supabase session so we don't
-        // verify with an expired/stale access token.
-        const { data: { session: latestSession } } = await supabaseClient.auth.getSession();
-        if (!latestSession) {
-          window.OrcaFindLoader?.hide();
-          window.location.href = `/auth/?mode=signin&next=${encodeURIComponent("/checkout/")}`;
-          return;
-        }
+  const url = String(subData?.checkout_url || "").trim();
+  if (!url) {
+    throw new Error("Checkout URL missing from server response.");
+  }
 
-        const verifyRes = await fetch(`${API_BASE_URL}/billing/razorpay/subscription/verify`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${latestSession.access_token}`,
-          },
-          body: JSON.stringify({
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_subscription_id: response.razorpay_subscription_id,
-            razorpay_signature: response.razorpay_signature,
-          }),
-        });
-
-        let verifyData = null;
-        try {
-          verifyData = await verifyRes.json();
-        } catch (_err) {
-          verifyData = null;
-        }
-        if (!verifyRes.ok) {
-          window.OrcaFindLoader?.hide();
-          const detail = verifyData?.detail;
-          const msg = typeof detail === "string"
-            ? detail
-            : (detail?.message || verifyData?.message || "Payment verification failed");
-          const reqId = detail?.request_id;
-          throw new Error(reqId ? `${msg} (request_id: ${reqId})` : msg);
-        }
-
-        window.OrcaFindLoader?.hide();
-
-        // Instant UX: cache entitlements from the verify response (no extra /entitlements roundtrip).
-        // This avoids a noticeable delay + "Free" flash on Pricing/Studio/Profile after payment.
-        let cachedFreshEntitlements = false;
-        try {
-          const entFromVerify = verifyData?.entitlements;
-          if (entFromVerify && typeof entFromVerify === "object") {
-            window.localStorage.setItem(
-              "orcafind_entitlements_cache",
-              JSON.stringify({ at: Date.now(), entitlements: entFromVerify })
-            );
-            try {
-              window.localStorage.removeItem("orcafind_entitlements_dirty");
-            } catch (_err) {}
-            cachedFreshEntitlements = true;
-          } else {
-            // Fallback: write an optimistic plan into any existing cached entitlements.
-            const planGuess = String(verifyData?.effective_plan || verifyData?.plan || selectedPlan || "pro")
-              .trim()
-              .toLowerCase();
-            const cached = JSON.parse(window.localStorage.getItem("orcafind_entitlements_cache") || "null");
-            const prev = cached?.entitlements && typeof cached.entitlements === "object" ? cached.entitlements : null;
-            const optimistic = prev
-              ? { ...prev, plan: planGuess, is_admin: planGuess === "admin", is_premium: planGuess !== "free" }
-              : { plan: planGuess, is_admin: planGuess === "admin", is_premium: planGuess !== "free" };
-            window.localStorage.setItem(
-              "orcafind_entitlements_cache",
-              JSON.stringify({ at: Date.now(), entitlements: optimistic })
-            );
-            try {
-              window.localStorage.removeItem("orcafind_entitlements_dirty");
-            } catch (_err) {}
-            cachedFreshEntitlements = true;
-          }
-        } catch (_err) {}
-
-        const planLabel = String(verifyData?.effective_plan || verifyData?.plan || "pro").toUpperCase();
-        showToast("Payment successful", `${planLabel} is now enabled for your account.`, "success");
-        // If we couldn't cache any entitlements, force a fresh fetch on next load.
-        if (!cachedFreshEntitlements) {
-          try {
-            window.localStorage.setItem("orcafind_entitlements_dirty", String(Date.now()));
-          } catch (_err) {}
-        }
-        window.setTimeout(() => {
-        window.location.href = "/studio/#studio";
-      }, 900);
-      } catch (err) {
-        window.OrcaFindLoader?.hide();
-        showToast("Verification failed", err.message || "Could not verify payment.", "error");
-      }
-    },
-  };
-
-  // Razorpay Checkout injected globally by the script tag.
-  const rzp = new window.Razorpay(options);
-  // Hide the loader as the Razorpay modal takes over the screen.
-  window.setTimeout(() => window.OrcaFindLoader?.hide(), 450);
-  rzp.open();
+  // Hosted checkout: redirect the browser.
+  window.location.href = url;
 }
 
 async function applyPlanChange() {
@@ -369,7 +295,10 @@ async function applyPlanChange() {
   let nextEntitlements = null;
   window.OrcaFindLoader?.show({ title: "Updating plan", body: "Applying your subscription change…" });
   try {
-    const res = await fetch(`${API_BASE_URL}/billing/razorpay/subscription/change`, {
+    const endpoint = String(currentSubscription?.provider || "").toLowerCase() === "dodo_payments"
+      ? `${API_BASE_URL}/billing/dodo/subscription/change`
+      : `${API_BASE_URL}/billing/razorpay/subscription/change`;
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -443,7 +372,10 @@ async function cancelSubscription() {
   // cancellation when Razorpay indicates no billing cycle has started yet.
   window.OrcaFindLoader?.show({ title: "Cancelling", body: "Scheduling cancellation at period end…" });
   try {
-    const res = await fetch(`${API_BASE_URL}/billing/razorpay/subscription/cancel`, {
+    const endpoint = String(currentSubscription?.provider || "").toLowerCase() === "dodo_payments"
+      ? `${API_BASE_URL}/billing/dodo/subscription/cancel`
+      : `${API_BASE_URL}/billing/razorpay/subscription/cancel`;
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -542,6 +474,85 @@ function hydrateFromEntitlements(ent) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  // If we were redirected back from Dodo Payments checkout, confirm and hydrate entitlements.
+  (function () {
+    const returned = readDodoReturnParams();
+    if (!returned.isReturn) return;
+
+    if (returned.status && !isDodoSuccessStatus(returned.status)) {
+      showToast("Payment not completed", `Checkout status: ${returned.status}`, "error");
+      return;
+    }
+
+    if (!returned.subscription_id) {
+      showToast("Checkout incomplete", "Missing subscription_id in return URL.", "error");
+      return;
+    }
+
+    window.OrcaFindLoader?.show({ title: "Finalizing", body: "Confirming your subscription…" });
+    supabaseClient.auth.getSession()
+      .then(async ({ data }) => {
+        const session = data?.session;
+        if (!session) {
+          window.location.href = `/auth/?mode=signin&next=${encodeURIComponent("/checkout/")}`;
+          return null;
+        }
+        const confirmRes = await fetch(`${API_BASE_URL}/billing/dodo/confirm`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            subscription_id: returned.subscription_id,
+            payment_id: returned.payment_id,
+          }),
+        });
+        let confirmData = null;
+        try {
+          confirmData = await confirmRes.json();
+        } catch (_err) {
+          confirmData = null;
+        }
+        if (!confirmRes.ok) {
+          const detail = confirmData?.detail;
+          const msg = typeof detail === "string"
+            ? detail
+            : (detail?.message || confirmData?.message || "Could not confirm subscription");
+          throw new Error(msg);
+        }
+        return confirmData;
+      })
+      .then((confirmData) => {
+        if (!confirmData) return;
+
+        // Cache entitlements for instant UX.
+        try {
+          const ent = confirmData?.entitlements;
+          if (ent && typeof ent === "object") {
+            window.localStorage.setItem(
+              "orcafind_entitlements_cache",
+              JSON.stringify({ at: Date.now(), entitlements: ent })
+            );
+            window.localStorage.removeItem("orcafind_entitlements_dirty");
+            hydrateFromEntitlements(ent);
+          }
+        } catch (_err) {}
+
+        const planLabel = String(confirmData?.effective_plan || confirmData?.plan || selectedPlan || "pro").toUpperCase();
+        showToast("Payment successful", `${planLabel} is now enabled for your account.`, "success");
+        window.setTimeout(() => {
+          window.location.href = "/studio/#studio";
+        }, 900);
+      })
+      .catch((err) => {
+        showToast("Confirmation failed", err.message || "Could not confirm subscription.", "error");
+      })
+      .finally(() => {
+        window.OrcaFindLoader?.hide();
+      });
+  })();
+
   // Fast path: hydrate from cached entitlements so "Current plan" shows instantly.
   // We'll still reconcile with the API in the background.
   try {
