@@ -830,6 +830,11 @@ async def dodo_subscription_change(
             status_code=409,
             detail={
                 "message": "No Dodo Payments subscription found for this account.",
+                "next_steps": [
+                    "If you just completed checkout, call POST /billing/dodo/confirm with the subscription_id returned by Dodo.",
+                    "If webhooks are enabled, wait for the Dodo webhook to sync the subscription, then retry.",
+                    "If you haven't purchased yet, start with POST /billing/dodo/checkout-session.",
+                ],
                 "request_id": getattr(request.state, "request_id", None),
             },
         )
@@ -901,6 +906,11 @@ async def dodo_subscription_cancel(
             status_code=409,
             detail={
                 "message": "No Dodo Payments subscription found for this account.",
+                "next_steps": [
+                    "If you just completed checkout, call POST /billing/dodo/confirm with the subscription_id returned by Dodo.",
+                    "If webhooks are enabled, wait for the Dodo webhook to sync the subscription, then retry.",
+                    "If you haven't purchased yet, start with POST /billing/dodo/checkout-session.",
+                ],
                 "request_id": getattr(request.state, "request_id", None),
             },
         )
