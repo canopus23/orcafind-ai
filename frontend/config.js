@@ -16,9 +16,25 @@
     window.location.hostname === "localhost" ||
     window.location.hostname === "127.0.0.1";
 
+  const host = String(window.location.hostname || "");
+  const isProdHost = host === "orcafind.com" || host === "www.orcafind.com";
+
   const supabaseUrl =
     window.__ORCAFIND_SUPABASE_URL ||
     "https://rcfehmuiovcesucsvfsr.supabase.co";
+
+  // Note: The Google OAuth prompt shows the domain that starts the OAuth flow.
+  // If you want it to show your own domain (instead of `*.supabase.co`), you must
+  // configure a Supabase custom domain and set `window.__ORCAFIND_SUPABASE_URL`
+  // to that custom domain in production.
+  try {
+    if (isProdHost && /\\.supabase\\.co$/i.test(String(supabaseUrl || ""))) {
+      console.warn(
+        "[OrcaFind] Supabase URL is using *.supabase.co. Configure a Supabase custom domain " +
+        "and set window.__ORCAFIND_SUPABASE_URL to show your domain on the Google sign-in prompt."
+      );
+    }
+  } catch (_err) {}
 
   const supabaseAnonKey =
     window.__ORCAFIND_SUPABASE_ANON_KEY ||

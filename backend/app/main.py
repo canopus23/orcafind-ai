@@ -117,6 +117,14 @@ def _dodo_product_id(plan: str) -> str:
     return ""
 
 
+def _missing_dodo_product_env_vars() -> list[str]:
+    missing: list[str] = []
+    for key in ("DODO_PRODUCT_ID_STARTER", "DODO_PRODUCT_ID_PRO", "DODO_PRODUCT_ID_BUSINESS"):
+        if not (os.getenv(key) or "").strip():
+            missing.append(key)
+    return missing
+
+
 def _is_allowed_return_url(url: str) -> bool:
     try:
         parsed = urlparse(url)
@@ -695,10 +703,12 @@ async def dodo_checkout_session_create(
 
     product_id = _dodo_product_id(plan)
     if not product_id:
+        missing = _missing_dodo_product_env_vars()
         raise HTTPException(
             status_code=503,
             detail={
                 "message": "Dodo Payments products are not configured on the server.",
+                "missing_env": missing,
                 "request_id": getattr(request.state, "request_id", None),
             },
         )
@@ -854,10 +864,12 @@ async def dodo_subscription_change(
 
     product_id = _dodo_product_id(target)
     if not product_id:
+        missing = _missing_dodo_product_env_vars()
         raise HTTPException(
             status_code=503,
             detail={
                 "message": "Dodo Payments products are not configured on the server.",
+                "missing_env": missing,
                 "request_id": getattr(request.state, "request_id", None),
             },
         )
