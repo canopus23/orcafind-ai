@@ -30,8 +30,7 @@
 
   // Billing provider override for the frontend (optional).
   // Set this via a global before config.js loads:
-  //   window.__ORCAFIND_BILLING_PROVIDER = "dodo" | "razorpay"
-  // If unset, the UI falls back to whatever provider the backend reports in /entitlements.
+  //   window.__ORCAFIND_BILLING_PROVIDER = "dodo"
   const billingProvider =
     window.__ORCAFIND_BILLING_PROVIDER ||
     "";

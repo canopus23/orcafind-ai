@@ -75,7 +75,7 @@ def init_schema() -> None:
                     """
                     CREATE TABLE IF NOT EXISTS subscription_state (
                       user_id TEXT PRIMARY KEY,
-                      provider TEXT NOT NULL DEFAULT 'razorpay',
+                      provider TEXT NOT NULL DEFAULT 'dodo_payments',
                       subscription_id TEXT,
                       customer_id TEXT,
                       plan TEXT NOT NULL,
@@ -103,7 +103,7 @@ def init_schema() -> None:
                     """
                     CREATE TABLE IF NOT EXISTS webhook_events (
                       digest TEXT PRIMARY KEY,
-                      provider TEXT NOT NULL DEFAULT 'razorpay',
+                      provider TEXT NOT NULL DEFAULT 'dodo_payments',
                       received_at BIGINT NOT NULL
                     );
                     """
@@ -166,7 +166,7 @@ def _normalize_plan(plan: str | None) -> str:
     return p if p in _PLANS else ""
 
 
-def record_webhook_digest(*, digest: str, provider: str = "razorpay") -> bool:
+def record_webhook_digest(*, digest: str, provider: str = "dodo_payments") -> bool:
     """
     Returns True if the digest was inserted (new event), False if it already existed.
     """
@@ -199,7 +199,7 @@ def record_webhook_digest(*, digest: str, provider: str = "razorpay") -> bool:
 def upsert_subscription_state(
     *,
     user_id: str,
-    provider: str = "razorpay",
+    provider: str = "dodo_payments",
     subscription_id: str | None,
     customer_id: str | None,
     plan: str,
@@ -215,7 +215,7 @@ def upsert_subscription_state(
     now = int(time.time())
     plan_norm = _normalize_plan(plan) or "free"
     sched_norm = _normalize_plan(scheduled_plan) or None
-    provider_norm = (provider or "razorpay").strip().lower() or "razorpay"
+    provider_norm = (provider or "dodo_payments").strip().lower() or "dodo_payments"
     try:
         with engine.begin() as conn:
             conn.execute(
@@ -593,7 +593,7 @@ def grant_pro(*, user_id: str, order_id: str, payment_id: str):
                       payment_id,
                       created_at
                     )
-                    VALUES (:user_id, :plan, 'razorpay', :order_id, :payment_id, :created_at)
+                    VALUES (:user_id, :plan, 'dodo_payments', :order_id, :payment_id, :created_at)
                     ON CONFLICT (user_id) DO UPDATE SET
                       plan = EXCLUDED.plan,
                       source = EXCLUDED.source,
@@ -614,12 +614,6 @@ def grant_pro(*, user_id: str, order_id: str, payment_id: str):
         logger.exception("grant_pro failed")
 
 
-def grant_plan(*, user_id: str, plan: str, order_id: str, payment_id: str):
-    return grant_plan_with_source(
-        user_id=user_id, plan=plan, order_id=order_id, payment_id=payment_id, source="razorpay"
-    )
-
-
 def grant_plan_with_source(*, user_id: str, plan: str, order_id: str, payment_id: str, source: str):
     plan_norm = (plan or "pro").strip().lower()
     if plan_norm not in {"starter", "pro", "business"}:
@@ -627,7 +621,7 @@ def grant_plan_with_source(*, user_id: str, plan: str, order_id: str, payment_id
     engine = _engine()
     if not engine:
         return
-    src = (source or "razorpay").strip().lower() or "razorpay"
+    src = (source or "dodo_payments").strip().lower() or "dodo_payments"
     created_at = int(time.time())
     try:
         with engine.begin() as conn:
@@ -661,7 +655,7 @@ def grant_plan_with_source(*, user_id: str, plan: str, order_id: str, payment_id
                 },
             )
     except Exception:
-        logger.exception("grant_plan failed")
+        logger.exception("grant_plan_with_source failed")
 
 
 def get_plan(user_id: str) -> str | None:

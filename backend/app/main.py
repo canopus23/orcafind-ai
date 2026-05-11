@@ -25,10 +25,12 @@ from app.dependencies.auth import verify_user
 from app.dependencies.rate_limit import RateLimitConfig, rate_limit
 from app.middleware.request_context import RequestContextMiddleware
 from app.schemas.billing import (
+    CancelSubscriptionRequest,
+    ChangePlanRequest,
     DodoConfirmCheckoutRequest,
     DodoCreateCheckoutSessionRequest,
     RazorpayChangePlanRequest,
-    RazorpayCancelSubscriptionRequest,
+    RazorpayCreateOrderRequest,
 )
 from app.schemas.complete_post import CompletePostRequest
 from app.schemas.images import ImageGenerateRequest
@@ -139,16 +141,10 @@ PLAN_PRICES_INR_PAISE = {
 
 PLAN_TIER = {"free": 0, "starter": 1, "pro": 2, "business": 3}
 
-_RAZORPAY_MAX_END_TIME = 4_765_046_400  # 2121-01-01T00:00:00Z (Razorpay validation window)
-
 
 def _billing_currency() -> str:
     """
-    Billing currency used for displaying prices and creating one-time Razorpay orders.
-
-    Note: Razorpay *subscriptions* use the currency configured on the Razorpay Plan IDs.
-    If you switch to USD, you must create USD Razorpay Plans and update the RAZORPAY_PLAN_ID_*
-    env vars accordingly.
+    Billing currency used for displaying prices in the UI.
     """
     value = (os.getenv("BILLING_CURRENCY") or "INR").strip().upper()
     return value or "INR"
@@ -183,77 +179,6 @@ def _billing_prices_minor(currency: str) -> dict[str, int]:
             f"{currency}: {', '.join(missing)}"
         )
     return out
-
-
-def _razorpay_plan_id(plan: str) -> str:
-    """
-    Map our plan names to Razorpay Plan IDs (required for recurring subscriptions).
-    Configure these in Railway:
-    - RAZORPAY_PLAN_ID_STARTER
-    - RAZORPAY_PLAN_ID_PRO
-    - RAZORPAY_PLAN_ID_BUSINESS
-    """
-    p = (plan or "").strip().lower()
-    env_key = {
-        "starter": "RAZORPAY_PLAN_ID_STARTER",
-        "pro": "RAZORPAY_PLAN_ID_PRO",
-        "business": "RAZORPAY_PLAN_ID_BUSINESS",
-    }.get(p)
-    if not env_key:
-        raise RuntimeError("Unsupported plan")
-    value = (os.getenv(env_key) or "").strip()
-    if not value:
-        raise RuntimeError(f"Missing required env var: {env_key}")
-    return value
-
-
-def _plan_from_razorpay_plan_id(plan_id: str | None) -> str | None:
-    if not plan_id:
-        return None
-    plan_id = str(plan_id).strip()
-    mapping = {
-        (os.getenv("RAZORPAY_PLAN_ID_STARTER") or "").strip(): "starter",
-        (os.getenv("RAZORPAY_PLAN_ID_PRO") or "").strip(): "pro",
-        (os.getenv("RAZORPAY_PLAN_ID_BUSINESS") or "").strip(): "business",
-    }
-    return mapping.get(plan_id) or None
-
-
-def _estimate_cycle_seconds(*, period: str, interval: int) -> int:
-    # Razorpay plan periods are typically: daily, weekly, monthly, yearly.
-    # For month/year we use conservative approximations to keep the computed end_time
-    # inside Razorpay's accepted window.
-    p = (period or "").strip().lower()
-    step = max(1, int(interval or 1))
-    if p == "daily":
-        return 86_400 * step
-    if p == "weekly":
-        return 7 * 86_400 * step
-    if p == "yearly":
-        return 365 * 86_400 * step
-    # monthly (and unknown): 30-day approximation.
-    return 30 * 86_400 * step
-
-
-async def _safe_total_count_for_plan(*, plan_id: str, requested: int) -> int:
-    req = max(1, int(requested or 1))
-    now = int(time.time())
-
-    period = "monthly"
-    interval = 1
-    try:
-        plan = await razorpay_fetch_plan(plan_id=plan_id)
-        if isinstance(plan, dict):
-            period = str(plan.get("period") or period)
-            interval = int(plan.get("interval") or interval)
-    except Exception:
-        # If Razorpay plan fetch fails, keep the conservative fallback.
-        pass
-
-    cycle_seconds = _estimate_cycle_seconds(period=period, interval=interval)
-    # Clamp total_count so Razorpay never computes an end_time beyond their accepted max.
-    max_count = max(1, int((_RAZORPAY_MAX_END_TIME - now) // max(1, cycle_seconds)))
-    return min(req, max_count)
 
 
 def _limits_for_plan(plan: str) -> dict:
@@ -443,7 +368,7 @@ async def billing_catalog():
     """
     Public billing catalog for the frontend.
 
-    This keeps the UI currency + amounts consistent with backend/Razorpay configuration.
+    This keeps the UI currency + amounts consistent with backend configuration.
     """
     currency = _billing_currency()
     try:
@@ -457,11 +382,10 @@ async def billing_catalog():
         prices = {"starter": 0, "pro": 0, "business": 0}
 
     return {
-        "provider": "razorpay",
+        "provider": "dodo_payments",
         "currency": currency,
         "interval": "month",
         "configured": configured,
-        "supports_upi": currency == "INR",
         "plans": {
             "free": {"label": "Free", "amount_minor": 0},
             "starter": {"label": "Starter", "amount_minor": int(prices["starter"])},
@@ -761,490 +685,6 @@ async def complete_post(
         "images": images,
     }
 
-@app.post("/billing/razorpay/order")
-async def razorpay_create(
-    request: Request,
-    req: RazorpayCreateOrderRequest,
-    user=Depends(verify_user),
-):
-    plan = (req.plan or "starter").strip().lower()
-    if plan not in PLAN_PRICES_INR_PAISE:
-        raise HTTPException(status_code=400, detail="Unsupported plan")
-
-    # For now we only offer monthly billing.
-    billing = "monthly"
-
-    # Amounts are in the currency's minor unit (paise for INR).
-    amount_minor = int(PLAN_PRICES_INR_PAISE[plan])
-    currency = "INR"
-
-    user_id = str(user.get("sub") or "user")
-    email = _get_user_email(user) or req.email or ""
-
-    try:
-        receipt = f"orcafind_{plan}_{billing}_{user_id}"
-        if len(receipt) > 40:
-            # Razorpay receipt max length is 40 chars.
-            # Keep the suffix stable per-user but short.
-            suffix = user_id.replace("-", "")[-10:] if user_id else "user"
-            receipt = f"orc_{plan}_{billing}_{suffix}"
-
-        order = await razorpay_create_order(
-            amount_paise=amount_minor,
-            currency=currency,
-            receipt=receipt,
-            notes={
-                "user_id": user_id,
-                "plan": plan,
-                "billing": billing,
-                "email": email,
-            },
-        )
-    except RuntimeError as e:
-        msg = str(e or "").strip()
-        if msg.startswith("Missing required env var:"):
-            raise HTTPException(
-                status_code=503,
-                detail={
-                    "message": "Billing is not configured on the server.",
-                    "request_id": request.state.request_id,
-                },
-            ) from e
-
-        raise HTTPException(
-            status_code=502,
-            detail={"message": msg or "Razorpay error", "request_id": request.state.request_id},
-        ) from e
-    except Exception as e:
-        # Fail with a safe upstream error. CORS + request_id header come from middleware.
-        raise HTTPException(
-            status_code=502,
-            detail={
-                "message": f"Razorpay error: {type(e).__name__}",
-                "request_id": request.state.request_id,
-            },
-        ) from e
-
-    if order.get("id"):
-        link_order_to_user(order.get("id"), user_id, plan=plan)
-
-    return {
-        "key_id": get_razorpay_key_id(),
-        "order_id": order.get("id"),
-        "amount": order.get("amount"),
-        "currency": order.get("currency"),
-        "plan": plan,
-        "billing": billing,
-        "prefill": {"email": email},
-        "name": "OrcaFind AI",
-        "description": "OrcaFind Pro Subscription",
-    }
-
-
-@app.post("/billing/razorpay/verify")
-async def razorpay_verify(
-    request: Request,
-    req: RazorpayVerifyRequest,
-    user=Depends(verify_user),
-):
-    user_id = str(user.get("sub") or "user")
-
-    order_user = get_user_for_order(req.razorpay_order_id)
-    if order_user and order_user != user_id:
-        raise HTTPException(
-            status_code=403,
-            detail={
-                "message": "Forbidden: order is linked to a different user.",
-                "request_id": getattr(request.state, "request_id", None),
-            },
-        )
-
-    try:
-        ok = verify_signature(
-            order_id=req.razorpay_order_id,
-            payment_id=req.razorpay_payment_id,
-            signature=req.razorpay_signature,
-        )
-    except RuntimeError as e:
-        msg = str(e or "").strip()
-        if msg.startswith("Missing required env var:"):
-            raise HTTPException(
-                status_code=503,
-                detail={
-                    "message": "Billing is not configured on the server.",
-                    "request_id": getattr(request.state, "request_id", None),
-                },
-            ) from e
-        raise
-
-    if not ok:
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "message": "Invalid payment signature.",
-                "request_id": getattr(request.state, "request_id", None),
-            },
-        )
-
-    plan = get_plan_for_order(req.razorpay_order_id) or "pro"
-    grant_plan(
-        user_id=user_id,
-        plan=plan,
-        order_id=req.razorpay_order_id,
-        payment_id=req.razorpay_payment_id,
-    )
-    # Ensure the subscription is actually persisted. If the DB is misconfigured/unreachable,
-    # grant_plan() fails open (returns) and the UI would keep showing "free".
-    persisted = (get_plan(user_id) or "").strip().lower()
-    if persisted != plan:
-        # Capture safe DB diagnostics so production debugging doesn't require log access.
-        db_info = get_db_diagnostics()
-        db_error = ""
-        try:
-            engine = get_engine()
-            with engine.connect() as conn:
-                conn.execute(text("SELECT 1"))
-        except Exception as e:
-            db_error = str(e or "").strip().replace("\n", " ")[:240]
-
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "message": (
-                    "Subscription verified but could not be saved. "
-                    "Check DATABASE_URL / DB connectivity "
-                    "(and set DB_FORCE_IPV4=true for Supabase if needed)."
-                ),
-                "db": db_info,
-                "db_error": db_error,
-                "request_id": getattr(request.state, "request_id", None),
-            },
-        )
-    # Include entitlements so the frontend can update instantly without an extra
-    # /entitlements fetch.
-    return {
-        "status": "ok",
-        "plan": plan,
-        "effective_plan": get_effective_plan(user),
-        "entitlements": _build_entitlements_payload(user),
-    }
-
-
-@app.post("/billing/razorpay/subscription")
-async def razorpay_subscription_create(
-    request: Request,
-    req: RazorpayCreateSubscriptionRequest,
-    user=Depends(verify_user),
-):
-    plan = (req.plan or "pro").strip().lower()
-    if plan not in {"starter", "pro", "business"}:
-        raise HTTPException(status_code=400, detail="Unsupported plan")
-
-    user_id = str(user.get("sub") or "user")
-    email = _get_user_email(user) or req.email or ""
-    plan_id = _razorpay_plan_id(plan)
-    # Keep the subscription long-lived, but within Razorpay's end_time validation window.
-    requested_total = int(os.getenv("RAZORPAY_SUBSCRIPTION_TOTAL_COUNT", "120"))
-    total_count = await _safe_total_count_for_plan(plan_id=plan_id, requested=requested_total)
-
-    try:
-        sub = await razorpay_create_subscription(
-            plan_id=plan_id,
-            total_count=total_count,
-            customer_notify=True,
-            notes={"user_id": user_id, "plan": plan, "email": email},
-        )
-    except RuntimeError as e:
-        msg = str(e or "").strip()
-        raise HTTPException(
-            status_code=502,
-            detail={"message": msg or "Razorpay error", "request_id": request.state.request_id},
-        ) from e
-
-    subscription_id = str(sub.get("id") or "")
-    if subscription_id:
-        upsert_subscription_state(
-            user_id=user_id,
-            subscription_id=subscription_id,
-            customer_id=sub.get("customer_id"),
-            plan=plan,
-            status=str(sub.get("status") or "created"),
-            current_period_start=int(sub.get("current_start") or 0) or None,
-            current_period_end=int(sub.get("current_end") or 0) or None,
-            cancel_at_cycle_end=bool(int(sub.get("cancel_at_cycle_end") or 0)),
-            scheduled_plan=None,
-        )
-
-    return {
-        "key_id": get_razorpay_key_id(),
-        "subscription_id": subscription_id,
-        "plan": plan,
-        "prefill": {"email": email},
-        "name": "OrcaFind AI",
-        "description": "OrcaFind Subscription",
-    }
-
-
-@app.post("/billing/razorpay/subscription/verify")
-async def razorpay_subscription_verify(
-    request: Request,
-    req: RazorpayVerifySubscriptionRequest,
-    user=Depends(verify_user),
-):
-    user_id = str(user.get("sub") or "user")
-
-    sub_user = get_user_for_subscription(req.razorpay_subscription_id)
-    if sub_user and sub_user != user_id:
-        raise HTTPException(
-            status_code=403,
-            detail={
-                "message": "Forbidden: subscription is linked to a different user.",
-                "request_id": getattr(request.state, "request_id", None),
-            },
-        )
-
-    if not verify_subscription_signature(
-        subscription_id=req.razorpay_subscription_id,
-        payment_id=req.razorpay_payment_id,
-        signature=req.razorpay_signature,
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "message": "Invalid payment signature.",
-                "request_id": getattr(request.state, "request_id", None),
-            },
-        )
-
-    # Fetch the subscription from Razorpay so current_start/end and status are accurate.
-    try:
-        sub = await razorpay_fetch_subscription(subscription_id=req.razorpay_subscription_id)
-    except RuntimeError as e:
-        raise HTTPException(
-            status_code=502,
-            detail={"message": str(e), "request_id": request.state.request_id},
-        ) from e
-
-    plan = (
-        _plan_from_razorpay_plan_id(sub.get("plan_id"))
-        or (get_subscription_state(user_id) or {}).get("plan")
-        or "pro"
-    )
-    upsert_subscription_state(
-        user_id=user_id,
-        subscription_id=str(sub.get("id") or req.razorpay_subscription_id),
-        customer_id=sub.get("customer_id"),
-        plan=str(plan),
-        status=str(sub.get("status") or "active"),
-        current_period_start=int(sub.get("current_start") or 0) or None,
-        current_period_end=int(sub.get("current_end") or 0) or None,
-        cancel_at_cycle_end=bool(int(sub.get("cancel_at_cycle_end") or 0)),
-        scheduled_plan=(get_subscription_state(user_id) or {}).get("scheduled_plan"),
-    )
-
-    # Fail closed if verification worked but persistence did not. Otherwise the UI will keep
-    # showing "free" and the user will get paywalled after a successful payment.
-    persisted = (get_plan(user_id) or "").strip().lower()
-    if persisted != str(plan).strip().lower():
-        db_info = get_db_diagnostics()
-        db_error = ""
-        try:
-            engine = get_engine()
-            with engine.connect() as conn:
-                conn.execute(text("SELECT 1"))
-        except Exception as e:
-            db_error = str(e or "").strip().replace("\n", " ")[:240]
-
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "message": (
-                    "Subscription verified but could not be saved. "
-                    "Check DATABASE_URL / DB connectivity "
-                    "(and set DB_FORCE_IPV4=true for Supabase if needed)."
-                ),
-                "db": db_info,
-                "db_error": db_error,
-                "request_id": getattr(request.state, "request_id", None),
-            },
-        )
-
-    return {"status": "ok", "plan": plan, "effective_plan": get_effective_plan(user)}
-
-
-@app.post("/billing/razorpay/subscription/change")
-async def razorpay_subscription_change(
-    request: Request,
-    req: RazorpayChangePlanRequest,
-    user=Depends(verify_user),
-):
-    user_id = str(user.get("sub") or "user")
-    state = get_subscription_state(user_id) or {}
-    sub_id = str(state.get("subscription_id") or "")
-    if not sub_id:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "message": "No active subscription found for this account.",
-                "request_id": getattr(request.state, "request_id", None),
-            },
-        )
-
-    target = (req.plan or "").strip().lower()
-    if target not in {"starter", "pro", "business"}:
-        raise HTTPException(status_code=400, detail="Unsupported plan")
-
-    current = str(state.get("plan") or "free").strip().lower()
-    current_tier = PLAN_TIER.get(current, 0)
-    target_tier = PLAN_TIER.get(target, 0)
-
-    schedule_change_at = "now" if target_tier > current_tier else "cycle_end"
-    plan_id = _razorpay_plan_id(target)
-
-    try:
-        # If a downgrade was scheduled earlier and the user upgrades, cancel the schedule first.
-        if state.get("scheduled_plan") and schedule_change_at == "now":
-            await razorpay_cancel_scheduled_changes(subscription_id=sub_id)
-            set_scheduled_plan(user_id=user_id, scheduled_plan=None)
-
-        await razorpay_update_subscription(
-            subscription_id=sub_id,
-            plan_id=plan_id,
-            schedule_change_at=schedule_change_at,
-        )
-        sub = await razorpay_fetch_subscription(subscription_id=sub_id)
-    except RuntimeError as e:
-        msg = str(e or "").strip()
-        # Razorpay limitation: subscriptions paid/created with UPI cannot be updated.
-        # We surface a product-grade error so the UI can guide the user to cancel + re-subscribe.
-        if "payment mode is upi" in msg.lower():
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "code": "UPI_SUBSCRIPTION_UNCHANGEABLE",
-                    "message": (
-                        "Plan changes are not supported for subscriptions created with UPI. "
-                        "Cancel your current subscription, then start a new subscription "
-                        "on the desired plan (Card/NetBanking recommended)."
-                    ),
-                    "request_id": request.state.request_id,
-                },
-            ) from e
-        raise HTTPException(
-            status_code=502,
-            detail={"message": msg, "request_id": request.state.request_id},
-        ) from e
-
-    if schedule_change_at == "cycle_end":
-        set_scheduled_plan(user_id=user_id, scheduled_plan=target)
-        scheduled = target
-    else:
-        set_scheduled_plan(user_id=user_id, scheduled_plan=None)
-        scheduled = None
-
-    plan = _plan_from_razorpay_plan_id(sub.get("plan_id")) or target
-    upsert_subscription_state(
-        user_id=user_id,
-        subscription_id=str(sub.get("id") or sub_id),
-        customer_id=sub.get("customer_id"),
-        plan=plan,
-        status=str(sub.get("status") or "active"),
-        current_period_start=int(sub.get("current_start") or 0) or None,
-        current_period_end=int(sub.get("current_end") or 0) or None,
-        cancel_at_cycle_end=bool(int(sub.get("cancel_at_cycle_end") or 0)),
-        scheduled_plan=scheduled,
-    )
-
-    return {
-        "status": "ok",
-        "current_plan": plan,
-        "scheduled_plan": scheduled,
-        "schedule_change_at": schedule_change_at,
-        "entitlements": _build_entitlements_payload(user),
-    }
-
-
-@app.post("/billing/razorpay/subscription/cancel")
-async def razorpay_subscription_cancel(
-    request: Request,
-    req: RazorpayCancelSubscriptionRequest,
-    user=Depends(verify_user),
-):
-    user_id = str(user.get("sub") or "user")
-    state = get_subscription_state(user_id) or {}
-    sub_id = str(state.get("subscription_id") or "")
-    if not sub_id:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "message": "No active subscription found for this account.",
-                "request_id": getattr(request.state, "request_id", None),
-            },
-        )
-
-    requested_cycle_end = bool(req.cancel_at_cycle_end)
-    tried_fallback = False
-    try:
-        sub = await razorpay_cancel_subscription(
-            subscription_id=sub_id,
-            cancel_at_cycle_end=requested_cycle_end,
-        )
-    except RuntimeError as e:
-        msg = str(e or "").strip()
-        # Idempotency: users can cancel a UPI mandate (or the subscription) outside our UI.
-        # Razorpay then returns a 400 stating the subscription is already cancelled.
-        # Treat that as success and sync our persisted subscription state.
-        if "not cancellable" in msg.lower() and "cancelled status" in msg.lower():
-            requested_cycle_end = False
-            try:
-                sub = await razorpay_fetch_subscription(subscription_id=sub_id)
-            except Exception:
-                sub = {"id": sub_id, "status": "cancelled", "cancel_at_cycle_end": 0}
-        else:
-        # Razorpay rejects "cancel_at_cycle_end" when the subscription never started a billing cycle
-        # (e.g. status=created/authenticated). In that case, retry with immediate cancellation.
-            if requested_cycle_end and "no billing cycle" in msg.lower():
-                tried_fallback = True
-                try:
-                    sub = await razorpay_cancel_subscription(
-                        subscription_id=sub_id,
-                        cancel_at_cycle_end=False,
-                    )
-                    requested_cycle_end = False
-                except RuntimeError as e2:
-                    raise HTTPException(
-                        status_code=502,
-                        detail={"message": str(e2), "request_id": request.state.request_id},
-                    ) from e2
-            else:
-                raise HTTPException(
-                    status_code=502,
-                    detail={
-                        "message": msg or "Razorpay error",
-                        "request_id": request.state.request_id,
-                    },
-                ) from e
-
-    upsert_subscription_state(
-        user_id=user_id,
-        subscription_id=str(sub.get("id") or sub_id),
-        customer_id=sub.get("customer_id"),
-        plan=str(state.get("plan") or "pro"),
-        status=str(sub.get("status") or "cancelled"),
-        current_period_start=int(sub.get("current_start") or 0) or None,
-        current_period_end=int(sub.get("current_end") or 0) or None,
-        cancel_at_cycle_end=bool(int(sub.get("cancel_at_cycle_end") or 0)),
-        scheduled_plan=state.get("scheduled_plan"),
-    )
-
-    return {
-        "status": "ok",
-        "cancel_at_cycle_end": bool(requested_cycle_end),
-        "fallback_to_immediate_cancel": bool(tried_fallback),
-        "entitlements": _build_entitlements_payload(user),
-    }
-
-
 @app.post("/billing/dodo/checkout-session")
 async def dodo_checkout_session_create(
     request: Request,
@@ -1382,7 +822,7 @@ async def dodo_checkout_confirm(
 @app.post("/billing/dodo/subscription/change")
 async def dodo_subscription_change(
     request: Request,
-    req: RazorpayChangePlanRequest,
+    req: ChangePlanRequest,
     user=Depends(verify_user),
 ):
     user_id = str(user.get("sub") or "user")
@@ -1453,7 +893,7 @@ async def dodo_subscription_change(
 @app.post("/billing/dodo/subscription/cancel")
 async def dodo_subscription_cancel(
     request: Request,
-    req: RazorpayCancelSubscriptionRequest,
+    req: CancelSubscriptionRequest,
     user=Depends(verify_user),
 ):
     user_id = str(user.get("sub") or "user")
@@ -1507,67 +947,6 @@ async def dodo_subscription_cancel(
         "cancel_at_cycle_end": bool(req.cancel_at_cycle_end),
         "entitlements": _build_entitlements_payload(user),
     }
-
-
-@app.post("/billing/razorpay/webhook")
-async def razorpay_webhook(request: Request):
-    body = await request.body()
-    sig = (
-        request.headers.get("X-Razorpay-Signature")
-        or request.headers.get("x-razorpay-signature")
-        or ""
-    )
-    if not sig or not verify_webhook_signature(body=body, signature=sig):
-        raise HTTPException(status_code=400, detail="Invalid webhook signature")
-
-    digest = hashlib.sha256(body).hexdigest()
-    if not record_webhook_digest(digest=digest, provider="razorpay"):
-        return {"status": "duplicate"}
-
-    try:
-        data = json.loads(body.decode("utf-8") or "{}")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail="Invalid JSON") from e
-
-    event = str(data.get("event") or "")
-    payload = data.get("payload") or {}
-    sub_entity = {}
-    if isinstance(payload, dict):
-        sub_entity = (payload.get("subscription") or {}).get("entity") or {}
-
-    if isinstance(sub_entity, dict) and sub_entity.get("id"):
-        sub_id = str(sub_entity.get("id"))
-        user_id = get_user_for_subscription(sub_id)
-        notes = sub_entity.get("notes") or {}
-        if not user_id and isinstance(notes, dict):
-            user_id = str(notes.get("user_id") or "") or None
-
-        if user_id:
-            plan = _plan_from_razorpay_plan_id(sub_entity.get("plan_id")) or (
-                (get_subscription_state(user_id) or {}).get("plan") or "pro"
-            )
-            # If we previously stored a scheduled plan (cycle_end downgrade), keep it until
-            # Razorpay updates the plan_id and we see subscription.updated/charged.
-            scheduled = (get_subscription_state(user_id) or {}).get("scheduled_plan")
-            if event in {"subscription.updated", "subscription.charged"}:
-                has_sched = bool(sub_entity.get("has_scheduled_changes"))
-                if not has_sched:
-                    scheduled = None
-
-            upsert_subscription_state(
-                user_id=user_id,
-                subscription_id=sub_id,
-                customer_id=sub_entity.get("customer_id"),
-                plan=plan,
-                status=str(sub_entity.get("status") or "unknown"),
-                current_period_start=int(sub_entity.get("current_start") or 0) or None,
-                current_period_end=int(sub_entity.get("current_end") or 0) or None,
-                cancel_at_cycle_end=bool(int(sub_entity.get("cancel_at_cycle_end") or 0)),
-                scheduled_plan=scheduled,
-            )
-
-    return {"status": "ok"}
-
 
 def _plan_from_dodo_product_id(product_id: str | None) -> str | None:
     pid = (product_id or "").strip()

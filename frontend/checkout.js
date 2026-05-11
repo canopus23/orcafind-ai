@@ -298,11 +298,10 @@ async function applyPlanChange() {
   let nextEntitlements = null;
   window.OrcaFindLoader?.show({ title: "Updating plan", body: "Applying your subscription change…" });
   try {
-    const provider = BILLING_PROVIDER_OVERRIDE || String(currentSubscription?.provider || "").toLowerCase();
-    const endpoint = provider === "dodo" || provider === "dodo_payments"
-      ? `${API_BASE_URL}/billing/dodo/subscription/change`
-      : `${API_BASE_URL}/billing/razorpay/subscription/change`;
-    const res = await fetch(endpoint, {
+    if (BILLING_PROVIDER_OVERRIDE && BILLING_PROVIDER_OVERRIDE !== "dodo") {
+      throw new Error("Unsupported billing provider override.");
+    }
+    const res = await fetch(`${API_BASE_URL}/billing/dodo/subscription/change`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -313,21 +312,11 @@ async function applyPlanChange() {
     const data = await res.json();
     if (!res.ok) {
       const detail = data?.detail;
-      const code = typeof detail === "object" ? detail?.code : null;
       const msg = typeof detail === "string" ? detail : (detail?.message || "Failed to update plan");
-      // Razorpay limitation: UPI subscriptions cannot be updated. Guide the user to cancel + re-subscribe.
-      if (code === "UPI_SUBSCRIPTION_UNCHANGEABLE") {
-        showToast(
-          "Plan change not supported",
-          "Razorpay doesn’t allow plan changes on UPI subscriptions. Cancel your current subscription, then start a new one on the plan you want (Card/NetBanking recommended).",
-          "error"
-        );
-        return;
-      }
       throw new Error(msg);
     }
     nextEntitlements = data?.entitlements || null;
-    showToast("Plan updated", data?.schedule_change_at === "cycle_end" ? "Downgrade scheduled for period end." : "Upgrade applied immediately.", "success");
+    showToast("Plan updated", "Plan updated successfully.", "success");
   } catch (err) {
     showToast("Update failed", err.message || "Could not update plan.", "error");
   } finally {
@@ -372,15 +361,13 @@ async function cancelSubscription() {
   }
 
   let nextEntitlements = null;
-  // Default behavior: cancel at period end (SaaS-standard). Backend will fall back to immediate
-  // cancellation when Razorpay indicates no billing cycle has started yet.
+  // Default behavior: cancel at period end (SaaS-standard).
   window.OrcaFindLoader?.show({ title: "Cancelling", body: "Scheduling cancellation at period end…" });
   try {
-    const provider = BILLING_PROVIDER_OVERRIDE || String(currentSubscription?.provider || "").toLowerCase();
-    const endpoint = provider === "dodo" || provider === "dodo_payments"
-      ? `${API_BASE_URL}/billing/dodo/subscription/cancel`
-      : `${API_BASE_URL}/billing/razorpay/subscription/cancel`;
-    const res = await fetch(endpoint, {
+    if (BILLING_PROVIDER_OVERRIDE && BILLING_PROVIDER_OVERRIDE !== "dodo") {
+      throw new Error("Unsupported billing provider override.");
+    }
+    const res = await fetch(`${API_BASE_URL}/billing/dodo/subscription/cancel`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -395,11 +382,7 @@ async function cancelSubscription() {
       throw new Error(msg);
     }
     nextEntitlements = data?.entitlements || null;
-    if (data?.cancel_at_cycle_end) {
-      showToast("Cancellation scheduled", "Your plan will remain active until the end of the billing period.", "success");
-    } else {
-      showToast("Subscription cancelled", "Your subscription was cancelled immediately.", "success");
-    }
+    showToast("Cancellation scheduled", "Your plan will remain active until the end of the billing period.", "success");
   } catch (err) {
     showToast("Cancel failed", err.message || "Could not cancel subscription.", "error");
   } finally {
