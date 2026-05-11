@@ -216,16 +216,18 @@ def verify_webhook_signature(
     if not signature:
         return False
 
-    body_text = body.decode("utf-8")
-    signed_content = f"{webhook_id}.{webhook_timestamp}.{body_text}".encode()
+    signed_content = f"{webhook_id}.{webhook_timestamp}.".encode() + body
 
     # Standard Webhooks expects a base64 secret. Be permissive: if decoding fails, fall back
     # to using the raw string bytes as the HMAC key.
     key_bytes: bytes
+    secret_value = str(secret or "").strip()
+    if secret_value.startswith("whsec_"):
+        secret_value = secret_value.removeprefix("whsec_")
     try:
-        key_bytes = base64.b64decode(secret, validate=True)
+        key_bytes = base64.b64decode(secret_value, validate=True)
     except Exception:
-        key_bytes = secret.encode("utf-8")
+        key_bytes = secret_value.encode()
 
     computed = hmac.new(key_bytes, signed_content, hashlib.sha256).digest()
     computed_b64 = base64.b64encode(computed).decode("utf-8")
