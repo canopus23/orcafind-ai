@@ -227,18 +227,29 @@ function readDodoReturnParams() {
   const subscriptionId =
     params.get("subscription_id") ||
     params.get("subscriptionId") ||
+    params.get("dodo_subscription_id") ||
+    params.get("dodoSubscriptionId") ||
     params.get("sub_id") ||
     "";
   const paymentId =
     params.get("payment_id") ||
     params.get("paymentId") ||
+    params.get("dodo_payment_id") ||
+    params.get("dodoPaymentId") ||
     params.get("pay_id") ||
+    "";
+  const checkoutId =
+    params.get("checkout_id") ||
+    params.get("checkoutId") ||
+    params.get("session_id") ||
+    params.get("sessionId") ||
     "";
   const status = params.get("status") || "";
   return {
     isReturn,
     subscription_id: String(subscriptionId || "").trim(),
     payment_id: String(paymentId || "").trim(),
+    checkout_id: String(checkoutId || "").trim(),
     status: String(status || "").trim(),
   };
 }
@@ -278,6 +289,17 @@ async function startDodoCheckout(email) {
   if (!url) {
     throw new Error("Checkout URL missing from server response.");
   }
+
+  try {
+    window.localStorage.setItem(
+      "orcafind_dodo_pending_checkout",
+      JSON.stringify({
+        at: Date.now(),
+        plan: selectedPlan,
+        session_id: subData?.session_id || "",
+      })
+    );
+  } catch (_err) {}
 
   // Hosted checkout: redirect the browser.
   window.location.href = url;
@@ -432,6 +454,46 @@ function formatEpoch(epochSeconds) {
   }
 }
 
+function isPaidPlanName(plan) {
+  return ["starter", "pro", "business", "admin"].includes(String(plan || "").toLowerCase());
+}
+
+function cacheAndHydrateEntitlements(ent) {
+  if (!ent || typeof ent !== "object") return;
+  hydrateFromEntitlements(ent);
+  try {
+    window.localStorage.setItem(
+      "orcafind_entitlements_cache",
+      JSON.stringify({ at: Date.now(), entitlements: ent })
+    );
+    window.localStorage.removeItem("orcafind_entitlements_dirty");
+    window.localStorage.removeItem("orcafind_dodo_pending_checkout");
+  } catch (_err) {}
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function fetchEntitlements(session) {
+  const res = await fetch(`${API_BASE_URL}/entitlements`, {
+    method: "GET",
+    headers: { "Authorization": `Bearer ${session.access_token}` },
+  });
+  if (!res.ok) throw new Error("Entitlements fetch failed");
+  return res.json();
+}
+
+async function waitForPaidEntitlements(session, attempts = 8) {
+  for (let index = 0; index < attempts; index += 1) {
+    const ent = await fetchEntitlements(session);
+    cacheAndHydrateEntitlements(ent);
+    if (isPaidPlanName(ent?.plan)) return ent;
+    await sleep(index < 3 ? 1200 : 2200);
+  }
+  return null;
+}
+
 function hydrateFromEntitlements(ent) {
   currentSubscription = ent?.subscription || null;
   setCurrentPlan(ent?.plan || "free");
@@ -472,18 +534,27 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    if (!returned.subscription_id) {
-      showToast("Checkout incomplete", "Missing subscription_id in return URL.", "error");
-      return;
-    }
-
-    window.OrcaFindLoader?.show({ title: "Finalizing", body: "Confirming your subscription…" });
+    window.OrcaFindLoader?.show({
+      title: "Finalizing",
+      body: returned.subscription_id
+        ? "Confirming your subscription…"
+        : "Waiting for Dodo to sync your subscription…",
+    });
     supabaseClient.auth.getSession()
       .then(async ({ data }) => {
         const session = data?.session;
         if (!session) {
           window.location.href = `/auth/?mode=signin&next=${encodeURIComponent("/checkout/")}`;
           return null;
+        }
+        if (!returned.subscription_id) {
+          const ent = await waitForPaidEntitlements(session);
+          if (!ent) {
+            throw new Error(
+              "Payment completed, but Dodo has not synced the subscription yet. Please refresh in a minute."
+            );
+          }
+          return { entitlements: ent, effective_plan: ent.plan };
         }
         const confirmRes = await fetch(`${API_BASE_URL}/billing/dodo/confirm`, {
           method: "POST",
@@ -514,18 +585,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .then((confirmData) => {
         if (!confirmData) return;
 
-        // Cache entitlements for instant UX.
-        try {
-          const ent = confirmData?.entitlements;
-          if (ent && typeof ent === "object") {
-            window.localStorage.setItem(
-              "orcafind_entitlements_cache",
-              JSON.stringify({ at: Date.now(), entitlements: ent })
-            );
-            window.localStorage.removeItem("orcafind_entitlements_dirty");
-            hydrateFromEntitlements(ent);
-          }
-        } catch (_err) {}
+        cacheAndHydrateEntitlements(confirmData?.entitlements);
 
         const planLabel = String(confirmData?.effective_plan || confirmData?.plan || selectedPlan || "pro").toUpperCase();
         showToast("Payment successful", `${planLabel} is now enabled for your account.`, "success");

@@ -766,6 +766,59 @@ async def dodo_checkout_session_create(
     }
 
 
+def _save_dodo_subscription_state_or_error(
+    *,
+    request: Request,
+    user_id: str,
+    subscription_id: str,
+    customer_id: str | None,
+    plan: str,
+    status: str,
+    current_period_start: int | None,
+    current_period_end: int | None,
+    cancel_at_cycle_end: bool,
+    scheduled_plan: str | None,
+) -> dict:
+    saved = upsert_subscription_state(
+        user_id=user_id,
+        provider="dodo_payments",
+        subscription_id=subscription_id,
+        customer_id=customer_id,
+        plan=plan,
+        status=status,
+        current_period_start=current_period_start,
+        current_period_end=current_period_end,
+        cancel_at_cycle_end=cancel_at_cycle_end,
+        scheduled_plan=scheduled_plan,
+    )
+    state = get_subscription_state(user_id) or {}
+    persisted = (
+        saved
+        and str(state.get("provider") or "").strip().lower() == "dodo_payments"
+        and str(state.get("subscription_id") or "").strip() == subscription_id
+        and str(state.get("plan") or "").strip().lower() == plan
+    )
+    if persisted:
+        return state
+
+    logger.error(
+        "Dodo subscription persistence failed (request_id=%s, user_id=%s, subscription_id=%s)",
+        getattr(request.state, "request_id", None),
+        user_id,
+        subscription_id,
+    )
+    raise HTTPException(
+        status_code=503,
+        detail={
+            "message": (
+                "Payment was found, but the subscription could not be saved to this account. "
+                "Check DATABASE_URL and subscription_state table permissions, then retry confirm."
+            ),
+            "request_id": getattr(request.state, "request_id", None),
+        },
+    )
+
+
 @app.post("/billing/dodo/confirm")
 async def dodo_checkout_confirm(
     request: Request,
@@ -800,7 +853,7 @@ async def dodo_checkout_confirm(
 
     plan = (str(meta.get("plan") or "") or "").strip().lower()
     if plan not in {"starter", "pro", "business"}:
-        plan = "pro"
+        plan = _plan_from_dodo_product_id(str(sub.get("product_id") or "")) or "pro"
 
     sub_payload = sub if isinstance(sub, dict) else {}
     start, end = dodo_subscription_period_from_payload(sub_payload)
@@ -814,9 +867,9 @@ async def dodo_checkout_confirm(
         bool(sub_payload.get("cancel_at_next_billing_date")) if sub_payload else False
     )
 
-    upsert_subscription_state(
+    _save_dodo_subscription_state_or_error(
+        request=request,
         user_id=user_id,
-        provider="dodo_payments",
         subscription_id=sub_subscription_id,
         customer_id=customer_id,
         plan=plan,
@@ -839,11 +892,12 @@ async def dodo_checkout_confirm(
     except Exception:
         pass
 
+    entitlements_payload = _build_entitlements_payload(user)
     return {
         "status": "ok",
         "plan": plan,
-        "effective_plan": get_effective_plan(user),
-        "entitlements": _build_entitlements_payload(user),
+        "effective_plan": entitlements_payload.get("plan"),
+        "entitlements": entitlements_payload,
     }
 
 
@@ -919,9 +973,9 @@ async def dodo_subscription_change(
     cancel_at_cycle_end = (
         bool(updated_payload.get("cancel_at_next_billing_date")) if updated_payload else False
     )
-    upsert_subscription_state(
+    _save_dodo_subscription_state_or_error(
+        request=request,
         user_id=user_id,
-        provider="dodo_payments",
         subscription_id=subscription_id,
         customer_id=customer_id,
         plan=target,
@@ -1001,9 +1055,9 @@ async def dodo_subscription_cancel(
         if updated_payload
         else req.cancel_at_cycle_end
     )
-    upsert_subscription_state(
+    _save_dodo_subscription_state_or_error(
+        request=request,
         user_id=user_id,
-        provider="dodo_payments",
         subscription_id=subscription_id,
         customer_id=customer_id,
         plan=str(state.get("plan") or "pro"),
@@ -1049,10 +1103,6 @@ async def dodo_webhook(request: Request):
     ):
         raise HTTPException(status_code=400, detail="Invalid webhook signature")
 
-    digest = hashlib.sha256(body).hexdigest()
-    if not record_webhook_digest(digest=digest, provider="dodo_payments"):
-        return {"status": "duplicate"}
-
     try:
         data = json.loads(body.decode("utf-8") or "{}")
     except Exception as e:
@@ -1093,9 +1143,9 @@ async def dodo_webhook(request: Request):
     status = str(sub_entity.get("status") or "unknown").strip().lower()
     cancel_at_cycle_end = bool(sub_entity.get("cancel_at_next_billing_date"))
 
-    upsert_subscription_state(
+    _save_dodo_subscription_state_or_error(
+        request=request,
         user_id=user_id,
-        provider="dodo_payments",
         subscription_id=sub_id,
         customer_id=None,
         plan=str(plan),
@@ -1118,6 +1168,10 @@ async def dodo_webhook(request: Request):
             )
         except Exception:
             pass
+
+    digest = hashlib.sha256(body).hexdigest()
+    if not record_webhook_digest(digest=digest, provider="dodo_payments"):
+        return {"status": "duplicate"}
 
     return {"status": "ok"}
 

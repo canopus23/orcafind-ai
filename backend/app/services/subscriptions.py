@@ -208,10 +208,10 @@ def upsert_subscription_state(
     current_period_end: int | None,
     cancel_at_cycle_end: bool,
     scheduled_plan: str | None,
-):
+) -> bool:
     engine = _engine()
     if not engine:
-        return
+        return False
     now = int(time.time())
     plan_norm = _normalize_plan(plan) or "free"
     sched_norm = _normalize_plan(scheduled_plan) or None
@@ -291,8 +291,10 @@ def upsert_subscription_state(
                     "created_at": now,
                 },
             )
+        return True
     except Exception:
         logger.exception("upsert_subscription_state failed")
+        return False
 
 
 def get_subscription_state(user_id: str) -> dict | None:
