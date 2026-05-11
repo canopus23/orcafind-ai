@@ -1086,6 +1086,7 @@ def _plan_from_dodo_product_id(product_id: str | None) -> str | None:
     return mapping.get(pid) or None
 
 
+@app.post("//billing/dodo/webhook", include_in_schema=False)
 @app.post("/billing/dodo/webhook")
 async def dodo_webhook(request: Request):
     body = await request.body()
