@@ -29,8 +29,6 @@ from app.schemas.billing import (
     ChangePlanRequest,
     DodoConfirmCheckoutRequest,
     DodoCreateCheckoutSessionRequest,
-    RazorpayChangePlanRequest,
-    RazorpayCreateOrderRequest,
 )
 from app.schemas.complete_post import CompletePostRequest
 from app.schemas.images import ImageGenerateRequest
