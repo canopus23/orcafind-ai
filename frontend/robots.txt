@@ -1,5 +1,8 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://orcafind.com/sitemap.xml
+Disallow: /auth/
+Disallow: /profile/
+Disallow: /studio/
 
+Sitemap: https://orcafind.com/sitemap.xml
