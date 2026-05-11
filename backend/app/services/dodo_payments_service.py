@@ -83,6 +83,7 @@ async def create_checkout_session(
     metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     api_key = get_dodo_payments_api_key()
+    env = get_dodo_payments_environment()
     base_url = get_dodo_payments_api_base_url()
 
     payload: dict[str, Any] = {
@@ -103,9 +104,17 @@ async def create_checkout_session(
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
             detail = _parse_dodo_error(response)
-            msg = f"Dodo Payments create_checkout_session failed (HTTP {response.status_code})"
+            msg = (
+                "Dodo Payments create_checkout_session failed "
+                f"(HTTP {response.status_code}, env={env}, base_url={base_url})"
+            )
             if detail:
                 msg = f"{msg}: {detail}"
+            if response.status_code == 401:
+                msg = (
+                    f"{msg} (check DODO_PAYMENTS_API_KEY and that it matches the "
+                    "environment/base_url)"
+                )
             raise RuntimeError(msg) from exc
         return response.json()
 
