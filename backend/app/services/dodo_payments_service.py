@@ -2,7 +2,7 @@ import base64
 import hashlib
 import hmac
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -69,7 +69,7 @@ def _to_epoch_seconds(value: str | None) -> int | None:
         else:
             dt = datetime.fromisoformat(raw)
         if not dt.tzinfo:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return int(dt.timestamp())
     except Exception:
         return None
@@ -190,7 +190,13 @@ async def cancel_subscription(
         return response.json()
 
 
-def verify_webhook_signature(*, body: bytes, webhook_id: str, webhook_timestamp: str, signature: str) -> bool:
+def verify_webhook_signature(
+    *,
+    body: bytes,
+    webhook_id: str,
+    webhook_timestamp: str,
+    signature: str,
+) -> bool:
     """
     Dodo Payments follows Standard Webhooks signature verification.
 
@@ -202,7 +208,7 @@ def verify_webhook_signature(*, body: bytes, webhook_id: str, webhook_timestamp:
         return False
 
     body_text = body.decode("utf-8")
-    signed_content = f"{webhook_id}.{webhook_timestamp}.{body_text}".encode("utf-8")
+    signed_content = f"{webhook_id}.{webhook_timestamp}.{body_text}".encode()
 
     # Standard Webhooks expects a base64 secret. Be permissive: if decoding fails, fall back
     # to using the raw string bytes as the HMAC key.

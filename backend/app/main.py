@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import re
-import time
 from typing import Any
 from urllib.parse import urlparse
 
@@ -38,15 +37,25 @@ from app.services.ai_service import (
     generate_social_content,
     generate_social_content_from_image,
 )
-from app.services.image_service import generate_openai_images, generate_placeholder_images
 from app.services.dodo_payments_service import (
     cancel_subscription as dodo_cancel_subscription,
+)
+from app.services.dodo_payments_service import (
     change_plan as dodo_change_plan,
+)
+from app.services.dodo_payments_service import (
     create_checkout_session as dodo_create_checkout_session,
+)
+from app.services.dodo_payments_service import (
     fetch_subscription as dodo_fetch_subscription,
+)
+from app.services.dodo_payments_service import (
     subscription_period_from_payload as dodo_subscription_period_from_payload,
+)
+from app.services.dodo_payments_service import (
     verify_webhook_signature as dodo_verify_webhook_signature,
 )
+from app.services.image_service import generate_openai_images, generate_placeholder_images
 from app.services.subscriptions import (
     get_plan,
     get_subscription_state,
@@ -59,7 +68,6 @@ from app.services.subscriptions import (
     record_image_usage,
     record_usage,
     record_webhook_digest,
-    set_scheduled_plan,
     upsert_subscription_state,
 )
 
@@ -745,7 +753,10 @@ async def dodo_checkout_session_create(
             ) from e
         raise HTTPException(
             status_code=502,
-            detail={"message": msg or "Dodo Payments error", "request_id": request.state.request_id},
+            detail={
+                "message": msg or "Dodo Payments error",
+                "request_id": request.state.request_id,
+            },
         ) from e
 
     return {
@@ -791,19 +802,28 @@ async def dodo_checkout_confirm(
     if plan not in {"starter", "pro", "business"}:
         plan = "pro"
 
-    start, end = dodo_subscription_period_from_payload(sub if isinstance(sub, dict) else {})
-    status = str(sub.get("status") or "active").strip().lower() if isinstance(sub, dict) else "active"
+    sub_payload = sub if isinstance(sub, dict) else {}
+    start, end = dodo_subscription_period_from_payload(sub_payload)
+    status = str(sub_payload.get("status") or "active").strip().lower() or "active"
+    sub_subscription_id = str(sub_payload.get("subscription_id") or subscription_id)
+    customer_payload = sub_payload.get("customer") or {}
+    customer_id = (
+        customer_payload.get("customer_id") if isinstance(customer_payload, dict) else None
+    )
+    cancel_at_cycle_end = (
+        bool(sub_payload.get("cancel_at_next_billing_date")) if sub_payload else False
+    )
 
     upsert_subscription_state(
         user_id=user_id,
         provider="dodo_payments",
-        subscription_id=str(sub.get("subscription_id") or subscription_id) if isinstance(sub, dict) else subscription_id,
-        customer_id=(sub.get("customer", {}) or {}).get("customer_id") if isinstance(sub, dict) else None,
+        subscription_id=sub_subscription_id,
+        customer_id=customer_id,
         plan=plan,
         status=status,
         current_period_start=start,
         current_period_end=end,
-        cancel_at_cycle_end=bool(sub.get("cancel_at_next_billing_date")) if isinstance(sub, dict) else False,
+        cancel_at_cycle_end=cancel_at_cycle_end,
         scheduled_plan=None,
     )
 
@@ -841,8 +861,14 @@ async def dodo_subscription_change(
             detail={
                 "message": "No Dodo Payments subscription found for this account.",
                 "next_steps": [
-                    "If you just completed checkout, call POST /billing/dodo/confirm with the subscription_id returned by Dodo.",
-                    "If webhooks are enabled, wait for the Dodo webhook to sync the subscription, then retry.",
+                    (
+                        "If you just completed checkout, call POST /billing/dodo/confirm with the "
+                        "subscription_id returned by Dodo."
+                    ),
+                    (
+                        "If webhooks are enabled, wait for the Dodo webhook to sync the "
+                        "subscription, then retry."
+                    ),
                     "If you haven't purchased yet, start with POST /billing/dodo/checkout-session.",
                 ],
                 "request_id": getattr(request.state, "request_id", None),
@@ -882,18 +908,27 @@ async def dodo_subscription_change(
             detail={"message": str(e), "request_id": request.state.request_id},
         ) from e
 
-    start, end = dodo_subscription_period_from_payload(updated if isinstance(updated, dict) else {})
-    status = str(updated.get("status") or "active").strip().lower() if isinstance(updated, dict) else "active"
+    updated_payload = updated if isinstance(updated, dict) else {}
+    start, end = dodo_subscription_period_from_payload(updated_payload)
+    status = str(updated_payload.get("status") or "active").strip().lower() or "active"
+    subscription_id = str(updated_payload.get("subscription_id") or sub_id)
+    customer_payload = updated_payload.get("customer") or {}
+    customer_id = (
+        customer_payload.get("customer_id") if isinstance(customer_payload, dict) else None
+    )
+    cancel_at_cycle_end = (
+        bool(updated_payload.get("cancel_at_next_billing_date")) if updated_payload else False
+    )
     upsert_subscription_state(
         user_id=user_id,
         provider="dodo_payments",
-        subscription_id=str(updated.get("subscription_id") or sub_id) if isinstance(updated, dict) else sub_id,
-        customer_id=(updated.get("customer", {}) or {}).get("customer_id") if isinstance(updated, dict) else None,
+        subscription_id=subscription_id,
+        customer_id=customer_id,
         plan=target,
         status=status,
         current_period_start=start,
         current_period_end=end,
-        cancel_at_cycle_end=bool(updated.get("cancel_at_next_billing_date")) if isinstance(updated, dict) else False,
+        cancel_at_cycle_end=cancel_at_cycle_end,
         scheduled_plan=None,
     )
 
@@ -919,8 +954,14 @@ async def dodo_subscription_cancel(
             detail={
                 "message": "No Dodo Payments subscription found for this account.",
                 "next_steps": [
-                    "If you just completed checkout, call POST /billing/dodo/confirm with the subscription_id returned by Dodo.",
-                    "If webhooks are enabled, wait for the Dodo webhook to sync the subscription, then retry.",
+                    (
+                        "If you just completed checkout, call POST /billing/dodo/confirm with the "
+                        "subscription_id returned by Dodo."
+                    ),
+                    (
+                        "If webhooks are enabled, wait for the Dodo webhook to sync the "
+                        "subscription, then retry."
+                    ),
                     "If you haven't purchased yet, start with POST /billing/dodo/checkout-session.",
                 ],
                 "request_id": getattr(request.state, "request_id", None),
@@ -947,18 +988,29 @@ async def dodo_subscription_cancel(
             detail={"message": str(e), "request_id": request.state.request_id},
         ) from e
 
-    start, end = dodo_subscription_period_from_payload(updated if isinstance(updated, dict) else {})
-    status = str(updated.get("status") or "cancelled").strip().lower() if isinstance(updated, dict) else "cancelled"
+    updated_payload = updated if isinstance(updated, dict) else {}
+    start, end = dodo_subscription_period_from_payload(updated_payload)
+    status = str(updated_payload.get("status") or "cancelled").strip().lower() or "cancelled"
+    subscription_id = str(updated_payload.get("subscription_id") or sub_id)
+    customer_payload = updated_payload.get("customer") or {}
+    customer_id = (
+        customer_payload.get("customer_id") if isinstance(customer_payload, dict) else None
+    )
+    cancel_at_cycle_end = bool(
+        updated_payload.get("cancel_at_next_billing_date")
+        if updated_payload
+        else req.cancel_at_cycle_end
+    )
     upsert_subscription_state(
         user_id=user_id,
         provider="dodo_payments",
-        subscription_id=str(updated.get("subscription_id") or sub_id) if isinstance(updated, dict) else sub_id,
-        customer_id=(updated.get("customer", {}) or {}).get("customer_id") if isinstance(updated, dict) else None,
+        subscription_id=subscription_id,
+        customer_id=customer_id,
         plan=str(state.get("plan") or "pro"),
         status=status,
         current_period_start=start,
         current_period_end=end,
-        cancel_at_cycle_end=bool(updated.get("cancel_at_next_billing_date")) if isinstance(updated, dict) else bool(req.cancel_at_cycle_end),
+        cancel_at_cycle_end=cancel_at_cycle_end,
         scheduled_plan=state.get("scheduled_plan"),
     )
 
