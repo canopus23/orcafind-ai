@@ -71,14 +71,21 @@ if (!window.supabase?.createClient) {
       .replace(/'/g, "&#39;");
   }
 
+  function withTimeout(promise, ms = 4500) {
+    return Promise.race([
+      promise,
+      new Promise((resolve) => window.setTimeout(() => resolve(null), ms)),
+    ]);
+  }
+
   async function fetchEntitlements(accessToken) {
     if (!accessToken) return null;
     try {
-      const res = await fetch(`${API_BASE_URL}/entitlements`, {
+      const res = await withTimeout(fetch(`${API_BASE_URL}/entitlements`, {
         method: "GET",
-        headers: { "Authorization": `Bearer ${accessToken}` }
-      });
-      if (!res.ok) return null;
+        headers: { "Authorization": `Bearer ${accessToken}` },
+      }));
+      if (!res || !res.ok) return null;
       const data = await res.json();
       writeCachedEntitlements(data);
       return data;
@@ -115,7 +122,7 @@ if (!window.supabase?.createClient) {
     }
   }
 
-  function _readStoredSessionTokens() {
+  function _readStoredSessionSnapshot() {
     try {
       const ref = _getSupabaseProjectRef();
       const preferredKey = ref ? `sb-${ref}-auth-token` : "";
@@ -134,11 +141,30 @@ if (!window.supabase?.createClient) {
         const access_token = parsed?.access_token;
         const refresh_token = parsed?.refresh_token;
         if (typeof access_token === "string" && typeof refresh_token === "string") {
-          return { access_token, refresh_token };
+          return { access_token, refresh_token, user: parsed?.user || null };
         }
       }
     } catch (_err) {}
     return null;
+  }
+
+  function _readStoredSessionTokens() {
+    const snapshot = _readStoredSessionSnapshot();
+    if (!snapshot) return null;
+    return {
+      access_token: snapshot.access_token,
+      refresh_token: snapshot.refresh_token,
+    };
+  }
+
+  function renderStoredProfileImmediately() {
+    const snapshot = _readStoredSessionSnapshot();
+    if (!snapshot?.user) return false;
+    applySignedInUI({
+      user: snapshot.user,
+      entitlements: readCachedEntitlements() || { plan: "free" },
+    });
+    return true;
   }
 
   function applySignedOutUI() {
@@ -214,7 +240,27 @@ if (!window.supabase?.createClient) {
     if (signedInActions) signedInActions.style.display = "grid";
   }
 
-  async function hydrate({ allowSignedOut = true } = {}) {
+  let lastRenderedAccessToken = "";
+  let entitlementsSyncInFlight = null;
+
+  async function syncEntitlementsForSession(session) {
+    if (!session?.access_token) return null;
+    if (entitlementsSyncInFlight) return entitlementsSyncInFlight;
+    entitlementsSyncInFlight = fetchEntitlements(session.access_token)
+      .then((entitlements) => {
+        applySignedInUI({
+          user: session.user,
+          entitlements: entitlements || readCachedEntitlements() || { plan: "free" },
+        });
+        return entitlements;
+      })
+      .finally(() => {
+        entitlementsSyncInFlight = null;
+      });
+    return entitlementsSyncInFlight;
+  }
+
+  async function hydrate({ allowSignedOut = true, quick = false } = {}) {
     async function tryGetSession() {
       try {
         const { data } = await supabaseClient.auth.getSession();
@@ -226,7 +272,7 @@ if (!window.supabase?.createClient) {
 
     let session = await tryGetSession();
 
-    if (!session?.user) {
+    if (!session?.user && !quick) {
       try {
         await supabaseClient.auth.refreshSession();
       } catch (_err) {}
@@ -243,8 +289,9 @@ if (!window.supabase?.createClient) {
       }
     }
 
-    for (let attempt = 0; attempt < 6 && !session?.user; attempt += 1) {
-      await new Promise((r) => window.setTimeout(r, 180 + attempt * 120));
+    const attempts = quick ? 1 : 3;
+    for (let attempt = 0; attempt < attempts && !session?.user; attempt += 1) {
+      await new Promise((r) => window.setTimeout(r, 120 + attempt * 100));
       session = await tryGetSession();
     }
 
@@ -253,13 +300,12 @@ if (!window.supabase?.createClient) {
       return;
     }
 
-    const cached = readCachedEntitlements();
-    if (cached) {
-      applySignedInUI({ user: session.user, entitlements: cached });
-    }
-
-    const entitlements = await fetchEntitlements(session.access_token);
-    applySignedInUI({ user: session.user, entitlements: entitlements || cached });
+    lastRenderedAccessToken = session.access_token || "";
+    applySignedInUI({
+      user: session.user,
+      entitlements: readCachedEntitlements() || { plan: "free" },
+    });
+    syncEntitlementsForSession(session);
   }
 
   async function profileSignOut() {
@@ -276,7 +322,7 @@ if (!window.supabase?.createClient) {
   window.profileSignOut = profileSignOut;
 
   document.addEventListener("DOMContentLoaded", () => {
-    window.OrcaFindLoader?.show({ title: "Loading profile", body: "Fetching your workspace details…" });
+    const renderedFromStorage = renderStoredProfileImmediately();
     const debugEnabled = new URLSearchParams(window.location.search).get("debug") === "1";
     if (debugEnabled) {
       const panel = document.createElement("pre");
@@ -309,25 +355,27 @@ if (!window.supabase?.createClient) {
       })();
     }
 
-    hydrate().finally(() => window.OrcaFindLoader?.hide());
+    hydrate({ allowSignedOut: !renderedFromStorage, quick: renderedFromStorage });
     supabaseClient.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
+        lastRenderedAccessToken = "";
         applySignedOutUI();
         return;
       }
 
       if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session?.user) {
-        window.OrcaFindLoader?.show({ title: "Loading profile", body: "Syncing your plan…" });
-        const cached = readCachedEntitlements();
-        if (cached) applySignedInUI({ user: session.user, entitlements: cached });
-        fetchEntitlements(session.access_token)
-          .then((ent) => applySignedInUI({ user: session.user, entitlements: ent || cached }))
-          .finally(() => window.OrcaFindLoader?.hide());
+        if (session.access_token === lastRenderedAccessToken) return;
+        lastRenderedAccessToken = session.access_token || "";
+        applySignedInUI({
+          user: session.user,
+          entitlements: readCachedEntitlements() || { plan: "free" },
+        });
+        syncEntitlementsForSession(session);
         return;
       }
 
-      if (event === "INITIAL_SESSION" && !session?.user) {
-        hydrate({ allowSignedOut: false }).then(() => {
+      if (event === "INITIAL_SESSION" && !session?.user && !renderedFromStorage) {
+        hydrate({ allowSignedOut: false, quick: true }).then(() => {
           supabaseClient.auth.getSession().then(({ data }) => {
             if (!data?.session?.user) applySignedOutUI();
           }).catch(() => applySignedOutUI());
