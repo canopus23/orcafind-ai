@@ -73,14 +73,14 @@ function applyAuthProviderUi({ providerStatus } = {}) {
   // Only hide/disable a provider if the settings explicitly mention it.
   // If a provider isn't listed, we don't know—leave the button visible.
   const hasGoogle = enabled.has("google");
-  const hasTwitter = enabled.has("twitter");
+  const hasX = enabled.has("twitter") || enabled.has("twitter_oidc") || enabled.has("twitter_oauth2") || enabled.has("x");
   const knowsGoogle = seen.has("google");
-  const knowsTwitter = seen.has("twitter");
+  const knowsX = seen.has("twitter") || seen.has("twitter_oidc") || seen.has("twitter_oauth2") || seen.has("x");
 
   const xButtons = Array.from(document.querySelectorAll('button[onclick="loginWithX()"]'));
   xButtons.forEach((button) => {
-    if (!knowsTwitter) return;
-    button.disabled = !hasTwitter;
+    if (!knowsX) return;
+    button.disabled = !hasX;
   });
 
   const googleButtons = Array.from(document.querySelectorAll('button[onclick="loginWithGoogle()"]'));
@@ -92,13 +92,13 @@ function applyAuthProviderUi({ providerStatus } = {}) {
   const copyNodes = Array.from(document.querySelectorAll("#authModeCopy"));
   copyNodes.forEach((node) => {
     if (!(node instanceof HTMLElement)) return;
-    if (knowsGoogle && knowsTwitter && hasGoogle && hasTwitter) {
+    if (knowsGoogle && knowsX && hasGoogle && hasX) {
       node.textContent = "Continue with Google or X to access your OrcaFind workspace.";
-    } else if (knowsGoogle && knowsTwitter && hasGoogle && !hasTwitter) {
+    } else if (knowsGoogle && knowsX && hasGoogle && !hasX) {
       node.textContent = "Continue with Google to access your OrcaFind workspace.";
-    } else if (knowsGoogle && knowsTwitter && !hasGoogle && hasTwitter) {
+    } else if (knowsGoogle && knowsX && !hasGoogle && hasX) {
       node.textContent = "Continue with X to access your OrcaFind workspace.";
-    } else if (knowsGoogle && knowsTwitter && !hasGoogle && !hasTwitter) {
+    } else if (knowsGoogle && knowsX && !hasGoogle && !hasX) {
       node.textContent = "Sign-in is temporarily unavailable. Please try again later.";
     }
   });
@@ -2147,12 +2147,26 @@ async function loginWithGoogle() {
 async function loginWithX() {
   window.OrcaFindLoader?.show({ title: "Signing in", body: "Redirecting to X…" });
   const next = getSafeNextFromURL() || buildRelativeUrl({ stripParams: ["auth"] });
-  // Supabase uses "twitter" as the provider name for X.
-  const { error } = await supabaseClient.auth.signInWithOAuth({
-    provider: "twitter",
-    options: {
-      redirectTo: `${window.location.origin}/auth/callback/?next=${encodeURIComponent(next)}`
+  const redirectTo = `${window.location.origin}/auth/callback/?next=${encodeURIComponent(next)}`;
+
+  // Supabase provider keys differ depending on whether you're using the older Twitter provider
+  // or the newer X/Twitter (OAuth 2.0) provider (commonly exposed as `twitter_oidc`).
+  const providerCandidates = ["twitter_oidc", "twitter", "twitter_oauth2", "x"];
+
+  let selectedProvider = "twitter";
+  try {
+    const settings = await fetchSupabaseAuthSettings();
+    const providerStatus = getOAuthProviderStatusFromSettings(settings);
+    if (providerStatus?.enabled?.size) {
+      const enabled = providerStatus.enabled;
+      const match = providerCandidates.find((key) => enabled.has(key));
+      if (match) selectedProvider = match;
     }
+  } catch (_err) {}
+
+  const { error } = await supabaseClient.auth.signInWithOAuth({
+    provider: selectedProvider,
+    options: { redirectTo },
   });
 
   if (error) {
@@ -2174,11 +2188,7 @@ async function loginWithX() {
         settingsHint = ` (project: ${ref || "unknown"}${externalKeys.length ? `, /settings external: ${externalKeys.join(", ")}` : ""})`;
       } catch (_err) {}
 
-      showToast(
-        "X sign-in not configured",
-        `Supabase rejected provider "twitter" as not enabled.${settingsHint} Enable X/Twitter in Supabase Auth → Providers for THIS project, and confirm the deployed site is using the correct SUPABASE URL/anon key.`,
-        "error"
-      );
+      showToast("X sign-in not configured", `Supabase rejected provider "${selectedProvider}" as not enabled.${settingsHint} Enable X/Twitter in Supabase Auth → Providers for THIS project, and confirm the deployed site is using the correct SUPABASE URL/anon key.`, "error");
       return;
     }
 
@@ -2196,10 +2206,9 @@ document.addEventListener("keydown", (event) => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Note: Supabase `/auth/v1/settings` provider flags can vary across GoTrue versions
-  // and may not reliably reflect OAuth enablement for all providers. We avoid
-  // hiding buttons based on this endpoint and instead show a clear error message
-  // if a provider isn't enabled when the OAuth flow starts.
+  // Note: Supabase `/auth/v1/settings` provider flags can vary across GoTrue versions.
+  // We only use it to *disable* buttons when a provider is explicitly listed but not enabled.
+  // If we can't determine status, we leave the UI as-is and rely on the runtime error message.
 
   if (isAuthCallbackPage()) {
     const next = getSafeNextFromURL() || "/studio/";
@@ -2212,6 +2221,13 @@ document.addEventListener("DOMContentLoaded", () => {
       window.location.replace(next);
     });
     return;
+  }
+
+  if (isAuthPage()) {
+    fetchSupabaseAuthSettings().then((settings) => {
+      const providerStatus = getOAuthProviderStatusFromSettings(settings);
+      applyAuthProviderUi({ providerStatus });
+    });
   }
 
   closeStudioSidebar();
