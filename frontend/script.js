@@ -2188,6 +2188,13 @@ async function loginWithX() {
   }
 }
 
+// Ensure OAuth helpers are available to inline handlers on static pages.
+// Some bundlers/environments do not expose top-level functions as globals reliably.
+try {
+  window.loginWithGoogle = loginWithGoogle;
+  window.loginWithX = loginWithX;
+} catch (_err) {}
+
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     closeAuthModal();
