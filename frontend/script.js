@@ -71,23 +71,15 @@ function applyAuthProviderUi({ providerStatus } = {}) {
   const { enabled, seen } = providerStatus;
 
   // Only hide/disable a provider if the settings explicitly mention it.
-  // If a provider isn't listed, we don't know—leave the button visible.
+  // If a provider isn't listed, we don't know—leave the UI as-is.
   const hasGoogle = enabled.has("google");
   const hasX = enabled.has("twitter") || enabled.has("twitter_oidc") || enabled.has("twitter_oauth2") || enabled.has("x");
   const knowsGoogle = seen.has("google");
   const knowsX = seen.has("twitter") || seen.has("twitter_oidc") || seen.has("twitter_oauth2") || seen.has("x");
 
-  const xButtons = Array.from(document.querySelectorAll('button[onclick="loginWithX()"]'));
-  xButtons.forEach((button) => {
-    if (!knowsX) return;
-    button.disabled = !hasX;
-  });
-
-  const googleButtons = Array.from(document.querySelectorAll('button[onclick="loginWithGoogle()"]'));
-  googleButtons.forEach((button) => {
-    if (!knowsGoogle) return;
-    button.disabled = !hasGoogle;
-  });
+  // Important: do not disable OAuth buttons based on `/auth/v1/settings`.
+  // That endpoint can be stale/incomplete across GoTrue versions; disabling can
+  // incorrectly make the button "not clickable". We only adjust helper copy.
 
   const copyNodes = Array.from(document.querySelectorAll("#authModeCopy"));
   copyNodes.forEach((node) => {
