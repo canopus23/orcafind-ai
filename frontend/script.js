@@ -2141,41 +2141,17 @@ async function loginWithX() {
   const next = getSafeNextFromURL() || buildRelativeUrl({ stripParams: ["auth"] });
   const redirectTo = `${window.location.origin}/auth/callback/?next=${encodeURIComponent(next)}`;
 
-  // Supabase provider keys differ depending on whether you're using the older Twitter provider
-  // or the newer X/Twitter (OAuth 2.0) provider (commonly exposed as `twitter_oidc`).
-  const providerCandidates = ["twitter_oidc", "twitter", "twitter_oauth2", "x"];
-
-  let selectedProvider = "twitter";
-  try {
-    const settings = await fetchSupabaseAuthSettings();
-    const providerStatus = getOAuthProviderStatusFromSettings(settings);
-    if (providerStatus?.enabled?.size) {
-      const enabled = providerStatus.enabled;
-      const match = providerCandidates.find((key) => enabled.has(key));
-      if (match) selectedProvider = match;
-    }
-  } catch (_err) {}
+  // Supabase JS expects `provider: "twitter"` for X/Twitter sign-in.
+  // Your Supabase project does not recognize `twitter_oidc`, so we use `twitter` only.
+  const selectedProvider = "twitter";
 
   let error = null;
-  let attemptedProviders = [];
-  for (const candidate of providerCandidates) {
-    attemptedProviders.push(candidate);
-    selectedProvider = candidate;
-    const result = await supabaseClient.auth.signInWithOAuth({
-      provider: candidate,
-      options: { redirectTo },
-    });
-    error = result?.error || null;
-    if (!error) return;
-
-    const lowered = String(error.message || "").toLowerCase();
-    const isProviderDisabled =
-      lowered.includes("unsupported provider") ||
-      lowered.includes("provider is not enabled") ||
-      lowered.includes("not enabled");
-
-    if (!isProviderDisabled) break;
-  }
+  const result = await supabaseClient.auth.signInWithOAuth({
+    provider: selectedProvider,
+    options: { redirectTo },
+  });
+  error = result?.error || null;
+  if (!error) return;
 
   if (error) {
     window.OrcaFindLoader?.hide();
@@ -2195,13 +2171,12 @@ async function loginWithX() {
         const externalKeys = external ? Object.keys(external).slice(0, 12) : [];
         settingsHint =
           ` (project: ${ref || "unknown"}` +
-          `${attemptedProviders.length ? `, tried: ${attemptedProviders.join(", ")}` : ""}` +
           `${externalKeys.length ? `, /settings external: ${externalKeys.join(", ")}` : ""})`;
       } catch (_err) {}
 
       showToast(
         "X sign-in not configured",
-        `Supabase rejected X/Twitter OAuth as not enabled.${settingsHint} Enable X/Twitter in Supabase Auth → Providers for THIS project, then confirm the deployed site is using the correct SUPABASE URL/anon key.`,
+        `Supabase rejected provider "${selectedProvider}" as not enabled.${settingsHint} In Supabase Auth → Providers, enable "Twitter (Deprecated)" and paste your X app’s OAuth 1.0 keys (API key + API secret).`,
         "error"
       );
       return;
