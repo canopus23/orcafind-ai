@@ -1383,6 +1383,28 @@ function handlePremiumBackdrop(event) {
   }
 }
 
+function openBoostModal() {
+  const modal = document.getElementById("boostModal");
+  if (modal) {
+    modal.classList.add("is-visible");
+    modal.setAttribute("aria-hidden", "false");
+  }
+}
+
+function closeBoostModal() {
+  const modal = document.getElementById("boostModal");
+  if (modal) {
+    modal.classList.remove("is-visible");
+    modal.setAttribute("aria-hidden", "true");
+  }
+}
+
+function handleBoostBackdrop(event) {
+  if (event.target?.id === "boostModal") {
+    closeBoostModal();
+  }
+}
+
 async function fetchEntitlements(accessToken) {
   // Best-effort cache so the UI doesn't fall back to "free" after a successful payment
   // due to transient network errors.
@@ -2203,6 +2225,9 @@ try {
   window.suggestHooks = suggestHooks;
   window.buildWeeklyPlan = buildWeeklyPlan;
   window.generate = generate;
+  window.openBoostModal = openBoostModal;
+  window.closeBoostModal = closeBoostModal;
+  window.handleBoostBackdrop = handleBoostBackdrop;
 } catch (_err) {}
 
 document.addEventListener("keydown", (event) => {
@@ -2211,6 +2236,7 @@ document.addEventListener("keydown", (event) => {
     closeProfileModal();
     closeStudioSidebar();
     closeStudioOptions();
+    closeBoostModal();
   }
 });
 

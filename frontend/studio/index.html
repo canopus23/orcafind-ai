@@ -567,7 +567,10 @@
                       <h4>Source Content</h4>
                       <p>Paste your article, transcript, release note, or raw thinking. We will generate X and LinkedIn posts, plus Instagram and Facebook captions.</p>
                     </div>
-                    <button class="btn btn-ghost btn-mini" onclick="clearSource()">Clear</button>
+                    <div style="display:flex; gap:10px; align-items:center;">
+                      <button class="btn btn-ghost btn-mini" type="button" onclick="openBoostModal()">Boost output</button>
+                      <button class="btn btn-ghost btn-mini" type="button" onclick="clearSource()">Clear</button>
+                    </div>
                   </div>
 
                   <div class="textarea-shell">
@@ -590,49 +593,6 @@
                   </div>
                 </div>
 
-                <div id="studioBoostPanel" class="panel-card">
-                  <div class="panel-head">
-                    <div>
-                      <h4>Boost output</h4>
-                      <p>Angles, hooks, and weekly batching to avoid generic posts.</p>
-                    </div>
-                  </div>
-                  <div class="panel-body">
-                    <div class="field-stack">
-                      <div class="field">
-                        <label for="angleSelect">Angle (optional)</label>
-                        <div class="control" style="display:flex; gap:10px; align-items:center; justify-content:space-between;">
-                          <select id="angleSelect" aria-label="Repurposing angle">
-                            <option value="" selected>Auto (no angle)</option>
-                          </select>
-                          <button id="angleSuggestBtn" class="btn btn-ghost btn-mini" type="button" onclick="suggestAngles()">Suggest</button>
-                        </div>
-                        <div class="field-hint">Pick an angle to steer the voice (story, lesson, teardown, contrarian take).</div>
-                      </div>
-
-                      <div class="field">
-                        <label for="hookInput">Hook (optional)</label>
-                        <div class="control">
-                          <input id="hookInput" placeholder="Optional: set the first line / hook…" />
-                        </div>
-                        <div class="field-hint" style="display:flex; gap:10px; align-items:center; justify-content:space-between;">
-                          <span>Generate hooks and click one to apply.</span>
-                          <button id="hookSuggestBtn" class="btn btn-ghost btn-mini" type="button" onclick="suggestHooks()">Generate hooks</button>
-                        </div>
-                        <div id="hookSuggestions" class="pill-row" style="margin-top:10px;"></div>
-                      </div>
-
-                      <div class="field">
-                        <label>Weekly batch (7-day plan)</label>
-                        <div class="field-hint" style="display:flex; gap:10px; align-items:center; justify-content:space-between;">
-                          <span>Create a 7-day posting plan, then generate one day at a time.</span>
-                          <button id="weekPlanBtn" class="btn btn-ghost btn-mini" type="button" onclick="buildWeeklyPlan()">Create plan</button>
-                        </div>
-                        <div id="weeklyPlan" style="margin-top:10px; display:grid; gap:10px;"></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </div>
 
               <aside class="studio-aside">
@@ -1050,6 +1010,52 @@
         </div>
 
         <a class="btn btn-primary" style="width: 100%; display: inline-flex; justify-content: center;" href="/checkout/">Continue to upgrade</a>
+      </div>
+    </div>
+
+    <div id="boostModal" class="auth-modal" aria-hidden="true" onclick="handleBoostBackdrop(event)">
+      <div class="auth-dialog profile-dialog" role="dialog" aria-modal="true" aria-labelledby="boostModalTitle">
+        <div class="auth-dialog-top">
+          <div>
+            <h3 id="boostModalTitle">Boost output</h3>
+            <p>Angles, hooks, and weekly batching to avoid generic posts.</p>
+          </div>
+          <button class="btn btn-ghost auth-close" aria-label="Close boost output dialog" onclick="closeBoostModal()">×</button>
+        </div>
+
+        <div class="field-stack">
+          <div class="field">
+            <label for="angleSelect">Angle (optional)</label>
+            <div class="control" style="display:flex; gap:10px; align-items:center; justify-content:space-between;">
+              <select id="angleSelect" aria-label="Repurposing angle">
+                <option value="" selected>Auto (no angle)</option>
+              </select>
+              <button id="angleSuggestBtn" class="btn btn-ghost btn-mini" type="button" onclick="suggestAngles()">Suggest</button>
+            </div>
+            <div class="field-hint">Pick an angle to steer the voice (story, lesson, teardown, contrarian take).</div>
+          </div>
+
+          <div class="field">
+            <label for="hookInput">Hook (optional)</label>
+            <div class="control">
+              <input id="hookInput" placeholder="Optional: set the first line / hook…" />
+            </div>
+            <div class="field-hint" style="display:flex; gap:10px; align-items:center; justify-content:space-between;">
+              <span>Generate hooks and click one to apply.</span>
+              <button id="hookSuggestBtn" class="btn btn-ghost btn-mini" type="button" onclick="suggestHooks()">Generate hooks</button>
+            </div>
+            <div id="hookSuggestions" class="pill-row" style="margin-top:10px;"></div>
+          </div>
+
+          <div class="field">
+            <label>Weekly batch (7-day plan)</label>
+            <div class="field-hint" style="display:flex; gap:10px; align-items:center; justify-content:space-between;">
+              <span>Create a 7-day posting plan, then generate one day at a time.</span>
+              <button id="weekPlanBtn" class="btn btn-ghost btn-mini" type="button" onclick="buildWeeklyPlan()">Create plan</button>
+            </div>
+            <div id="weeklyPlan" style="margin-top:10px; display:grid; gap:10px;"></div>
+          </div>
+        </div>
       </div>
     </div>
 
