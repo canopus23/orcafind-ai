@@ -1362,6 +1362,7 @@ function handleProfileBackdrop(event) {
 }
 
 function openPremiumModal() {
+  lockPageScroll();
   const modal = document.getElementById("premiumModal");
   if (modal) {
     modal.classList.add("is-visible");
@@ -1375,6 +1376,7 @@ function closePremiumModal() {
     modal.classList.remove("is-visible");
     modal.setAttribute("aria-hidden", "true");
   }
+  unlockPageScroll();
 }
 
 function handlePremiumBackdrop(event) {
@@ -1383,7 +1385,25 @@ function handlePremiumBackdrop(event) {
   }
 }
 
+function lockPageScroll() {
+  try {
+    const count = Number(window.__orcafindModalLocks || 0) + 1;
+    window.__orcafindModalLocks = count;
+    document.documentElement.classList.add("modal-open");
+  } catch (_err) {}
+}
+
+function unlockPageScroll() {
+  try {
+    const current = Number(window.__orcafindModalLocks || 0);
+    const next = Math.max(0, current - 1);
+    window.__orcafindModalLocks = next;
+    if (next === 0) document.documentElement.classList.remove("modal-open");
+  } catch (_err) {}
+}
+
 function openBoostModal() {
+  lockPageScroll();
   const modal = document.getElementById("boostModal");
   if (modal) {
     modal.classList.add("is-visible");
@@ -1397,6 +1417,7 @@ function closeBoostModal() {
     modal.classList.remove("is-visible");
     modal.setAttribute("aria-hidden", "true");
   }
+  unlockPageScroll();
 }
 
 function handleBoostBackdrop(event) {
@@ -2228,6 +2249,8 @@ try {
   window.openBoostModal = openBoostModal;
   window.closeBoostModal = closeBoostModal;
   window.handleBoostBackdrop = handleBoostBackdrop;
+  window.lockPageScroll = lockPageScroll;
+  window.unlockPageScroll = unlockPageScroll;
 } catch (_err) {}
 
 document.addEventListener("keydown", (event) => {

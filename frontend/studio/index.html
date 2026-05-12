@@ -414,6 +414,37 @@
       }
     }
   </style>
+  <style>
+    /* Modal polish (Boost output + existing dialogs) */
+    .auth-modal {
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 18px;
+    }
+
+    .auth-dialog {
+      background: var(--surface-strong);
+      color: var(--ink);
+      max-height: calc(100vh - 48px);
+      overflow: auto;
+    }
+
+    .auth-dialog-top p {
+      color: var(--muted);
+    }
+
+    html.modal-open,
+    html.modal-open body {
+      overflow: hidden;
+    }
+
+    /* Make sure modal close button is visible in dark mode. */
+    html[data-theme="dark"] .auth-close {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(255, 255, 255, 0.12);
+      color: rgba(245, 250, 255, 0.92);
+    }
+  </style>
 </head>
 <body>
   <div class="page-shell">
