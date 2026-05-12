@@ -218,11 +218,19 @@ if (!window.supabase?.createClient) {
     const status = subscription?.status ? String(subscription.status) : (plan === "free" ? "No subscription" : "Active");
     const cancelAtEnd = Boolean(subscription?.cancel_at_cycle_end);
     const periodEnd = subscription?.current_period_end;
+    const normalizedStatus = String(status || "").trim().toLowerCase();
+    const isActiveSubscription = Boolean(subscription) && (normalizedStatus === "active" || normalizedStatus === "trialing");
 
     setText("billingStatus", status);
     setText(
       "billingStatusHint",
-      cancelAtEnd ? "Your subscription will cancel at the end of the current period." : "Manage your plan and billing settings."
+      !subscription
+        ? "Upgrade to manage your plan and billing settings."
+        : cancelAtEnd
+          ? "Your subscription will cancel at the end of the current period."
+          : isActiveSubscription
+            ? "Manage your plan and billing settings."
+            : "This subscription is inactive. Re-subscribe to change plans."
     );
 
     const renews = _formatDateFromUnixSeconds(periodEnd);
@@ -237,16 +245,21 @@ if (!window.supabase?.createClient) {
       } else {
         planSelect.value = "pro";
       }
-      planSelect.disabled = !subscription;
+      planSelect.disabled = !isActiveSubscription;
     }
 
     const planBtn = document.getElementById("billingPlanBtn");
-    if (planBtn) planBtn.disabled = !subscription;
+    if (planBtn) planBtn.disabled = !isActiveSubscription;
 
     const cancelBtn = document.getElementById("billingCancelBtn");
     if (cancelBtn) {
-      cancelBtn.disabled = !subscription;
+      cancelBtn.disabled = !isActiveSubscription;
       cancelBtn.textContent = cancelAtEnd ? "Keep subscription" : "Cancel at period end";
+    }
+
+    const inactiveHint = document.getElementById("billingInactiveHint");
+    if (inactiveHint) {
+      inactiveHint.style.display = subscription && !isActiveSubscription ? "block" : "none";
     }
   }
 
@@ -417,6 +430,11 @@ if (!window.supabase?.createClient) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         const msg = data?.detail?.message || data?.detail || data?.message || "Unable to change plan.";
+        const normalized = String(msg || "").toLowerCase();
+        if (normalized.includes("inactive subscriptions") || normalized.includes("inactive_subscription")) {
+          showToast("Subscription inactive", "This subscription can't be changed. Open pricing to start a new subscription.", "error");
+          return;
+        }
         showToast("Billing update failed", String(msg), "error");
         return;
       }
