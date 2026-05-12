@@ -2199,6 +2199,10 @@ async function loginWithX() {
 try {
   window.loginWithGoogle = loginWithGoogle;
   window.loginWithX = loginWithX;
+  window.suggestAngles = suggestAngles;
+  window.suggestHooks = suggestHooks;
+  window.buildWeeklyPlan = buildWeeklyPlan;
+  window.generate = generate;
 } catch (_err) {}
 
 document.addEventListener("keydown", (event) => {
@@ -2236,6 +2240,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   closeStudioSidebar();
+  initSoloCreatorTools();
   initRevealAnimations();
   initActiveNav();
   initComposerMetrics();
@@ -2309,6 +2314,8 @@ async function generate() {
   const button = document.getElementById("generateBtn");
   const xStyle = document.getElementById("xStyle")?.value || "thread";
   const contentFormat = document.getElementById("contentFormat")?.value || "professional";
+  const angle = (document.getElementById("angleSelect")?.value || "").trim();
+  const hook = (document.getElementById("hookInput")?.value || "").trim();
 
   const accessToken = await getAccessTokenOrPromptAuth({
     mode: "signin",
@@ -2322,12 +2329,14 @@ async function generate() {
     return;
   }
 
+  const sourceForApi = buildRepurposeSource({ text, angle, hook });
+
   button.innerText = "Processing...";
   button.disabled = true;
   addChatMessage({
     role: "user",
     title: "You",
-    pill: "Source",
+    pill: angle ? "Source + Angle" : "Source",
     text: text.trim().slice(0, 900),
   });
   const typingId = addTypingMessage({
@@ -2343,7 +2352,7 @@ async function generate() {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${accessToken}` // Send the JWT to the backend
       },
-      body: JSON.stringify({ text, x_style: xStyle, format: contentFormat })
+      body: JSON.stringify({ text: sourceForApi, x_style: xStyle, format: contentFormat })
     });
 
     const data = await response.json();
@@ -2434,3 +2443,193 @@ async function generate() {
 /* ---------- UTILS ---------- */
 
 // Intentionally no "Copy all results" button; each platform card has its own copy action.
+
+/* ---------- SOLO CREATOR TOOLS (ANGLES / HOOKS / WEEK PLAN) ---------- */
+
+function _clampText(input, maxLen) {
+  const s = String(input || "").trim();
+  if (s.length <= maxLen) return s;
+  return `${s.slice(0, Math.max(0, maxLen - 1))}…`;
+}
+
+function _extractTopic(text) {
+  const raw = String(text || "").replace(/\s+/g, " ").trim();
+  if (!raw) return "your idea";
+  // Use the first sentence-ish chunk as the topic anchor.
+  const chunk = raw.split(/[.!?]\s/)[0] || raw;
+  const cleaned = chunk.replace(/^#+\s*/g, "").trim();
+  return _clampText(cleaned || raw, 80);
+}
+
+function buildRepurposeSource({ text, angle, hook } = {}) {
+  const base = String(text || "").trim();
+  if (!base) return "";
+  const parts = [];
+  const hasAngle = String(angle || "").trim();
+  const hasHook = String(hook || "").trim();
+  if (hasAngle || hasHook) {
+    parts.push("Repurposing instructions:");
+    if (hasAngle) parts.push(`- Angle: ${hasAngle}`);
+    if (hasHook) parts.push(`- Hook (first line): ${hasHook}`);
+    parts.push("");
+  }
+  parts.push("Source:");
+  parts.push(base);
+  return parts.join("\n");
+}
+
+function _angleTemplates(topic) {
+  return [
+    `Story: what changed after you learned "${topic}"`,
+    `3 lessons: the biggest takeaways from "${topic}"`,
+    `Mistakes: what most people get wrong about "${topic}"`,
+    `Teardown: break down "${topic}" step-by-step`,
+    `Contrarian: the unpopular truth about "${topic}"`,
+    `Framework: a simple checklist for "${topic}"`,
+    `Before/After: how your approach to "${topic}" evolved`,
+    `How-to: a practical guide to "${topic}" for beginners`,
+    `Myth vs fact: clear misconceptions around "${topic}"`,
+    `Mini case study: results you got from "${topic}"`,
+  ];
+}
+
+function suggestAngles() {
+  const input = document.getElementById("inputText");
+  const select = document.getElementById("angleSelect");
+  if (!input || !select) return;
+  const topic = _extractTopic(input.value);
+  const angles = _angleTemplates(topic);
+
+  // Preserve the first option (Auto).
+  const current = String(select.value || "");
+  while (select.options.length > 1) select.remove(1);
+  angles.forEach((angle) => {
+    const opt = document.createElement("option");
+    opt.value = angle;
+    opt.textContent = angle;
+    select.appendChild(opt);
+  });
+
+  // Auto-select the first angle if nothing is selected.
+  if (!current) select.value = angles[0] || "";
+  try { window.localStorage.setItem("orcafind_angle", String(select.value || "")); } catch (_err) {}
+  showToast("Angles ready", "Pick an angle to steer the next generation.", "success");
+}
+
+function _hookTemplates(topic) {
+  return [
+    `I used to think ${topic} was simple. I was wrong.`,
+    `If you're struggling with ${topic}, read this.`,
+    `The fastest way to improve ${topic}: stop doing this one thing.`,
+    `Most advice about ${topic} is incomplete. Here's what actually works.`,
+    `A tiny change that made ${topic} 10x easier for me:`,
+    `3 things I wish I knew sooner about ${topic}:`,
+    `Here's the checklist I use for ${topic}:`,
+    `Hot take: you're overcomplicating ${topic}.`,
+    `The mistake that keeps people stuck with ${topic}:`,
+    `If I had to restart ${topic} from scratch, I'd do this:`,
+    `This is how I turn one idea into multiple posts in 15 minutes:`,
+    `Steal this structure for your next post:`,
+  ];
+}
+
+function suggestHooks() {
+  const input = document.getElementById("inputText");
+  const container = document.getElementById("hookSuggestions");
+  const hookInput = document.getElementById("hookInput");
+  if (!input || !container || !hookInput) return;
+  const topic = _extractTopic(input.value);
+  const hooks = _hookTemplates(topic).slice(0, 10);
+
+  container.innerHTML = "";
+  hooks.forEach((hook) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "pill";
+    btn.textContent = hook;
+    btn.onclick = () => {
+      hookInput.value = hook;
+      try { window.localStorage.setItem("orcafind_hook", hook); } catch (_err) {}
+      showToast("Hook applied", "This hook will be used as the first line.", "success");
+    };
+    container.appendChild(btn);
+  });
+  showToast("Hooks ready", "Click a hook to apply it.", "success");
+}
+
+function buildWeeklyPlan() {
+  const input = document.getElementById("inputText");
+  const planEl = document.getElementById("weeklyPlan");
+  const angleSelect = document.getElementById("angleSelect");
+  const hookInput = document.getElementById("hookInput");
+  if (!input || !planEl || !angleSelect || !hookInput) return;
+
+  const topic = _extractTopic(input.value);
+  const angles = _angleTemplates(topic);
+  const days = [
+    { day: "Day 1", label: "Hook + overview", angle: angles[0] },
+    { day: "Day 2", label: "Mistake to avoid", angle: angles[3] || angles[2] },
+    { day: "Day 3", label: "Framework", angle: angles[5] || angles[6] },
+    { day: "Day 4", label: "Mini case study", angle: angles[9] || angles[0] },
+    { day: "Day 5", label: "Contrarian take", angle: angles[4] || angles[0] },
+    { day: "Day 6", label: "How-to steps", angle: angles[7] || angles[3] },
+    { day: "Day 7", label: "Lessons recap", angle: angles[1] || angles[2] },
+  ];
+
+  planEl.innerHTML = "";
+  days.forEach((item, idx) => {
+    const card = document.createElement("div");
+    card.className = "panel-card";
+    card.style.padding = "14px";
+    card.innerHTML = `
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px;">
+        <div style="display:grid; gap:6px;">
+          <strong>${item.day}: ${item.label}</strong>
+          <div class="field-hint" style="margin-top:0;">${item.angle}</div>
+        </div>
+        <button class="btn btn-ghost btn-mini" type="button">Use</button>
+      </div>
+    `;
+    const useBtn = card.querySelector("button");
+    useBtn.onclick = () => {
+      angleSelect.value = item.angle;
+      if (!hookInput.value.trim()) {
+        // Seed a hook that matches the day/angle.
+        const seedHook = _hookTemplates(topic)[idx % _hookTemplates(topic).length];
+        hookInput.value = seedHook;
+      }
+      try { window.localStorage.setItem("orcafind_angle", String(angleSelect.value || "")); } catch (_err) {}
+      try { window.localStorage.setItem("orcafind_hook", String(hookInput.value || "")); } catch (_err) {}
+      showToast("Plan applied", `Ready to generate ${item.day}.`, "success");
+    };
+    planEl.appendChild(card);
+  });
+
+  showToast("Weekly plan ready", "Pick a day, then click Generate Posts.", "success");
+}
+
+function initSoloCreatorTools() {
+  const angleSelect = document.getElementById("angleSelect");
+  const hookInput = document.getElementById("hookInput");
+  if (angleSelect) {
+    try {
+      const saved = window.localStorage.getItem("orcafind_angle");
+      if (saved) {
+        // Keep Auto option; if the saved angle isn't present yet, we'll set it after suggestions.
+        angleSelect.value = saved;
+      }
+    } catch (_err) {}
+    angleSelect.addEventListener("change", () => {
+      try { window.localStorage.setItem("orcafind_angle", String(angleSelect.value || "")); } catch (_err) {}
+    });
+  }
+  if (hookInput) {
+    try {
+      const saved = window.localStorage.getItem("orcafind_hook");
+      if (saved) hookInput.value = saved;
+    } catch (_err) {}
+    hookInput.addEventListener("input", () => {
+      try { window.localStorage.setItem("orcafind_hook", String(hookInput.value || "")); } catch (_err) {}
+    });
+  }
+}

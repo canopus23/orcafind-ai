@@ -625,6 +625,38 @@
                           </div>
                           <div class="field-hint">X and LinkedIn are generated as full posts. Instagram and Facebook are generated as captions. Each result has its own copy button.</div>
                         </div>
+
+                        <div class="field">
+                          <label for="angleSelect">Angle (optional)</label>
+                          <div class="control" style="display:flex; gap:10px; align-items:center; justify-content:space-between;">
+                            <select id="angleSelect" aria-label="Repurposing angle">
+                              <option value="" selected>Auto (no angle)</option>
+                            </select>
+                            <button id="angleSuggestBtn" class="btn btn-ghost btn-mini" type="button" onclick="suggestAngles()">Suggest</button>
+                          </div>
+                          <div class="field-hint">Pick an angle to avoid generic output (story, lesson, teardown, contrarian take).</div>
+                        </div>
+
+                        <div class="field">
+                          <label for="hookInput">Hook (optional)</label>
+                          <div class="control">
+                            <input id="hookInput" placeholder="Optional: paste or generate a hook for the first line…" />
+                          </div>
+                          <div class="field-hint" style="display:flex; gap:10px; align-items:center; justify-content:space-between;">
+                            <span>Generate hooks and click one to apply.</span>
+                            <button id="hookSuggestBtn" class="btn btn-ghost btn-mini" type="button" onclick="suggestHooks()">Generate hooks</button>
+                          </div>
+                          <div id="hookSuggestions" class="pill-row" style="margin-top:10px;"></div>
+                        </div>
+
+                        <div class="field">
+                          <label>Weekly batch (7-day plan)</label>
+                          <div class="field-hint" style="display:flex; gap:10px; align-items:center; justify-content:space-between;">
+                            <span>Create a 7-day posting plan from your source, then generate one day at a time.</span>
+                            <button id="weekPlanBtn" class="btn btn-ghost btn-mini" type="button" onclick="buildWeeklyPlan()">Create plan</button>
+                          </div>
+                          <div id="weeklyPlan" style="margin-top:10px; display:grid; gap:10px;"></div>
+                        </div>
                       </div>
 
                       <div class="side-actions">
