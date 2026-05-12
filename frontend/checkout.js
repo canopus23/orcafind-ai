@@ -389,15 +389,14 @@ async function cancelSubscription() {
     if (BILLING_PROVIDER_OVERRIDE && BILLING_PROVIDER_OVERRIDE !== "dodo") {
       throw new Error("Unsupported billing provider override.");
     }
-    const res = await fetch(`${API_BASE_URL}/billing/dodo/subscription/cancel`, {
+    const { res, data } = await fetchJsonWithTimeout(`${API_BASE_URL}/billing/dodo/subscription/cancel`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${session.access_token}`,
       },
       body: JSON.stringify({ cancel_at_cycle_end: true }),
-    });
-    const data = await res.json();
+    }, 15000);
     if (!res.ok) {
       const detail = data?.detail;
       const msg = typeof detail === "string" ? detail : (detail?.message || "Failed to cancel subscription");
@@ -406,7 +405,12 @@ async function cancelSubscription() {
     nextEntitlements = data?.entitlements || null;
     showToast("Cancellation scheduled", "Your plan will remain active until the end of the billing period.", "success");
   } catch (err) {
-    showToast("Cancel failed", err.message || "Could not cancel subscription.", "error");
+    const msg = String(err?.message || "");
+    if (msg.toLowerCase().includes("timeout") || msg.toLowerCase().includes("aborted")) {
+      showToast("Cancel delayed", "The billing service is taking too long to respond. Please refresh and try again.", "error");
+    } else {
+      showToast("Cancel failed", msg || "Could not cancel subscription.", "error");
+    }
   } finally {
     window.OrcaFindLoader?.hide();
     if (nextEntitlements) {
@@ -442,6 +446,27 @@ async function cancelSubscription() {
 
 window.applyPlanChange = applyPlanChange;
 window.cancelSubscription = cancelSubscription;
+
+async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 12000) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    let data = null;
+    try {
+      data = await res.json();
+    } catch (_err) {
+      data = null;
+    }
+    return { res, data };
+  } catch (err) {
+    const aborted = err && (err.name === "AbortError" || String(err.message || "").toLowerCase().includes("aborted"));
+    if (aborted) throw new Error("Request timed out");
+    throw err;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
 
 function formatEpoch(epochSeconds) {
   const sec = Number(epochSeconds || 0);
