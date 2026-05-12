@@ -188,6 +188,66 @@ if (!window.supabase?.createClient) {
     if (signedOutNotice) signedOutNotice.style.display = "block";
     const signedInActions = document.getElementById("signedInActions");
     if (signedInActions) signedInActions.style.display = "none";
+
+    const billingSignedOut = document.getElementById("billingSignedOut");
+    if (billingSignedOut) billingSignedOut.style.display = "block";
+    const billingSignedIn = document.getElementById("billingSignedIn");
+    if (billingSignedIn) billingSignedIn.style.display = "none";
+  }
+
+  function _formatDateFromUnixSeconds(value) {
+    const seconds = Number(value || 0);
+    if (!Number.isFinite(seconds) || seconds <= 0) return "—";
+    try {
+      const d = new Date(seconds * 1000);
+      return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
+    } catch (_err) {
+      return "—";
+    }
+  }
+
+  function renderBilling(entitlements) {
+    const billingSignedOut = document.getElementById("billingSignedOut");
+    const billingSignedIn = document.getElementById("billingSignedIn");
+    if (billingSignedOut) billingSignedOut.style.display = "none";
+    if (billingSignedIn) billingSignedIn.style.display = "block";
+
+    const subscription = entitlements?.subscription || null;
+    const plan = String(entitlements?.plan || "free").toLowerCase();
+
+    const status = subscription?.status ? String(subscription.status) : (plan === "free" ? "No subscription" : "Active");
+    const cancelAtEnd = Boolean(subscription?.cancel_at_cycle_end);
+    const periodEnd = subscription?.current_period_end;
+
+    setText("billingStatus", status);
+    setText(
+      "billingStatusHint",
+      cancelAtEnd ? "Your subscription will cancel at the end of the current period." : "Manage your plan and billing settings."
+    );
+
+    const renews = _formatDateFromUnixSeconds(periodEnd);
+    setText("billingRenews", renews);
+    setText("billingRenewsHint", periodEnd ? "Current billing period end date." : "Upgrade to get renewal dates and invoices.");
+
+    const planSelect = document.getElementById("billingPlanSelect");
+    if (planSelect) {
+      // Default to current plan if it matches.
+      if (plan === "starter" || plan === "pro" || plan === "business") {
+        planSelect.value = plan;
+      } else {
+        planSelect.value = "pro";
+      }
+      planSelect.disabled = !subscription;
+    }
+
+    const planBtn = document.getElementById("billingPlanBtn");
+    if (planBtn) planBtn.disabled = !subscription;
+
+    const cancelBtn = document.getElementById("billingCancelBtn");
+    if (cancelBtn) {
+      cancelBtn.disabled = !subscription;
+      cancelBtn.textContent = cancelAtEnd ? "Keep subscription" : "Cancel at period end";
+    }
   }
 
   function applySignedInUI({ user, entitlements }) {
@@ -238,6 +298,8 @@ if (!window.supabase?.createClient) {
     if (signedOutNotice) signedOutNotice.style.display = "none";
     const signedInActions = document.getElementById("signedInActions");
     if (signedInActions) signedInActions.style.display = "grid";
+
+    renderBilling(entitlements || { plan: "free" });
   }
 
   let lastRenderedAccessToken = "";
@@ -320,6 +382,102 @@ if (!window.supabase?.createClient) {
   }
 
   window.profileSignOut = profileSignOut;
+
+  async function _getAccessToken() {
+    try {
+      const { data } = await supabaseClient.auth.getSession();
+      return data?.session?.access_token || "";
+    } catch (_err) {
+      return "";
+    }
+  }
+
+  async function billingChangePlan() {
+    const accessToken = await _getAccessToken();
+    if (!accessToken) {
+      showToast("Sign in required", "Please sign in again to manage billing.", "error");
+      applySignedOutUI();
+      return;
+    }
+
+    const select = document.getElementById("billingPlanSelect");
+    const btn = document.getElementById("billingPlanBtn");
+    const plan = String(select?.value || "pro").toLowerCase();
+    if (btn) btn.disabled = true;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/billing/dodo/subscription/change`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ plan }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = data?.detail?.message || data?.detail || data?.message || "Unable to change plan.";
+        showToast("Billing update failed", String(msg), "error");
+        return;
+      }
+      const entitlements = data?.entitlements || null;
+      if (entitlements) writeCachedEntitlements(entitlements);
+      showToast("Plan updated", "Your subscription plan has been updated.", "success");
+      renderBilling(entitlements || readCachedEntitlements() || { plan });
+      if (entitlements) {
+        const planLabel = String(entitlements.plan || plan).toUpperCase();
+        setText("profilePlanPill", `Plan: ${planLabel}`);
+      }
+    } catch (_err) {
+      showToast("Billing update failed", "Please try again.", "error");
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function billingToggleCancel() {
+    const accessToken = await _getAccessToken();
+    if (!accessToken) {
+      showToast("Sign in required", "Please sign in again to manage billing.", "error");
+      applySignedOutUI();
+      return;
+    }
+
+    const btn = document.getElementById("billingCancelBtn");
+    if (btn) btn.disabled = true;
+
+    try {
+      const entitlements = readCachedEntitlements() || { plan: "free" };
+      const subscription = entitlements?.subscription || null;
+      const nextCancel = !Boolean(subscription?.cancel_at_cycle_end);
+
+      const res = await fetch(`${API_BASE_URL}/billing/dodo/subscription/cancel`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ cancel_at_cycle_end: nextCancel }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = data?.detail?.message || data?.detail || data?.message || "Unable to update cancellation.";
+        showToast("Billing update failed", String(msg), "error");
+        return;
+      }
+      const updated = data?.entitlements || null;
+      if (updated) writeCachedEntitlements(updated);
+      showToast("Updated", nextCancel ? "Subscription will cancel at period end." : "Subscription will continue.", "success");
+      renderBilling(updated || readCachedEntitlements() || entitlements);
+    } catch (_err) {
+      showToast("Billing update failed", "Please try again.", "error");
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  window.billingChangePlan = billingChangePlan;
+  window.billingToggleCancel = billingToggleCancel;
 
   document.addEventListener("DOMContentLoaded", () => {
     const renderedFromStorage = renderStoredProfileImmediately();

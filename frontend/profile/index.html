@@ -405,7 +405,47 @@
         </div>
 
         <div class="notice" style="margin-top:14px;">
-          Billing management is coming soon. For now, use the Pricing page to review plans.
+          <strong style="display:block; margin-bottom:6px;">Billing</strong>
+          <div id="billingSignedOut">
+            Sign in to manage your plan. You can always review plans on the Pricing page.
+            <div style="margin-top:10px;">
+              <a class="btn btn-ghost" href="/checkout/">View pricing</a>
+            </div>
+          </div>
+
+          <div id="billingSignedIn" style="display:none; margin-top:8px;">
+            <div class="kv" style="margin-top:0;">
+              <div class="stat">
+                <label>Status</label>
+                <strong id="billingStatus">—</strong>
+                <span id="billingStatusHint">—</span>
+              </div>
+              <div class="stat">
+                <label>Renews</label>
+                <strong id="billingRenews">—</strong>
+                <span id="billingRenewsHint">—</span>
+              </div>
+            </div>
+
+            <div style="margin-top:12px;">
+              <label for="billingPlanSelect" style="display:block; font-weight:900; margin-bottom:8px;">Change plan</label>
+              <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <select id="billingPlanSelect" style="flex:1; min-width: 220px;">
+                  <option value="starter">Starter</option>
+                  <option value="pro">Pro</option>
+                  <option value="business">Business</option>
+                </select>
+                <button id="billingPlanBtn" class="btn btn-ghost" type="button" onclick="billingChangePlan()">Update plan</button>
+              </div>
+              <div class="sub" style="margin-top:10px;">
+                If you don’t have an active subscription yet, use Pricing to upgrade.
+              </div>
+              <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+                <a class="btn btn-primary" href="/checkout/">Open pricing</a>
+                <button id="billingCancelBtn" class="btn btn-ghost" type="button" onclick="billingToggleCancel()">Cancel at period end</button>
+              </div>
+            </div>
+          </div>
         </div>
       </aside>
     </div>
