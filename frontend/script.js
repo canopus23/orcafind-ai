@@ -2156,10 +2156,26 @@ async function loginWithX() {
     }
   } catch (_err) {}
 
-  const { error } = await supabaseClient.auth.signInWithOAuth({
-    provider: selectedProvider,
-    options: { redirectTo },
-  });
+  let error = null;
+  let attemptedProviders = [];
+  for (const candidate of providerCandidates) {
+    attemptedProviders.push(candidate);
+    selectedProvider = candidate;
+    const result = await supabaseClient.auth.signInWithOAuth({
+      provider: candidate,
+      options: { redirectTo },
+    });
+    error = result?.error || null;
+    if (!error) return;
+
+    const lowered = String(error.message || "").toLowerCase();
+    const isProviderDisabled =
+      lowered.includes("unsupported provider") ||
+      lowered.includes("provider is not enabled") ||
+      lowered.includes("not enabled");
+
+    if (!isProviderDisabled) break;
+  }
 
   if (error) {
     window.OrcaFindLoader?.hide();
@@ -2177,14 +2193,25 @@ async function loginWithX() {
         const settings = await fetchSupabaseAuthSettings();
         const external = settings?.external && typeof settings.external === "object" ? settings.external : null;
         const externalKeys = external ? Object.keys(external).slice(0, 12) : [];
-        settingsHint = ` (project: ${ref || "unknown"}${externalKeys.length ? `, /settings external: ${externalKeys.join(", ")}` : ""})`;
+        settingsHint =
+          ` (project: ${ref || "unknown"}` +
+          `${attemptedProviders.length ? `, tried: ${attemptedProviders.join(", ")}` : ""}` +
+          `${externalKeys.length ? `, /settings external: ${externalKeys.join(", ")}` : ""})`;
       } catch (_err) {}
 
-      showToast("X sign-in not configured", `Supabase rejected provider "${selectedProvider}" as not enabled.${settingsHint} Enable X/Twitter in Supabase Auth → Providers for THIS project, and confirm the deployed site is using the correct SUPABASE URL/anon key.`, "error");
+      showToast(
+        "X sign-in not configured",
+        `Supabase rejected X/Twitter OAuth as not enabled.${settingsHint} Enable X/Twitter in Supabase Auth → Providers for THIS project, then confirm the deployed site is using the correct SUPABASE URL/anon key.`,
+        "error"
+      );
       return;
     }
 
-    showToast("X sign-in failed", rawMessage || "Unable to start X sign-in.", "error");
+    showToast(
+      "X sign-in failed",
+      `${rawMessage || "Unable to start X sign-in."} (project: ${getSupabaseProjectRef() || "unknown"}, provider: ${selectedProvider})`,
+      "error"
+    );
   }
 }
 
