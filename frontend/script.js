@@ -15,7 +15,11 @@ const API_BASE_URL = ORCAFIND_CONFIG.apiBaseUrl || window.__ORCAFIND_API_BASE_UR
     : "https://api.orcafind.com");
 
 function isAuthPage() {
-  return window.location.pathname === "/auth" || window.location.pathname.startsWith("/auth/");
+  const path = window.location.pathname || "";
+  if (path === "/auth" || path === "/auth/") return true;
+  // Treat the OAuth callback as its own route, not as the main auth UI.
+  if (path === "/auth/callback" || path.startsWith("/auth/callback/")) return false;
+  return path.startsWith("/auth/");
 }
 
 function isAuthCallbackPage() {
