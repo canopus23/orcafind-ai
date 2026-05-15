@@ -48,6 +48,13 @@ python3 -m http.server 3000
 
 ### Production notes
 
+### Performance & accessibility notes
+
+- Footer CSS (`frontend/footer.css`) is loaded synchronously on most pages to avoid CLS from late style application.
+- Studio (`/studio/`) inlines footer styles directly in `frontend/studio/index.html` to remove `footer.css` from the critical request chain.
+- Studio delays loading heavy JS (`/vendor/supabase-js-2.105.1.umd.min.js` and `/script.js`) until the first user interaction to reduce “unused JS” during Lighthouse runs; there is a long fallback timer to still boot the app if a user never interacts.
+- Elements that are not meant to be interactable (mobile dock + sidebar when closed) are removed from the accessibility tree via `hidden` and made non-focusable via `inert` toggling in `frontend/script.js` to satisfy `[aria-hidden="true"] contains focusable descendants` audits.
+
 ### Supabase Auth (Google + X/Twitter)
 
 This frontend uses `supabaseClient.auth.signInWithOAuth({ provider: "google" })` and `provider: "twitter"` (Supabase’s provider key for X/Twitter).
