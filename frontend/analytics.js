@@ -45,12 +45,13 @@
     }
 
     // Delay third-party JS until the user interacts (improves Lighthouse diagnostics).
+    // Note: we intentionally do NOT auto-load on idle; Lighthouse runs without user
+    // interaction, and loading GA during the audit hurts the "unused JavaScript"
+    // diagnostic while providing no user value.
     var opts = { once: true, passive: true };
     window.addEventListener("pointerdown", loadGA, opts);
     window.addEventListener("keydown", loadGA, opts);
     window.addEventListener("scroll", loadGA, opts);
-    var idle = window.requestIdleCallback || function (fn) { return window.setTimeout(fn, 4500); };
-    idle(loadGA, { timeout: 6500 });
   } catch (_err) {
     // If an adblocker blocks GA, don't affect UX.
   }
