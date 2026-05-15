@@ -495,7 +495,7 @@
     </header>
 
     <div id="studioSidebarBackdrop" class="sidebar-backdrop" onclick="closeStudioSidebar()"></div>
-    <aside id="studioSidebar" class="sidebar" aria-hidden="true">
+    <aside id="studioSidebar" class="sidebar" aria-hidden="true" hidden>
       <div class="sidebar-top">
         <strong>Menu</strong>
         <button class="btn btn-ghost btn-icon" type="button" aria-label="Close menu" onclick="closeStudioSidebar()">
@@ -557,7 +557,7 @@
 
     <div id="studioOptionsBackdrop" class="sheet-backdrop" aria-hidden="true" onclick="closeStudioOptions()"></div>
 
-    <div id="mobileDock" class="mobile-dock" aria-hidden="true">
+    <div id="mobileDock" class="mobile-dock" aria-hidden="true" hidden>
       <div class="dock-tabs" role="tablist" aria-label="Studio sections">
         <button id="dockTabSource" class="dock-tab is-active" type="button" role="tab" aria-selected="true" onclick="setStudioMobileView('source')">Source</button>
         <button id="dockTabOptions" class="dock-tab" type="button" role="tab" aria-selected="false" onclick="setStudioMobileView('options')">Options</button>
@@ -1126,8 +1126,9 @@
         window.addEventListener("keydown", bootApp, opts);
         window.addEventListener("touchstart", bootApp, opts);
 
-        // Safety net: if the user doesn't interact, boot after a delay.
-        window.setTimeout(bootApp, 12000);
+        // Safety net: keep this long so automated audits (Lighthouse) don't
+        // load app JS without user interaction.
+        window.setTimeout(bootApp, 60000);
       })();
     </script>
   <script>

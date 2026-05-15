@@ -503,6 +503,10 @@ function updateStudioMobileDock() {
 
   const shouldShow = isStudioMobileViewport();
   dock.setAttribute("aria-hidden", shouldShow ? "false" : "true");
+  dock.hidden = !shouldShow;
+  try {
+    dock.inert = !shouldShow;
+  } catch (_err) {}
   if (!shouldShow) {
     const resultsCard = document.getElementById("resultsCard");
     if (resultsCard?.dataset?.hasResults !== "true") {
@@ -1296,6 +1300,11 @@ function openStudioSidebar() {
     window.__orcafindStudioSidebarLastFocus = activeEl;
   }
   if (panel) {
+    if (window.__orcafindStudioSidebarHideTimer) {
+      window.clearTimeout(window.__orcafindStudioSidebarHideTimer);
+      window.__orcafindStudioSidebarHideTimer = null;
+    }
+    panel.hidden = false;
     panel.classList.add("is-open");
     panel.setAttribute("aria-hidden", "false");
     setStudioSidebarFocusEnabled(panel, true);
@@ -1315,6 +1324,15 @@ function closeStudioSidebar() {
     panel.classList.remove("is-open");
     panel.setAttribute("aria-hidden", "true");
     setStudioSidebarFocusEnabled(panel, false);
+    // Remove it from the accessibility tree (and prevent focus issues) once the
+    // close transition finishes.
+    if (window.__orcafindStudioSidebarHideTimer) {
+      window.clearTimeout(window.__orcafindStudioSidebarHideTimer);
+    }
+    window.__orcafindStudioSidebarHideTimer = window.setTimeout(() => {
+      panel.hidden = true;
+      window.__orcafindStudioSidebarHideTimer = null;
+    }, 260);
   }
   if (backdrop) backdrop.classList.remove("is-open");
 
