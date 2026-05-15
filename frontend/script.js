@@ -374,7 +374,8 @@ function showToast(title, message, type = "default") {
   }, 3200);
 }
 
-function setStudioMode(mode) {
+function setStudioMode(mode, options) {
+  const shouldFocus = options?.focus !== false;
   studioMode = mode === "images" ? "images" : mode === "builder" ? "builder" : mode === "vision" ? "vision" : "text";
   try {
     window.localStorage.setItem("orcafind_studio_mode", studioMode);
@@ -435,18 +436,20 @@ function setStudioMode(mode) {
     tabBuilder.setAttribute("aria-selected", studioMode === "builder" ? "true" : "false");
   }
 
-  if (studioMode === "text") {
-    const input = document.getElementById("inputText");
-    input?.focus?.();
-  } else if (studioMode === "vision") {
-    const img = document.getElementById("visionImage");
-    img?.focus?.();
-  } else if (studioMode === "images") {
-    const brief = document.getElementById("imageBrief");
-    (brief || document.getElementById("inputText"))?.focus?.();
-  } else {
-    const input = document.getElementById("inputText");
-    input?.focus?.();
+  if (shouldFocus) {
+    if (studioMode === "text") {
+      const input = document.getElementById("inputText");
+      input?.focus?.();
+    } else if (studioMode === "vision") {
+      const img = document.getElementById("visionImage");
+      img?.focus?.();
+    } else if (studioMode === "images") {
+      const brief = document.getElementById("imageBrief");
+      (brief || document.getElementById("inputText"))?.focus?.();
+    } else {
+      const input = document.getElementById("inputText");
+      input?.focus?.();
+    }
   }
 
   // Keep the mobile dock in sync with the active studio mode.
@@ -2263,7 +2266,7 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-document.addEventListener("DOMContentLoaded", () => {
+function onDomReady() {
   // Note: Supabase `/auth/v1/settings` provider flags can vary across GoTrue versions.
   // We only use it to *disable* buttons when a provider is explicitly listed but not enabled.
   // If we can't determine status, we leave the UI as-is and rely on the runtime error message.
@@ -2313,7 +2316,7 @@ document.addEventListener("DOMContentLoaded", () => {
       studioMode = savedMode;
     }
   } catch (_err) {}
-  setStudioMode(studioMode);
+  setStudioMode(studioMode, { focus: false });
   updateStudioMobileDock();
 
   window.addEventListener("resize", () => updateStudioMobileDock(), { passive: true });
@@ -2354,7 +2357,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     completeAuthRedirectIfNeeded();
   }
-});
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", onDomReady);
+} else {
+  onDomReady();
+}
 
 /* ---------- GENERATE ---------- */
 
