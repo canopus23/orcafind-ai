@@ -1,4 +1,12 @@
 {
+  "cleanUrls": true,
+  "redirects": [
+    {
+      "source": "/privacy/devpocket/index.html",
+      "destination": "/privacy/devpocket/",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/vendor/(.*)\\.(js|mjs)",
@@ -11,4 +19,3 @@
     }
   ]
 }
-
